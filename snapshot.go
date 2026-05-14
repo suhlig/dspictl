@@ -28,12 +28,12 @@ func (l Level) DBFS() float64 {
 	return 20 * math.Log10(float64(l))
 }
 
-// String formats the level as a dBFS string (e.g. "-6.0 dBFS", "-inf dBFS").
+// String formats the level as a dBFS string (e.g. "-6.0 dBFS", "-∞ dBFS").
 func (l Level) String() string {
 	dbfs := l.DBFS()
 
 	if math.IsInf(dbfs, -1) {
-		return "-inf dBFS"
+		return "-∞ dBFS"
 	}
 
 	return fmt.Sprintf("%.1f dBFS", dbfs)

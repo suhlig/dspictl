@@ -61,10 +61,10 @@ var _ = Describe("Level", func() {
 
 	Describe("String", func() {
 		Context("with -Inf dBFS", func() {
-			It("returns -inf dBFS", func() {
+			It("returns -∞ dBFS", func() {
 				l := dspi.NewLevel(0)
 
-				Expect(l.String()).To(Equal("-inf dBFS"))
+				Expect(l.String()).To(Equal("-∞ dBFS"))
 			})
 		})
 
