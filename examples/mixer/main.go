@@ -203,8 +203,46 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case devicesMsg:
-		for _, dev := range m.devices {
-			dev.Close()
+		if len(m.devices) > 0 {
+			newSerials := make(map[string]struct{}, len(msg))
+			for _, dev := range msg {
+				newSerials[dev.Serial()] = struct{}{}
+			}
+
+			for i := len(m.devices) - 1; i >= 0; i-- {
+				if _, exists := newSerials[m.devices[i].Serial()]; !exists {
+					m.devices[i].Close()
+					m.devices = append(m.devices[:i], m.devices[i+1:]...)
+					m.snaps = append(m.snaps[:i], m.snaps[i+1:]...)
+					m.clippedCh = append(m.clippedCh[:i], m.clippedCh[i+1:]...)
+					m.clipTimer = append(m.clipTimer[:i], m.clipTimer[i+1:]...)
+				}
+			}
+
+			remainingSerials := make(map[string]struct{}, len(m.devices))
+			for _, dev := range m.devices {
+				remainingSerials[dev.Serial()] = struct{}{}
+			}
+
+			for _, dev := range msg {
+				if _, exists := remainingSerials[dev.Serial()]; !exists {
+					m.devices = append(m.devices, dev)
+					m.snaps = append(m.snaps, dspi.MeterSnapshot{})
+					m.clippedCh = append(m.clippedCh, nil)
+					m.clipTimer = append(m.clipTimer, 0)
+				} else {
+					dev.Close()
+				}
+			}
+
+			if m.activeDevice >= len(m.devices) && len(m.devices) > 0 {
+				m.activeDevice = len(m.devices) - 1
+			}
+
+			m.connected = true
+			m.err = nil
+
+			return m, nil
 		}
 
 		m.devices = msg
