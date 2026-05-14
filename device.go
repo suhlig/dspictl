@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/google/gousb"
 )
@@ -13,10 +14,14 @@ const (
 	// device-to-host (IN) control transfers addressed to an interface.
 	vendorInterfaceInRequest = gousb.ControlIn | gousb.ControlVendor | gousb.ControlInterface
 
+	vendorInterfaceOutRequest = gousb.ControlOut | gousb.ControlVendor | gousb.ControlInterface
+
 	// https://github.com/WeebLabs/DSPi/blob/5c71c5d2a09b25761abf3013781aa6a905cc001c/firmware/DSPi/config.h
-	reqGetStatus   = 0x50
-	reqGetPlatform = 0x7F
-	reqClearClips  = 0x83
+	reqGetStatus       = 0x50
+	reqGetPlatform     = 0x7F
+	reqClearClips      = 0x83
+	reqSetMasterVolume = 0xD2
+	reqGetMasterVolume = 0xD3
 )
 
 // Device wraps a USB connection to a DSPi.
@@ -157,6 +162,13 @@ func (d *Device) detectPlatform() (Platform, error) {
 // ReadMeter polls the device for combined status (wValue=9).
 func (d *Device) ReadMeter() MeterSnapshot {
 	var snap MeterSnapshot
+
+	if d.device == nil {
+		snap.err = fmt.Errorf("device is closed")
+
+		return snap
+	}
+
 	buf := make([]byte, maxChannels*2+5)
 
 	n, err := d.device.Control(vendorInterfaceInRequest, reqGetStatus, 9, vendorInterface, buf)
@@ -207,6 +219,10 @@ func (d *Device) ReadMeter() MeterSnapshot {
 
 // ClearClips sends REQ_CLEAR_CLIPS (0x83) to reset the clip bitmask on the device.
 func (d *Device) ClearClips() error {
+	if d.device == nil {
+		return fmt.Errorf("device is closed")
+	}
+
 	buf := make([]byte, 2)
 	_, err := d.device.Control(vendorInterfaceInRequest, reqClearClips, 0, vendorInterface, buf)
 
@@ -215,6 +231,42 @@ func (d *Device) ClearClips() error {
 	}
 
 	return nil
+}
+
+// SetMasterVolume sets the device-side master volume in dB.
+// Range: -128 (mute sentinel) to 0 dB. Typical range: -127 to 0 dB.
+func (d *Device) SetMasterVolume(db float64) error {
+	if d.device == nil {
+		return fmt.Errorf("device is closed")
+	}
+
+	buf := make([]byte, 4)
+	binary.LittleEndian.PutUint32(buf, math.Float32bits(float32(db)))
+	_, err := d.device.Control(vendorInterfaceOutRequest, reqSetMasterVolume, 0, vendorInterface, buf)
+
+	if err != nil {
+		return fmt.Errorf("REQ_SET_MASTER_VOLUME: %w", err)
+	}
+
+	return nil
+}
+
+// GetMasterVolume reads the current device-side master volume in dB.
+func (d *Device) GetMasterVolume() (float64, error) {
+	if d.device == nil {
+		return 0, fmt.Errorf("device is closed")
+	}
+
+	buf := make([]byte, 4)
+	_, err := d.device.Control(vendorInterfaceInRequest, reqGetMasterVolume, 0, vendorInterface, buf)
+
+	if err != nil {
+		return 0, fmt.Errorf("REQ_GET_MASTER_VOLUME: %w", err)
+	}
+
+	db := float64(math.Float32frombits(binary.LittleEndian.Uint32(buf)))
+
+	return db, nil
 }
 
 func normalize(raw uint16) float64 {

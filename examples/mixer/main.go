@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"slices"
 	"strings"
@@ -35,6 +36,7 @@ var (
 	colBarBg   = lipgloss.Color("#292e42")
 	colBorder  = lipgloss.Color("#3b4261")
 	colTitle   = lipgloss.Color("#c0caf5")
+	colVolume  = lipgloss.Color("#7aa2f7")
 	colCPUOK   = lipgloss.Color("#9ece6a")
 	colCPUWarn = lipgloss.Color("#e0af68")
 	colCPUCrit = lipgloss.Color("#f7768e")
@@ -102,6 +104,7 @@ type model struct {
 	ticksSinceScan int
 	clippedCh      [][]int
 	clipTimer      []int
+	masterVolume   []float64
 	err            error
 	width          int
 	connected      bool
@@ -165,16 +168,32 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			return m, tea.Quit
 
-		case "tab", "right":
+		case "tab":
 			if len(m.devices) > 1 {
 				m.activeDevice = (m.activeDevice + 1) % len(m.devices)
 			}
 
 			return m, nil
 
-		case "shift+tab", "left":
+		case "shift+tab":
 			if len(m.devices) > 1 {
 				m.activeDevice = (m.activeDevice - 1 + len(m.devices)) % len(m.devices)
+			}
+
+			return m, nil
+
+		case "up":
+			if len(m.devices) > 0 && m.activeDevice < len(m.masterVolume) {
+				m.masterVolume[m.activeDevice] = min(m.masterVolume[m.activeDevice]+1, 0)
+				_ = m.devices[m.activeDevice].SetMasterVolume(m.masterVolume[m.activeDevice])
+			}
+
+			return m, nil
+
+		case "down":
+			if len(m.devices) > 0 && m.activeDevice < len(m.masterVolume) {
+				m.masterVolume[m.activeDevice] = max(m.masterVolume[m.activeDevice]-1, -128)
+				_ = m.devices[m.activeDevice].SetMasterVolume(m.masterVolume[m.activeDevice])
 			}
 
 			return m, nil
@@ -196,6 +215,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			m.devices = nil
 			m.snaps = nil
+			m.masterVolume = nil
 			m.clippedCh = nil
 			m.clipTimer = nil
 			m.connected = false
@@ -224,6 +244,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.snaps = append(m.snaps[:i], m.snaps[i+1:]...)
 					m.clippedCh = append(m.clippedCh[:i], m.clippedCh[i+1:]...)
 					m.clipTimer = append(m.clipTimer[:i], m.clipTimer[i+1:]...)
+					m.masterVolume = append(m.masterVolume[:i], m.masterVolume[i+1:]...)
 				}
 			}
 
@@ -236,6 +257,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if _, exists := remainingSerials[dev.Serial()]; !exists {
 					m.devices = append(m.devices, dev)
 					m.snaps = append(m.snaps, dspi.MeterSnapshot{})
+					m.masterVolume = append(m.masterVolume, -20)
 					m.clippedCh = append(m.clippedCh, nil)
 					m.clipTimer = append(m.clipTimer, 0)
 				} else {
@@ -255,6 +277,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.devices = msg
 		m.snaps = make([]dspi.MeterSnapshot, len(msg))
+		m.masterVolume = make([]float64, len(msg))
+
+		for i := range m.masterVolume {
+			m.masterVolume[i] = -20
+		}
+
 		m.clippedCh = make([][]int, len(msg))
 		m.clipTimer = make([]int, len(msg))
 
@@ -301,6 +329,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.clipTimer[i] == 0 {
 					m.clippedCh[i] = nil
 					_ = dev.ClearClips()
+				}
+			}
+
+			if i == m.activeDevice && i < len(m.masterVolume) {
+				if mv, err := dev.GetMasterVolume(); err == nil {
+					m.masterVolume[i] = mv
 				}
 			}
 		}
@@ -354,16 +388,19 @@ func (m model) View() string {
 		Render(strings.Repeat("─", m.width)))
 	b.WriteString("\n")
 
+	// Build left content (CPU + channels)
+	var left strings.Builder
+
 	cpuBar := drawBar(float64(snap.CPU0)/100.0, barWidth, cpu0col)
-	b.WriteString(lipgloss.NewStyle().PaddingLeft(2).Render(
+	left.WriteString(lipgloss.NewStyle().PaddingLeft(2).Render(
 		fmt.Sprintf("Core 0 %s %3d%%", cpuBar, snap.CPU0),
 	))
-	b.WriteString("\n")
+	left.WriteString("\n")
 	cpuBar = drawBar(float64(snap.CPU1)/100.0, barWidth, cpu1col)
-	b.WriteString(lipgloss.NewStyle().PaddingLeft(2).Render(
+	left.WriteString(lipgloss.NewStyle().PaddingLeft(2).Render(
 		fmt.Sprintf("Core 1 %s %3d%%", cpuBar, snap.CPU1),
 	))
-	b.WriteString("\n\n")
+	left.WriteString("\n\n")
 
 	type groupEntry struct {
 		info dspi.ChannelInfo
@@ -387,12 +424,12 @@ func (m model) View() string {
 			continue
 		}
 
-		b.WriteString(lipgloss.NewStyle().
+		left.WriteString(lipgloss.NewStyle().
 			Foreground(colMuted).
 			Bold(true).
 			PaddingLeft(2).
 			Render(g))
-		b.WriteString("\n")
+		left.WriteString("\n")
 
 		for _, e := range entries {
 			ch := e.info
@@ -425,11 +462,18 @@ func (m model) View() string {
 				valStyle.Render(dbfsStr),
 				clipMark,
 			)
-			b.WriteString(line)
-			b.WriteString("\n")
+			left.WriteString(line)
+			left.WriteString("\n")
 		}
-		b.WriteString("\n")
+		left.WriteString("\n")
 	}
+
+	// Join left content with vertical slider
+	leftStr := left.String()
+	leftLines := strings.Count(leftStr, "\n")
+	rightStr := m.renderMasterVolumeSlider(leftLines)
+	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, leftStr, "  ", rightStr))
+	b.WriteString("\n")
 
 	if len(m.clippedCh[m.activeDevice]) > 0 {
 		var clipNames []string
@@ -454,7 +498,7 @@ func (m model) View() string {
 		Render(strings.Repeat("─", m.width)))
 	b.WriteString("\n")
 	b.WriteString(styleFooter.Width(m.width).Render(
-		"q: quit  |  Tab/← →: switch device  |  c: clear clips  |  r: rescan",
+		"q: quit  |  Tab: switch device  |  ↑↓: master volume  |  c: clear clips  |  r: rescan",
 	))
 
 	return lipgloss.NewStyle().
@@ -507,6 +551,44 @@ func drawBar(fraction float64, width int, color lipgloss.Color) string {
 		Foreground(color).
 		Background(colBarBg).
 		Render(fillStr + emptyStr)
+}
+
+func (m model) renderMasterVolumeSlider(height int) string {
+	mv := m.masterVolume[m.activeDevice]
+
+	x := (mv + 128.0) / 128.0
+	x = max(0, min(1, x))
+	fraction := math.Pow(x, 3.19)
+
+	barHeight := max(height-2, 1)
+	filled := int(fraction * float64(barHeight))
+	filled = max(0, min(barHeight, filled))
+
+	barStyle := lipgloss.NewStyle().Foreground(colVolume).Background(colBarBg)
+
+	var bld strings.Builder
+
+	bld.WriteString("  VOL ")
+	bld.WriteString("\n")
+
+	for i := range barHeight {
+		if i >= barHeight-filled {
+			bld.WriteString(barStyle.Render("  █  "))
+		} else {
+			bld.WriteString(barStyle.Render("  ░  "))
+		}
+		bld.WriteString("\n")
+	}
+
+	valStr := fmt.Sprintf("%.0f dB", mv)
+
+	if mv <= -128 {
+		valStr = " MUTE"
+	}
+
+	fmt.Fprintf(&bld, "%6s", valStr)
+
+	return bld.String()
 }
 
 func cpuColor(load int) lipgloss.Color {
