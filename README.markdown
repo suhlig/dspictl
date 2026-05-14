@@ -16,8 +16,20 @@ The USB control protocol is documented at the [DSPi repository](https://github.c
 
 This project uses [pre-commit](https://pre-commit.com/) to check formatting, linting, and compilation before each commit. After cloning, install the hook:
 
-```
+```command
 brew install pre-commit && pre-commit install
+```
+
+Use [watchexec](https://github.com/watchexec/watchexec) to auto-restart the TUI on source changes:
+
+```command
+brew install watchexec
+```
+
+Then run it with
+
+```command
+watchexec --restart go run ./examples/mixer
 ```
 
 ## Requirements
