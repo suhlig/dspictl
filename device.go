@@ -8,9 +8,16 @@ import (
 	"github.com/google/gousb"
 )
 
-// vendorInterfaceInRequest is the USB bmRequestType for vendor-specific,
-// device-to-host (IN) control transfers addressed to an interface.
-const vendorInterfaceInRequest = gousb.ControlIn | gousb.ControlVendor | gousb.ControlInterface
+const (
+	// vendorInterfaceInRequest is the USB bmRequestType for vendor-specific,
+	// device-to-host (IN) control transfers addressed to an interface.
+	vendorInterfaceInRequest = gousb.ControlIn | gousb.ControlVendor | gousb.ControlInterface
+
+	// https://github.com/WeebLabs/DSPi/blob/5c71c5d2a09b25761abf3013781aa6a905cc001c/firmware/DSPi/config.h
+	reqGetStatus   = 0x50
+	reqGetPlatform = 0x7F
+	reqClearClips  = 0x83
+)
 
 // Device wraps a USB connection to a DSPi.
 type Device struct {
