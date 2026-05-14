@@ -37,7 +37,6 @@ func (p Platform) String() string {
 	}
 }
 
-// numChannels returns the number of metered channels for the platform.
 func (p Platform) numChannels() int {
 	if p == PlatformRP2350 {
 		return 11
@@ -90,7 +89,6 @@ type MeterSnapshot struct {
 	err       error
 }
 
-// Err returns any error that occurred during the poll.
 func (m MeterSnapshot) Err() error { return m.err }
 
 // DBFS converts a linear peak (0.0–1.0) to dBFS. Returns -inf for zero.
@@ -103,35 +101,99 @@ func DBFS(linear float64) string {
 	return fmt.Sprintf("%.1f", dbfs)
 }
 
-// DSPiDevice wraps a USB connection to a DSPi.
-type DSPiDevice struct {
+// Device wraps a USB connection to a DSPi.
+type Device struct {
 	ctx      *gousb.Context
 	device   *gousb.Device
 	platform Platform
+	serial   string
 }
 
-// Open finds and opens the first connected DSPi device.
-func Open() (*DSPiDevice, error) {
-	ctx := gousb.NewContext()
+// DeviceInfo describes a discovered DSPi device without an open connection.
+type DeviceInfo struct {
+	Serial  string
+	Bus     int
+	Address int
+}
 
-	dev, err := ctx.OpenDeviceWithVIDPID(gousb.ID(dspiVID), gousb.ID(dspiPID))
+// List enumerates all connected DSPi devices.
+func List() ([]DeviceInfo, error) {
+	ctx := gousb.NewContext()
+	defer ctx.Close()
+
+	devs, err := ctx.OpenDevices(func(desc *gousb.DeviceDesc) bool {
+		return desc.Vendor == gousb.ID(dspiVID) && desc.Product == gousb.ID(dspiPID)
+	})
 
 	if err != nil {
-		_ = ctx.Close()
-
-		return nil, fmt.Errorf("open DSPi: %w", err)
+		return nil, fmt.Errorf("enumerating DSPi devices: %w", err)
 	}
 
-	if dev == nil {
-		_ = ctx.Close()
+	infos := make([]DeviceInfo, 0, len(devs))
 
-		return nil, fmt.Errorf("no DSPi device found (VID %04x PID %04x)\n"+
-			"Make sure the DSPi is connected via USB", dspiVID, dspiPID)
+	for _, dev := range devs {
+		serial, err := dev.SerialNumber()
+
+		if err != nil {
+			dev.Close()
+
+			continue
+		}
+
+		desc := dev.Desc
+		infos = append(infos, DeviceInfo{
+			Serial:  serial,
+			Bus:     desc.Bus,
+			Address: desc.Address,
+		})
+		dev.Close()
 	}
 
-	d := &DSPiDevice{
+	return infos, nil
+}
+
+// Open opens a specific DSPi device identified by info.
+func Open(info DeviceInfo) (*Device, error) {
+	ctx := gousb.NewContext()
+
+	devs, err := ctx.OpenDevices(func(desc *gousb.DeviceDesc) bool {
+		return desc.Vendor == gousb.ID(dspiVID) && desc.Product == gousb.ID(dspiPID)
+	})
+
+	if err != nil {
+		ctx.Close()
+
+		return nil, fmt.Errorf("opening DSPi device: %w", err)
+	}
+
+	var target *gousb.Device
+
+	for _, dev := range devs {
+		serial, err := dev.SerialNumber()
+
+		if err != nil {
+			dev.Close()
+
+			continue
+		}
+
+		if serial == info.Serial {
+			target = dev
+		} else {
+			dev.Close()
+		}
+	}
+
+	if target == nil {
+		ctx.Close()
+
+		return nil, fmt.Errorf("DSPi device with serial %s not found", info.Serial)
+	}
+
+	d := &Device{
 		ctx:    ctx,
-		device: dev,
+		device: target,
+		serial: info.Serial,
 	}
 
 	plat, err := d.detectPlatform()
@@ -147,8 +209,39 @@ func Open() (*DSPiDevice, error) {
 	return d, nil
 }
 
+// OpenAll opens all connected DSPi devices.
+func OpenAll() ([]*Device, error) {
+	infos, err := List()
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(infos) == 0 {
+		return nil, fmt.Errorf("no DSPi device found")
+	}
+
+	devices := make([]*Device, 0, len(infos))
+
+	for _, info := range infos {
+		dev, err := Open(info)
+
+		if err != nil {
+			continue
+		}
+
+		devices = append(devices, dev)
+	}
+
+	if len(devices) == 0 {
+		return nil, fmt.Errorf("no DSPi device could be opened")
+	}
+
+	return devices, nil
+}
+
 // Close releases the USB device.
-func (d *DSPiDevice) Close() {
+func (d *Device) Close() {
 	if d.device != nil {
 		_ = d.device.Close()
 	}
@@ -158,10 +251,12 @@ func (d *DSPiDevice) Close() {
 }
 
 // Platform returns the detected hardware platform.
-func (d *DSPiDevice) Platform() Platform { return d.platform }
+func (d *Device) Platform() Platform { return d.platform }
 
-// detectPlatform queries the device for its platform type via REQ_GET_PLATFORM (0x7F).
-func (d *DSPiDevice) detectPlatform() (Platform, error) {
+// Serial returns the unique serial number of the device.
+func (d *Device) Serial() string { return d.serial }
+
+func (d *Device) detectPlatform() (Platform, error) {
 	buf := make([]byte, 4)
 	_, err := d.device.Control(0xC1, reqGetPlatform, 0, macOSVendorInterface, buf)
 
@@ -171,11 +266,12 @@ func (d *DSPiDevice) detectPlatform() (Platform, error) {
 	if len(buf) < 1 {
 		return PlatformRP2040, nil
 	}
+
 	return Platform(buf[0]), nil
 }
 
 // ReadMeter polls the device for combined status (wValue=9).
-func (d *DSPiDevice) ReadMeter() MeterSnapshot {
+func (d *Device) ReadMeter() MeterSnapshot {
 	var snap MeterSnapshot
 	nc := d.platform.numChannels()
 	snap.Channels = nc
@@ -217,7 +313,7 @@ func (d *DSPiDevice) ReadMeter() MeterSnapshot {
 }
 
 // ClearClips sends REQ_CLEAR_CLIPS (0x83) to reset the clip bitmask on the device.
-func (d *DSPiDevice) ClearClips() error {
+func (d *Device) ClearClips() error {
 	buf := make([]byte, 2)
 	_, err := d.device.Control(0xC1, reqClearClips, 0, macOSVendorInterface, buf)
 

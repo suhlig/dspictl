@@ -6,10 +6,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/suhlig/dspi"
 )
+
+const scanInterval = 100
 
 var (
 	colBG      = lipgloss.Color("#1a1b26")
@@ -34,13 +36,11 @@ var (
 	styleTitle = lipgloss.NewStyle().
 			Foreground(colTitle).
 			Bold(true).
-			Align(lipgloss.Center).
-			Width(80)
+			Align(lipgloss.Center)
 
 	styleSubtitle = lipgloss.NewStyle().
 			Foreground(colMuted).
-			Align(lipgloss.Center).
-			Width(80)
+			Align(lipgloss.Center)
 
 	styleClipLabel = lipgloss.NewStyle().
 			Foreground(colRed).
@@ -56,36 +56,52 @@ var (
 
 	styleFooter = lipgloss.NewStyle().
 			Foreground(colMuted).
-			Align(lipgloss.Center).
-			Width(80)
+			Align(lipgloss.Center)
+
+	styleTabActive = lipgloss.NewStyle().
+			Foreground(colTitle).
+			Bold(true).
+			Padding(0, 2)
+
+	styleTabInactive = lipgloss.NewStyle().
+				Foreground(colMuted).
+				Padding(0, 2)
+
+	styleTabClip = lipgloss.NewStyle().
+			Foreground(colRed).
+			Bold(true).
+			Padding(0, 1)
 )
 
 var channelColors = []lipgloss.Color{
-	colBlue,   // USB L
-	colRed,    // USB R
-	colCyan,   // SPDIF 1 L
-	colGreen,  // SPDIF 1 R
-	colCyan,   // SPDIF 2 L
-	colGreen,  // SPDIF 2 R
-	colCyan,   // SPDIF 3 L
-	colGreen,  // SPDIF 3 R
-	colCyan,   // SPDIF 4 L
-	colGreen,  // SPDIF 4 R
-	colPurple, // PDM Sub
+	colBlue,
+	colRed,
+	colCyan,
+	colGreen,
+	colCyan,
+	colGreen,
+	colCyan,
+	colGreen,
+	colCyan,
+	colGreen,
+	colPurple,
 }
 
 type model struct {
-	device    *dspi.DSPiDevice
-	lastSnap  dspi.MeterSnapshot
-	clippedCh []int
-	clipTimer int
-	err       error
-	width     int
-	connected bool
+	devices       []*dspi.Device
+	snaps         []dspi.MeterSnapshot
+	activeDevice  int
+	ticksSinceScan int
+	clippedCh     [][]int
+	clipTimer     []int
+	err           error
+	width         int
+	connected     bool
 }
 
 type tickMsg time.Time
 type errMsg struct{ error }
+type devicesMsg []*dspi.Device
 
 func initialModel() model {
 	return model{width: 80}
@@ -97,22 +113,34 @@ func tick() tea.Cmd {
 	})
 }
 
-func connectCmd() tea.Msg {
-	dev, err := dspi.Open()
+func connectCmd() tea.Cmd {
+	return func() tea.Msg {
+		devs, err := dspi.OpenAll()
 
-	if err != nil {
-		return errMsg{fmt.Errorf("connect: %w", err)}
+		if err != nil {
+			return errMsg{fmt.Errorf("connect: %w", err)}
+		}
+
+		return devicesMsg(devs)
 	}
-
-	return dev
 }
 
-// Init initializes the TUI model and starts background commands.
+func rescanCmd() tea.Cmd {
+	return func() tea.Msg {
+		devs, err := dspi.OpenAll()
+
+		if err != nil {
+			return nil
+		}
+
+		return devicesMsg(devs)
+	}
+}
+
 func (m model) Init() tea.Cmd {
-	return tea.Batch(connectCmd, tick())
+	return tea.Batch(connectCmd(), tick())
 }
 
-// Update handles incoming messages and updates the model state.
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -123,32 +151,49 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "ctrl+c":
+			for _, dev := range m.devices {
+				dev.Close()
+			}
+
 			return m, tea.Quit
-		case "c":
-			m.clippedCh = nil
-			m.clipTimer = 0
 
-			if m.device != nil {
-				err := m.device.ClearClips()
-
-				if err != nil {
-					m.err = err
-					m.connected = false
-
-					return m, nil
-				}
+		case "tab", "right":
+			if len(m.devices) > 1 {
+				m.activeDevice = (m.activeDevice + 1) % len(m.devices)
 			}
 
 			return m, nil
-		case "r":
-			if m.device != nil {
-				m.device.Close()
+
+		case "shift+tab", "left":
+			if len(m.devices) > 1 {
+				m.activeDevice = (m.activeDevice - 1 + len(m.devices)) % len(m.devices)
 			}
 
+			return m, nil
+
+		case "c":
+			for _, dev := range m.devices {
+				_ = dev.ClearClips()
+			}
+
+			m.clippedCh = make([][]int, len(m.devices))
+			m.clipTimer = make([]int, len(m.devices))
+
+			return m, nil
+
+		case "r":
+			for _, dev := range m.devices {
+				dev.Close()
+			}
+
+			m.devices = nil
+			m.snaps = nil
+			m.clippedCh = nil
+			m.clipTimer = nil
 			m.connected = false
 			m.err = nil
 
-			return m, connectCmd
+			return m, connectCmd()
 		}
 
 	case errMsg:
@@ -157,93 +202,110 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 
-	case *dspi.DSPiDevice:
-		m.device = msg
+	case devicesMsg:
+		for _, dev := range m.devices {
+			dev.Close()
+		}
+
+		m.devices = msg
+		m.snaps = make([]dspi.MeterSnapshot, len(msg))
+		m.clippedCh = make([][]int, len(msg))
+		m.clipTimer = make([]int, len(msg))
+
+		if m.activeDevice >= len(m.devices) && len(m.devices) > 0 {
+			m.activeDevice = len(m.devices) - 1
+		}
+
 		m.connected = true
 		m.err = nil
 
 		return m, nil
 
 	case tickMsg:
-		if !m.connected || m.device == nil {
+		if !m.connected || len(m.devices) == 0 {
 			return m, tick()
 		}
 
-		snap := m.device.ReadMeter()
+		for i, dev := range m.devices {
+			snap := dev.ReadMeter()
 
-		if snap.Err() != nil {
-			m.err = snap.Err()
-			m.connected = false
+			m.snaps[i] = snap
 
-			return m, tick()
-		}
-
-		m.lastSnap = snap
-
-		newClips := snap.ClipFlags
-		var clipped []int
-		for i := 0; i < snap.Channels; i++ {
-			if newClips&(1<<i) != 0 {
-				clipped = append(clipped, i)
+			if snap.Err() != nil {
+				continue
 			}
-		}
 
-		if len(clipped) > 0 {
-			m.clippedCh = append(m.clippedCh, clipped...)
-			m.clipTimer = 170
-		}
+			newClips := snap.ClipFlags
+			var clipped []int
 
-		if m.clipTimer > 0 {
-			m.clipTimer--
+			for j := 0; j < snap.Channels; j++ {
+				if newClips&(1<<j) != 0 {
+					clipped = append(clipped, j)
+				}
+			}
 
-			if m.clipTimer == 0 {
-				m.clippedCh = nil
-				err := m.device.ClearClips()
+			if len(clipped) > 0 {
+				m.clippedCh[i] = append(m.clippedCh[i], clipped...)
+				m.clipTimer[i] = 170
+			}
 
-				if err != nil {
-					m.err = err
-					m.connected = false
+			if m.clipTimer[i] > 0 {
+				m.clipTimer[i]--
 
-					return m, tick()
+				if m.clipTimer[i] == 0 {
+					m.clippedCh[i] = nil
+					_ = dev.ClearClips()
 				}
 			}
 		}
 
-		return m, tick()
+		var cmds []tea.Cmd
+
+		m.ticksSinceScan++
+
+		if m.ticksSinceScan >= scanInterval {
+			m.ticksSinceScan = 0
+			cmds = append(cmds, rescanCmd())
+		}
+
+		cmds = append(cmds, tick())
+
+		return m, tea.Batch(cmds...)
 	}
 
 	return m, nil
 }
 
-// View renders the current model state as a string.
 func (m model) View() string {
 	if m.err != nil {
-		return renderError(m.err)
+		return renderError(m.err, m.width)
 	}
 
-	if !m.connected {
-		return renderConnecting()
+	if !m.connected || len(m.devices) == 0 {
+		return renderConnecting(m.width)
 	}
+
+	dev := m.devices[m.activeDevice]
+	snap := m.snaps[m.activeDevice]
+	channels := dspi.ChannelTable(dev.Platform())
 
 	var b strings.Builder
-	channels := dspi.ChannelTable(m.device.Platform())
-	snap := m.lastSnap
 
-	b.WriteString(styleTitle.Render("DSPi Live Meter"))
+	b.WriteString(styleTitle.Width(m.width).Render("DSPi Live Meter"))
 	b.WriteString("\n")
+
+	b.WriteString(m.renderTabs())
 
 	cpu0col := cpuColor(snap.CPU0)
 	cpu1col := cpuColor(snap.CPU1)
-	platStr := fmt.Sprintf("Platform: %s  |  CPU0: %d%%  CPU1: %d%%",
-		m.device.Platform(), snap.CPU0, snap.CPU1)
-	b.WriteString(styleSubtitle.Render(
-		lipgloss.NewStyle().Foreground(colMuted).Render(platStr),
-	))
+	subStr := fmt.Sprintf("Device %d/%d  |  %s  |  Serial: %s  |  CPU0: %d%%  CPU1: %d%%",
+		m.activeDevice+1, len(m.devices), dev.Platform(), dev.Serial(), snap.CPU0, snap.CPU1)
+	b.WriteString(styleSubtitle.Width(m.width).Render(subStr))
 	b.WriteString("\n\n")
 
 	b.WriteString(lipgloss.NewStyle().
 		Foreground(colBorder).
-		Render(strings.Repeat("─", min(m.width, 80))))
+		Render(strings.Repeat("─", m.width)))
 	b.WriteString("\n")
 
 	cpuBar := drawBar(float64(snap.CPU0)/100.0, 30, cpu0col)
@@ -263,6 +325,7 @@ func (m model) View() string {
 	}
 
 	groups := map[string][]groupEntry{}
+
 	for _, ch := range channels {
 		if ch.Index >= snap.Channels {
 			continue
@@ -273,6 +336,7 @@ func (m model) View() string {
 	groupOrder := []string{"USB Input", "S/PDIF Output", "PDM Sub"}
 	for _, g := range groupOrder {
 		entries, ok := groups[g]
+
 		if !ok || len(entries) == 0 {
 			continue
 		}
@@ -291,9 +355,10 @@ func (m model) View() string {
 			col := channelColors[idx%len(channelColors)]
 
 			isClipped := false
-			for _, c := range m.clippedCh {
+			for _, c := range m.clippedCh[m.activeDevice] {
 				if c == idx {
 					isClipped = true
+
 					break
 				}
 			}
@@ -327,15 +392,17 @@ func (m model) View() string {
 		b.WriteString("\n")
 	}
 
-	if len(m.clippedCh) > 0 {
+	if len(m.clippedCh[m.activeDevice]) > 0 {
 		var clipNames []string
-		for _, idx := range m.clippedCh {
+
+		for _, idx := range m.clippedCh[m.activeDevice] {
 			if idx < len(channels) {
 				clipNames = append(clipNames, channels[idx].Name)
 			}
 		}
 		b.WriteString(styleClipLabel.Render("CLIP:"))
 		b.WriteString(" ")
+
 		for _, name := range clipNames {
 			b.WriteString(styleClipChannel.Render(name))
 			b.WriteString(" ")
@@ -345,16 +412,43 @@ func (m model) View() string {
 
 	b.WriteString(lipgloss.NewStyle().
 		Foreground(colBorder).
-		Render(strings.Repeat("─", min(m.width, 80))))
+		Render(strings.Repeat("─", m.width)))
 	b.WriteString("\n")
-	b.WriteString(styleFooter.Render(
-		"q: quit  |  c: clear clips  |  r: reconnect",
+	b.WriteString(styleFooter.Width(m.width).Render(
+		"q: quit  |  Tab/← →: switch device  |  c: clear clips  |  r: rescan",
 	))
 
 	return lipgloss.NewStyle().
 		Background(colBG).
 		Padding(1, 2).
 		Render(b.String())
+}
+
+func (m model) renderTabs() string {
+	if len(m.devices) <= 1 {
+		return ""
+	}
+
+	var tabs []string
+
+	for i, dev := range m.devices {
+		serial := dev.Serial()
+		label := fmt.Sprintf("%d: %s", i+1, serial)
+
+		hasClip := len(m.clippedCh[i]) > 0
+
+		if i == m.activeDevice && hasClip {
+			tabs = append(tabs, styleTabClip.Render(label))
+		} else if i == m.activeDevice {
+			tabs = append(tabs, styleTabActive.Render(label))
+		} else if hasClip {
+			tabs = append(tabs, styleTabClip.Render(label))
+		} else {
+			tabs = append(tabs, styleTabInactive.Render(label))
+		}
+	}
+
+	return lipgloss.JoinHorizontal(lipgloss.Top, tabs...) + "\n"
 }
 
 func drawBar(fraction float64, width int, color lipgloss.Color) string {
@@ -370,11 +464,8 @@ func drawBar(fraction float64, width int, color lipgloss.Color) string {
 	}
 	empty := width - filled
 
-	fillChar := "█"
-	emptyChar := "░"
-
-	fillStr := strings.Repeat(fillChar, filled)
-	emptyStr := strings.Repeat(emptyChar, empty)
+	fillStr := strings.Repeat("█", filled)
+	emptyStr := strings.Repeat("░", empty)
 
 	return lipgloss.NewStyle().
 		Foreground(color).
@@ -393,36 +484,36 @@ func cpuColor(load int) lipgloss.Color {
 	}
 }
 
-func renderConnecting() string {
+func renderConnecting(width int) string {
 	return lipgloss.NewStyle().
 		Background(colBG).
 		Padding(2, 2).
-		Width(60).
+		Width(width).
 		Align(lipgloss.Center).
 		Render(
 			lipgloss.JoinVertical(lipgloss.Center,
-				styleTitle.Render("DSPi Live Meter"),
+				styleTitle.Width(width).Render("DSPi Live Meter"),
 				"",
-				lipgloss.NewStyle().Foreground(colYellow).Render("🔌 Connecting to DSPi..."),
+				lipgloss.NewStyle().Foreground(colYellow).Render("Connecting to DSPi..."),
 				"",
-				lipgloss.NewStyle().Foreground(colMuted).Render("Make sure the device is plugged in via USB"),
+				lipgloss.NewStyle().Foreground(colMuted).Render("Make sure the device(s) are plugged in via USB"),
 			),
 		)
 }
 
-func renderError(err error) string {
+func renderError(err error, width int) string {
 	errStr := err.Error()
 
 	return lipgloss.NewStyle().
 		Background(colBG).
 		Padding(2, 2).
-		Width(60).
+		Width(width).
 		Align(lipgloss.Center).
 		Render(
 			lipgloss.JoinVertical(lipgloss.Center,
-				styleTitle.Render("DSPi Live Meter"),
+				styleTitle.Width(width).Render("DSPi Live Meter"),
 				"",
-				lipgloss.NewStyle().Foreground(colRed).Bold(true).Render("⚠ Connection Error"),
+				lipgloss.NewStyle().Foreground(colRed).Bold(true).Render("Connection Error"),
 				"",
 				lipgloss.NewStyle().Foreground(colFG).Render(errStr),
 				"",
@@ -442,6 +533,7 @@ func main() {
 
 func mainE() error {
 	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
+
 	_, err := p.Run()
 
 	if err != nil {
