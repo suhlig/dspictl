@@ -1,5 +1,4 @@
 ---
-
 repos:
   - repo: https://github.com/TekWizely/pre-commit-golang
     rev: v1.0.0-rc.4
@@ -9,3 +8,10 @@ repos:
       - id: go-build-repo-mod
       - id: go-mod-tidy-repo
       - id: golangci-lint-repo-mod
+  - repo: local
+    hooks:
+      - id: go-fix
+        name: go fix modernizers are applied
+        entry: go fix ./...
+        language: system
+        pass_filenames: false
