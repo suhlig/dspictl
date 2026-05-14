@@ -99,6 +99,7 @@ func DBFS(linear float64) string {
 		return "-inf"
 	}
 	dbfs := 20 * math.Log10(linear)
+
 	return fmt.Sprintf("%.1f", dbfs)
 }
 
@@ -109,17 +110,21 @@ type DSPiDevice struct {
 	platform Platform
 }
 
-// OpenDSPi finds and opens the first connected DSPi device.
-func OpenDSPi() (*DSPiDevice, error) {
+// Open finds and opens the first connected DSPi device.
+func Open() (*DSPiDevice, error) {
 	ctx := gousb.NewContext()
 
 	dev, err := ctx.OpenDeviceWithVIDPID(gousb.ID(dspiVID), gousb.ID(dspiPID))
+
 	if err != nil {
-		ctx.Close()
+		_ = ctx.Close()
+
 		return nil, fmt.Errorf("open DSPi: %w", err)
 	}
+
 	if dev == nil {
-		ctx.Close()
+		_ = ctx.Close()
+
 		return nil, fmt.Errorf("no DSPi device found (VID %04x PID %04x)\n"+
 			"Make sure the DSPi is connected via USB", dspiVID, dspiPID)
 	}
@@ -130,10 +135,13 @@ func OpenDSPi() (*DSPiDevice, error) {
 	}
 
 	plat, err := d.detectPlatform()
+
 	if err != nil {
 		d.Close()
+
 		return nil, fmt.Errorf("detect platform: %w", err)
 	}
+
 	d.platform = plat
 
 	return d, nil
@@ -142,10 +150,10 @@ func OpenDSPi() (*DSPiDevice, error) {
 // Close releases the USB device.
 func (d *DSPiDevice) Close() {
 	if d.device != nil {
-		d.device.Close()
+		_ = d.device.Close()
 	}
 	if d.ctx != nil {
-		d.ctx.Close()
+		_ = d.ctx.Close()
 	}
 }
 
@@ -156,6 +164,7 @@ func (d *DSPiDevice) Platform() Platform { return d.platform }
 func (d *DSPiDevice) detectPlatform() (Platform, error) {
 	buf := make([]byte, 4)
 	_, err := d.device.Control(0xC1, reqGetPlatform, 0, macOSVendorInterface, buf)
+
 	if err != nil {
 		return PlatformRP2040, fmt.Errorf("REQ_GET_PLATFORM: %w", err)
 	}
@@ -175,8 +184,10 @@ func (d *DSPiDevice) ReadMeter() MeterSnapshot {
 	buf := make([]byte, reqLen)
 
 	n, err := d.device.Control(0xC1, reqGetStatus, 9, macOSVendorInterface, buf)
+
 	if err != nil {
 		snap.err = fmt.Errorf("REQ_GET_STATUS: %w", err)
+
 		return snap
 	}
 
@@ -206,7 +217,13 @@ func (d *DSPiDevice) ReadMeter() MeterSnapshot {
 }
 
 // ClearClips sends REQ_CLEAR_CLIPS (0x83) to reset the clip bitmask on the device.
-func (d *DSPiDevice) ClearClips() {
+func (d *DSPiDevice) ClearClips() error {
 	buf := make([]byte, 2)
-	_, _ = d.device.Control(0xC1, reqClearClips, 0, macOSVendorInterface, buf)
+	_, err := d.device.Control(0xC1, reqClearClips, 0, macOSVendorInterface, buf)
+
+	if err != nil {
+		return fmt.Errorf("clearing clips: %w", err)
+	}
+
+	return nil
 }

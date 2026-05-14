@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -12,22 +12,22 @@ import (
 )
 
 var (
-	colBG       = lipgloss.Color("#1a1b26")
-	colFG       = lipgloss.Color("#a9b1d6")
-	colMuted    = lipgloss.Color("#565f89")
-	colGreen    = lipgloss.Color("#9ece6a")
-	colYellow   = lipgloss.Color("#e0af68")
-	colRed      = lipgloss.Color("#f7768e")
-	colBlue     = lipgloss.Color("#7aa2f7")
-	colCyan     = lipgloss.Color("#73daca")
-	colPurple   = lipgloss.Color("#bb9af7")
-	colClipBg   = lipgloss.Color("#340000")
-	colBarBg    = lipgloss.Color("#292e42")
-	colBorder   = lipgloss.Color("#3b4261")
-	colTitle    = lipgloss.Color("#c0caf5")
-	colCPUOK    = lipgloss.Color("#9ece6a")
-	colCPUWarn  = lipgloss.Color("#e0af68")
-	colCPUCrit  = lipgloss.Color("#f7768e")
+	colBG      = lipgloss.Color("#1a1b26")
+	colFG      = lipgloss.Color("#a9b1d6")
+	colMuted   = lipgloss.Color("#565f89")
+	colGreen   = lipgloss.Color("#9ece6a")
+	colYellow  = lipgloss.Color("#e0af68")
+	colRed     = lipgloss.Color("#f7768e")
+	colBlue    = lipgloss.Color("#7aa2f7")
+	colCyan    = lipgloss.Color("#73daca")
+	colPurple  = lipgloss.Color("#bb9af7")
+	colClipBg  = lipgloss.Color("#340000")
+	colBarBg   = lipgloss.Color("#292e42")
+	colBorder  = lipgloss.Color("#3b4261")
+	colTitle   = lipgloss.Color("#c0caf5")
+	colCPUOK   = lipgloss.Color("#9ece6a")
+	colCPUWarn = lipgloss.Color("#e0af68")
+	colCPUCrit = lipgloss.Color("#f7768e")
 )
 
 var (
@@ -75,13 +75,13 @@ var channelColors = []lipgloss.Color{
 }
 
 type model struct {
-	device      *dspi.DSPiDevice
-	lastSnap    dspi.MeterSnapshot
-	clippedCh   []int
-	clipTimer   int
-	err         error
-	width       int
-	connected   bool
+	device    *dspi.DSPiDevice
+	lastSnap  dspi.MeterSnapshot
+	clippedCh []int
+	clipTimer int
+	err       error
+	width     int
+	connected bool
 }
 
 type tickMsg time.Time
@@ -98,21 +98,26 @@ func tick() tea.Cmd {
 }
 
 func connectCmd() tea.Msg {
-	dev, err := dspi.OpenDSPi()
+	dev, err := dspi.Open()
+
 	if err != nil {
 		return errMsg{fmt.Errorf("connect: %w", err)}
 	}
+
 	return dev
 }
 
+// Init initializes the TUI model and starts background commands.
 func (m model) Init() tea.Cmd {
 	return tea.Batch(connectCmd, tick())
 }
 
+// Update handles incoming messages and updates the model state.
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
+
 		return m, nil
 
 	case tea.KeyMsg:
@@ -122,28 +127,41 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "c":
 			m.clippedCh = nil
 			m.clipTimer = 0
+
 			if m.device != nil {
-				m.device.ClearClips()
+				err := m.device.ClearClips()
+
+				if err != nil {
+					m.err = err
+					m.connected = false
+
+					return m, nil
+				}
 			}
+
 			return m, nil
 		case "r":
 			if m.device != nil {
 				m.device.Close()
 			}
+
 			m.connected = false
 			m.err = nil
+
 			return m, connectCmd
 		}
 
 	case errMsg:
 		m.err = msg.error
 		m.connected = false
+
 		return m, nil
 
 	case *dspi.DSPiDevice:
 		m.device = msg
 		m.connected = true
 		m.err = nil
+
 		return m, nil
 
 	case tickMsg:
@@ -152,9 +170,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		snap := m.device.ReadMeter()
+
 		if snap.Err() != nil {
 			m.err = snap.Err()
 			m.connected = false
+
 			return m, tick()
 		}
 
@@ -167,15 +187,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				clipped = append(clipped, i)
 			}
 		}
+
 		if len(clipped) > 0 {
 			m.clippedCh = append(m.clippedCh, clipped...)
 			m.clipTimer = 170
 		}
+
 		if m.clipTimer > 0 {
 			m.clipTimer--
+
 			if m.clipTimer == 0 {
 				m.clippedCh = nil
-				m.device.ClearClips()
+				err := m.device.ClearClips()
+
+				if err != nil {
+					m.err = err
+					m.connected = false
+
+					return m, tick()
+				}
 			}
 		}
 
@@ -185,6 +215,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// View renders the current model state as a string.
 func (m model) View() string {
 	if m.err != nil {
 		return renderError(m.err)
@@ -381,6 +412,7 @@ func renderConnecting() string {
 
 func renderError(err error) string {
 	errStr := err.Error()
+
 	return lipgloss.NewStyle().
 		Background(colBG).
 		Padding(2, 2).
@@ -400,8 +432,21 @@ func renderError(err error) string {
 }
 
 func main() {
-	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
-	if _, err := p.Run(); err != nil {
-		log.Fatalf("TUI error: %v", err)
+	err := mainE()
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error %s\n", err)
+		os.Exit(1)
 	}
+}
+
+func mainE() error {
+	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
+	_, err := p.Run()
+
+	if err != nil {
+		return fmt.Errorf("running TUI: %w", err)
+	}
+
+	return nil
 }
