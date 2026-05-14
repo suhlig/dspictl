@@ -18,7 +18,7 @@ const (
 	clipTimerDuration = 170 // in ticks (~10s at 60ms/tick)
 	barWidth          = 30
 	nameWidth         = 14
-	dbfsValueWidth    = 8
+	dbfsValueWidth    = 10
 )
 
 var (
@@ -367,7 +367,7 @@ func (m model) View() string {
 
 	type groupEntry struct {
 		info dspi.ChannelInfo
-		peak float64
+		peak dspi.Level
 	}
 
 	groups := map[string][]groupEntry{}
@@ -412,17 +412,17 @@ func (m model) View() string {
 				Foreground(col).
 				Bold(true).
 				PaddingLeft(2)
-			dbfsStr := dspi.FormatDBFS(dspi.DBFS(peak))
+			dbfsStr := peak.String()
 			valStyle := lipgloss.NewStyle().
 				Width(dbfsValueWidth).
 				Align(lipgloss.Right).
 				Foreground(colMuted)
 
-			bar := drawBar(peak, barWidth, col)
+			bar := drawBar(peak.Linear(), barWidth, col)
 			line := fmt.Sprintf("%s%s %s %s",
 				nameStyle.Render(ch.Name),
 				bar,
-				valStyle.Render(dbfsStr+" dB"),
+				valStyle.Render(dbfsStr),
 				clipMark,
 			)
 			b.WriteString(line)

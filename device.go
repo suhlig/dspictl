@@ -187,7 +187,7 @@ func (d *Device) ReadMeter() MeterSnapshot {
 
 	for i := range actualCh {
 		raw := binary.LittleEndian.Uint16(buf[i*2:])
-		snap.Peaks[i] = float64(raw) / 32767.0
+		snap.Peaks[i] = NewLevel(normalize(raw))
 	}
 
 	offset := actualCh * 2
@@ -208,4 +208,12 @@ func (d *Device) ClearClips() error {
 	}
 
 	return nil
+}
+
+func normalize(raw uint16) float64 {
+	// maxInt16 is the maximum value of a 16-bit signed integer,
+	// used to normalize raw ADC readings to the 0.0–1.0 range.
+	const maxInt16 = 32767
+
+	return float64(raw) / maxInt16
 }
