@@ -2,6 +2,7 @@ package dspi
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 
 	"github.com/google/gousb"
@@ -89,11 +90,14 @@ func OpenAll() ([]*Device, error) {
 	}
 
 	devices := make([]*Device, 0, len(infos))
+	var errs []error
 
 	for _, info := range infos {
 		dev, err := Open(info)
 
 		if err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", info.Serial, err))
+
 			continue
 		}
 
@@ -101,6 +105,10 @@ func OpenAll() ([]*Device, error) {
 	}
 
 	if len(devices) == 0 {
+		if len(errs) > 0 {
+			return nil, fmt.Errorf("no DSPi device could be opened: %w", errors.Join(errs...))
+		}
+
 		return nil, fmt.Errorf("no DSPi device could be opened")
 	}
 
@@ -111,9 +119,11 @@ func OpenAll() ([]*Device, error) {
 func (d *Device) Close() {
 	if d.device != nil {
 		_ = d.device.Close()
+		d.device = nil
 	}
 	if d.ctx != nil {
 		_ = d.ctx.Close()
+		d.ctx = nil
 	}
 }
 
@@ -125,13 +135,13 @@ func (d *Device) Serial() string { return d.serial }
 
 func (d *Device) detectPlatform() (Platform, error) {
 	buf := make([]byte, 4)
-	_, err := d.device.Control(vendorInterfaceInRequest, reqGetPlatform, 0, macOSVendorInterface, buf)
+	_, err := d.device.Control(vendorInterfaceInRequest, reqGetPlatform, 0, vendorInterface, buf)
 
 	if err != nil {
-		return PlatformRP2040, fmt.Errorf("REQ_GET_PLATFORM: %w", err)
+		return 0, fmt.Errorf("REQ_GET_PLATFORM: %w", err)
 	}
 	if len(buf) < 1 {
-		return PlatformRP2040, nil
+		return 0, fmt.Errorf("REQ_GET_PLATFORM: empty response")
 	}
 
 	return Platform(buf[0]), nil
@@ -142,7 +152,7 @@ func (d *Device) ReadMeter() MeterSnapshot {
 	var snap MeterSnapshot
 	buf := make([]byte, maxChannels*2+5)
 
-	n, err := d.device.Control(vendorInterfaceInRequest, reqGetStatus, 9, macOSVendorInterface, buf)
+	n, err := d.device.Control(vendorInterfaceInRequest, reqGetStatus, 9, vendorInterface, buf)
 
 	if err != nil {
 		snap.err = fmt.Errorf("REQ_GET_STATUS: %w", err)
@@ -150,18 +160,32 @@ func (d *Device) ReadMeter() MeterSnapshot {
 		return snap
 	}
 
-	if (n-5) > 0 && (n-5)%2 == 0 {
-		snap.Channels = (n - 5) / 2
-	} else if (n-4) > 0 && (n-4)%2 == 0 {
+	// Determine channel count from the response length.
+	// Response format (no header): [peak pairs...] [CPU0(1)] [CPU1(1)] [ClipFlags(2)]
+	// That is channels*2 + 4 bytes.
+	// Some firmware versions may include a 1-byte header, making it channels*2 + 5.
+	switch {
+	case n >= 4 && (n-4)%2 == 0:
 		snap.Channels = (n - 4) / 2
+	case n >= 6 && (n-5)%2 == 0:
+		snap.Channels = (n - 5) / 2
+	default:
+		snap.err = fmt.Errorf("REQ_GET_STATUS: unexpected response length %d", n)
+
+		return snap
 	}
 
-	actualCh := snap.Channels
-	if actualCh > maxChannels {
-		actualCh = maxChannels
+	actualCh := min(snap.Channels, maxChannels)
+
+	needed := actualCh*2 + 4
+
+	if n < needed {
+		snap.err = fmt.Errorf("REQ_GET_STATUS: response too short (got %d, need %d)", n, needed)
+
+		return snap
 	}
 
-	for i := 0; i < actualCh; i++ {
+	for i := range actualCh {
 		raw := binary.LittleEndian.Uint16(buf[i*2:])
 		snap.Peaks[i] = float64(raw) / 32767.0
 	}
@@ -177,7 +201,7 @@ func (d *Device) ReadMeter() MeterSnapshot {
 // ClearClips sends REQ_CLEAR_CLIPS (0x83) to reset the clip bitmask on the device.
 func (d *Device) ClearClips() error {
 	buf := make([]byte, 2)
-	_, err := d.device.Control(vendorInterfaceInRequest, reqClearClips, 0, macOSVendorInterface, buf)
+	_, err := d.device.Control(vendorInterfaceInRequest, reqClearClips, 0, vendorInterface, buf)
 
 	if err != nil {
 		return fmt.Errorf("clearing clips: %w", err)

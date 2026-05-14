@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -11,7 +12,14 @@ import (
 	"github.com/suhlig/dspi"
 )
 
-const scanInterval = 100
+const (
+	tickInterval      = 60 * time.Millisecond
+	scanInterval      = 100 // in ticks (~6s at 60ms/tick)
+	clipTimerDuration = 170 // in ticks (~10s at 60ms/tick)
+	barWidth          = 30
+	nameWidth         = 14
+	dbfsValueWidth    = 8
+)
 
 var (
 	colBG      = lipgloss.Color("#1a1b26")
@@ -108,7 +116,7 @@ func initialModel() model {
 }
 
 func tick() tea.Cmd {
-	return tea.Tick(60*time.Millisecond, func(t time.Time) tea.Msg {
+	return tea.Tick(tickInterval, func(t time.Time) tea.Msg {
 		return tickMsg(t)
 	})
 }
@@ -130,7 +138,7 @@ func rescanCmd() tea.Cmd {
 		devs, err := dspi.OpenAll()
 
 		if err != nil {
-			return nil
+			return errMsg{fmt.Errorf("rescan: %w", err)}
 		}
 
 		return devicesMsg(devs)
@@ -284,7 +292,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			if len(clipped) > 0 {
 				m.clippedCh[i] = append(m.clippedCh[i], clipped...)
-				m.clipTimer[i] = 170
+				m.clipTimer[i] = clipTimerDuration
 			}
 
 			if m.clipTimer[i] > 0 {
@@ -346,12 +354,12 @@ func (m model) View() string {
 		Render(strings.Repeat("─", m.width)))
 	b.WriteString("\n")
 
-	cpuBar := drawBar(float64(snap.CPU0)/100.0, 30, cpu0col)
+	cpuBar := drawBar(float64(snap.CPU0)/100.0, barWidth, cpu0col)
 	b.WriteString(lipgloss.NewStyle().PaddingLeft(2).Render(
 		fmt.Sprintf("Core 0 %s %3d%%", cpuBar, snap.CPU0),
 	))
 	b.WriteString("\n")
-	cpuBar = drawBar(float64(snap.CPU1)/100.0, 30, cpu1col)
+	cpuBar = drawBar(float64(snap.CPU1)/100.0, barWidth, cpu1col)
 	b.WriteString(lipgloss.NewStyle().PaddingLeft(2).Render(
 		fmt.Sprintf("Core 1 %s %3d%%", cpuBar, snap.CPU1),
 	))
@@ -392,14 +400,7 @@ func (m model) View() string {
 			peak := e.peak
 			col := channelColors[idx%len(channelColors)]
 
-			isClipped := false
-			for _, c := range m.clippedCh[m.activeDevice] {
-				if c == idx {
-					isClipped = true
-
-					break
-				}
-			}
+			isClipped := slices.Contains(m.clippedCh[m.activeDevice], idx)
 
 			clipMark := ""
 			if isClipped {
@@ -407,17 +408,17 @@ func (m model) View() string {
 			}
 
 			nameStyle := lipgloss.NewStyle().
-				Width(14).
+				Width(nameWidth).
 				Foreground(col).
 				Bold(true).
 				PaddingLeft(2)
-			dbfsStr := dspi.DBFS(peak)
+			dbfsStr := dspi.FormatDBFS(dspi.DBFS(peak))
 			valStyle := lipgloss.NewStyle().
-				Width(8).
+				Width(dbfsValueWidth).
 				Align(lipgloss.Right).
 				Foreground(colMuted)
 
-			bar := drawBar(peak, 30, col)
+			bar := drawBar(peak, barWidth, col)
 			line := fmt.Sprintf("%s%s %s %s",
 				nameStyle.Render(ch.Name),
 				bar,
@@ -496,10 +497,7 @@ func drawBar(fraction float64, width int, color lipgloss.Color) string {
 	if fraction > 1 {
 		fraction = 1
 	}
-	filled := int(fraction * float64(width))
-	if filled > width {
-		filled = width
-	}
+	filled := min(int(fraction*float64(width)), width)
 	empty := width - filled
 
 	fillStr := strings.Repeat("█", filled)
@@ -522,7 +520,7 @@ func cpuColor(load int) lipgloss.Color {
 	}
 }
 
-func renderConnecting(width int) string {
+func renderFrame(width int, body string) string {
 	return lipgloss.NewStyle().
 		Background(colBG).
 		Padding(2, 2).
@@ -532,32 +530,31 @@ func renderConnecting(width int) string {
 			lipgloss.JoinVertical(lipgloss.Center,
 				styleTitle.Width(width).Render("DSPi Live Meter"),
 				"",
-				lipgloss.NewStyle().Foreground(colYellow).Render("Connecting to DSPi..."),
-				"",
-				lipgloss.NewStyle().Foreground(colMuted).Render("Make sure the device(s) are plugged in via USB"),
+				body,
 			),
 		)
 }
 
-func renderError(err error, width int) string {
-	errStr := err.Error()
+func renderConnecting(width int) string {
+	return renderFrame(width,
+		lipgloss.JoinVertical(lipgloss.Center,
+			lipgloss.NewStyle().Foreground(colYellow).Render("Connecting to DSPi..."),
+			"",
+			lipgloss.NewStyle().Foreground(colMuted).Render("Make sure the device(s) are plugged in via USB"),
+		),
+	)
+}
 
-	return lipgloss.NewStyle().
-		Background(colBG).
-		Padding(2, 2).
-		Width(width).
-		Align(lipgloss.Center).
-		Render(
-			lipgloss.JoinVertical(lipgloss.Center,
-				styleTitle.Width(width).Render("DSPi Live Meter"),
-				"",
-				lipgloss.NewStyle().Foreground(colRed).Bold(true).Render("Connection Error"),
-				"",
-				lipgloss.NewStyle().Foreground(colFG).Render(errStr),
-				"",
-				lipgloss.NewStyle().Foreground(colMuted).Render("Press 'r' to retry, 'q' to quit"),
-			),
-		)
+func renderError(err error, width int) string {
+	return renderFrame(width,
+		lipgloss.JoinVertical(lipgloss.Center,
+			lipgloss.NewStyle().Foreground(colRed).Bold(true).Render("Connection Error"),
+			"",
+			lipgloss.NewStyle().Foreground(colFG).Render(err.Error()),
+			"",
+			lipgloss.NewStyle().Foreground(colMuted).Render("Press 'r' to retry, 'q' to quit"),
+		),
+	)
 }
 
 func main() {
