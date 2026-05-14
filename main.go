@@ -13,16 +13,15 @@ import (
 // ─── colour palette ────────────────────────────────────────────────────
 
 var (
-	colBG       = lipgloss.Color("#1a1b26") // dark background
-	colFG       = lipgloss.Color("#a9b1d6") // light text
-	colMuted    = lipgloss.Color("#565f89") // dim text
+	colBG       = lipgloss.Color("#1a1b26")
+	colFG       = lipgloss.Color("#a9b1d6")
+	colMuted    = lipgloss.Color("#565f89")
 	colGreen    = lipgloss.Color("#9ece6a")
 	colYellow   = lipgloss.Color("#e0af68")
 	colRed      = lipgloss.Color("#f7768e")
 	colBlue     = lipgloss.Color("#7aa2f7")
 	colCyan     = lipgloss.Color("#73daca")
 	colPurple   = lipgloss.Color("#bb9af7")
-	colOrange   = lipgloss.Color("#ff9e64")
 	colClipBg   = lipgloss.Color("#340000")
 	colBarBg    = lipgloss.Color("#292e42")
 	colBorder   = lipgloss.Color("#3b4261")
@@ -44,10 +43,6 @@ var (
 			Align(lipgloss.Center).
 			Width(80)
 
-	styleHeader = lipgloss.NewStyle().
-			Foreground(colMuted).
-			PaddingLeft(2)
-
 	styleClipLabel = lipgloss.NewStyle().
 			Foreground(colRed).
 			Bold(true).
@@ -59,10 +54,6 @@ var (
 				Bold(true).
 				PaddingLeft(1).
 				PaddingRight(1)
-
-	styleStatusBar = lipgloss.NewStyle().
-			Foreground(colMuted).
-			PaddingLeft(2)
 
 	styleFooter = lipgloss.NewStyle().
 			Foreground(colMuted).
