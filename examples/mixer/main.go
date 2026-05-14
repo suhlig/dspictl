@@ -104,7 +104,7 @@ type model struct {
 	ticksSinceScan int
 	clippedCh      [][]int
 	clipTimer      []int
-	masterVolume   []float64
+	masterVolume   []dspi.Gain
 	err            error
 	width          int
 	connected      bool
@@ -184,7 +184,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "up":
 			if len(m.devices) > 0 && m.activeDevice < len(m.masterVolume) {
-				m.masterVolume[m.activeDevice] = min(m.masterVolume[m.activeDevice]+1, 0)
+				db := m.masterVolume[m.activeDevice].DB()
+				m.masterVolume[m.activeDevice] = dspi.NewGain(min(db+1, 0))
 				_ = m.devices[m.activeDevice].SetMasterVolume(m.masterVolume[m.activeDevice])
 			}
 
@@ -192,7 +193,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "down":
 			if len(m.devices) > 0 && m.activeDevice < len(m.masterVolume) {
-				m.masterVolume[m.activeDevice] = max(m.masterVolume[m.activeDevice]-1, -128)
+				db := m.masterVolume[m.activeDevice].DB()
+				m.masterVolume[m.activeDevice] = dspi.NewGain(max(db-1, -128))
 				_ = m.devices[m.activeDevice].SetMasterVolume(m.masterVolume[m.activeDevice])
 			}
 
@@ -257,7 +259,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if _, exists := remainingSerials[dev.Serial()]; !exists {
 					m.devices = append(m.devices, dev)
 					m.snaps = append(m.snaps, dspi.MeterSnapshot{})
-					m.masterVolume = append(m.masterVolume, -20)
+					m.masterVolume = append(m.masterVolume, dspi.NewGain(-20))
 					m.clippedCh = append(m.clippedCh, nil)
 					m.clipTimer = append(m.clipTimer, 0)
 				} else {
@@ -277,10 +279,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.devices = msg
 		m.snaps = make([]dspi.MeterSnapshot, len(msg))
-		m.masterVolume = make([]float64, len(msg))
+		m.masterVolume = make([]dspi.Gain, len(msg))
 
 		for i := range m.masterVolume {
-			m.masterVolume[i] = -20
+			m.masterVolume[i] = dspi.NewGain(-20)
 		}
 
 		m.clippedCh = make([][]int, len(msg))
@@ -556,7 +558,7 @@ func drawBar(fraction float64, width int, color lipgloss.Color) string {
 func (m model) renderMasterVolumeSlider(height int) string {
 	mv := m.masterVolume[m.activeDevice]
 
-	x := (mv + 128.0) / 128.0
+	x := (mv.DB() + 128.0) / 128.0
 	x = max(0, min(1, x))
 	fraction := math.Pow(x, 3.19)
 
@@ -580,13 +582,7 @@ func (m model) renderMasterVolumeSlider(height int) string {
 		bld.WriteString("\n")
 	}
 
-	valStr := fmt.Sprintf("%.0f dB", mv)
-
-	if mv <= -128 {
-		valStr = " MUTE"
-	}
-
-	fmt.Fprintf(&bld, "%6s", valStr)
+	fmt.Fprintf(&bld, "%6s", mv.String())
 
 	return bld.String()
 }

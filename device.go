@@ -233,15 +233,15 @@ func (d *Device) ClearClips() error {
 	return nil
 }
 
-// SetMasterVolume sets the device-side master volume in dB.
+// SetMasterVolume sets the device-side master volume.
 // Range: -128 (mute sentinel) to 0 dB. Typical range: -127 to 0 dB.
-func (d *Device) SetMasterVolume(db float64) error {
+func (d *Device) SetMasterVolume(g Gain) error {
 	if d.device == nil {
 		return fmt.Errorf("device is closed")
 	}
 
 	buf := make([]byte, 4)
-	binary.LittleEndian.PutUint32(buf, math.Float32bits(float32(db)))
+	binary.LittleEndian.PutUint32(buf, math.Float32bits(float32(g.DB())))
 	_, err := d.device.Control(vendorInterfaceOutRequest, reqSetMasterVolume, 0, vendorInterface, buf)
 
 	if err != nil {
@@ -251,8 +251,8 @@ func (d *Device) SetMasterVolume(db float64) error {
 	return nil
 }
 
-// GetMasterVolume reads the current device-side master volume in dB.
-func (d *Device) GetMasterVolume() (float64, error) {
+// GetMasterVolume reads the current device-side master volume.
+func (d *Device) GetMasterVolume() (Gain, error) {
 	if d.device == nil {
 		return 0, fmt.Errorf("device is closed")
 	}
@@ -264,9 +264,7 @@ func (d *Device) GetMasterVolume() (float64, error) {
 		return 0, fmt.Errorf("REQ_GET_MASTER_VOLUME: %w", err)
 	}
 
-	db := float64(math.Float32frombits(binary.LittleEndian.Uint32(buf)))
-
-	return db, nil
+	return NewGain(float64(math.Float32frombits(binary.LittleEndian.Uint32(buf)))), nil
 }
 
 func normalize(raw uint16) float64 {
