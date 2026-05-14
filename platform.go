@@ -18,4 +18,3 @@ func (p Platform) String() string {
 		return "Unknown"
 	}
 }
-

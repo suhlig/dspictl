@@ -88,15 +88,15 @@ var channelColors = []lipgloss.Color{
 }
 
 type model struct {
-	devices       []*dspi.Device
-	snaps         []dspi.MeterSnapshot
-	activeDevice  int
+	devices        []*dspi.Device
+	snaps          []dspi.MeterSnapshot
+	activeDevice   int
 	ticksSinceScan int
-	clippedCh     [][]int
-	clipTimer     []int
-	err           error
-	width         int
-	connected     bool
+	clippedCh      [][]int
+	clipTimer      []int
+	err            error
+	width          int
+	connected      bool
 }
 
 type tickMsg time.Time

@@ -24,7 +24,7 @@ func Open(info DeviceInfo) (*Device, error) {
 	})
 
 	if err != nil {
-		ctx.Close()
+		_ = ctx.Close()
 
 		return nil, fmt.Errorf("opening DSPi device: %w", err)
 	}
@@ -35,7 +35,7 @@ func Open(info DeviceInfo) (*Device, error) {
 		serial, err := dev.SerialNumber()
 
 		if err != nil {
-			dev.Close()
+			_ = dev.Close()
 
 			continue
 		}
@@ -43,12 +43,12 @@ func Open(info DeviceInfo) (*Device, error) {
 		if serial == info.Serial {
 			target = dev
 		} else {
-			dev.Close()
+			_ = dev.Close()
 		}
 	}
 
 	if target == nil {
-		ctx.Close()
+		_ = ctx.Close()
 
 		return nil, fmt.Errorf("DSPi device with serial %s not found", info.Serial)
 	}

@@ -1,0 +1,11 @@
+---
+
+repos:
+  - repo: https://github.com/TekWizely/pre-commit-golang
+    rev: v1.0.0-rc.4
+    hooks:
+      - id: go-fmt-repo
+      - id: go-vet-repo-mod
+      - id: go-build-repo-mod
+      - id: go-mod-tidy-repo
+      - id: golangci-lint-repo-mod

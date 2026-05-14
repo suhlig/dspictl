@@ -16,7 +16,10 @@ type DeviceInfo struct {
 // List enumerates all connected DSPi devices.
 func List() ([]DeviceInfo, error) {
 	ctx := gousb.NewContext()
-	defer ctx.Close()
+
+	defer func() {
+		_ = ctx.Close()
+	}()
 
 	devs, err := ctx.OpenDevices(func(desc *gousb.DeviceDesc) bool {
 		return desc.Vendor == gousb.ID(dspiVID) && desc.Product == gousb.ID(dspiPID)
@@ -32,7 +35,7 @@ func List() ([]DeviceInfo, error) {
 		serial, err := dev.SerialNumber()
 
 		if err != nil {
-			dev.Close()
+			_ = dev.Close()
 
 			continue
 		}
@@ -43,7 +46,7 @@ func List() ([]DeviceInfo, error) {
 			Bus:     desc.Bus,
 			Address: desc.Address,
 		})
-		dev.Close()
+		_ = dev.Close()
 	}
 
 	return infos, nil

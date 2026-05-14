@@ -12,6 +12,14 @@ The USB control protocol is documented at the [DSPi repository](https://github.c
 
 `examples/mixer` is a full-screen terminal UI built with [Bubble Tea](https://github.com/charmbracelet/bubbletea) and [Lipgloss](https://github.com/charmbracelet/lipgloss). It renders a live meter with colored bars, CPU usage, and clip indicators.
 
+## Development
+
+This project uses [pre-commit](https://pre-commit.com/) to check formatting, linting, and compilation before each commit. After cloning, install the hook:
+
+```
+brew install pre-commit && pre-commit install
+```
+
 ## Requirements
 
 - Go 1.26 or later
