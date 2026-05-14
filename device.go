@@ -7,6 +7,10 @@ import (
 	"github.com/google/gousb"
 )
 
+// vendorInterfaceInRequest is the USB bmRequestType for vendor-specific,
+// device-to-host (IN) control transfers addressed to an interface.
+const vendorInterfaceInRequest = gousb.ControlIn | gousb.ControlVendor | gousb.ControlInterface
+
 // Device wraps a USB connection to a DSPi.
 type Device struct {
 	ctx      *gousb.Context
@@ -121,7 +125,7 @@ func (d *Device) Serial() string { return d.serial }
 
 func (d *Device) detectPlatform() (Platform, error) {
 	buf := make([]byte, 4)
-	_, err := d.device.Control(0xC1, reqGetPlatform, 0, macOSVendorInterface, buf)
+	_, err := d.device.Control(vendorInterfaceInRequest, reqGetPlatform, 0, macOSVendorInterface, buf)
 
 	if err != nil {
 		return PlatformRP2040, fmt.Errorf("REQ_GET_PLATFORM: %w", err)
@@ -138,7 +142,7 @@ func (d *Device) ReadMeter() MeterSnapshot {
 	var snap MeterSnapshot
 	buf := make([]byte, maxChannels*2+5)
 
-	n, err := d.device.Control(0xC1, reqGetStatus, 9, macOSVendorInterface, buf)
+	n, err := d.device.Control(vendorInterfaceInRequest, reqGetStatus, 9, macOSVendorInterface, buf)
 
 	if err != nil {
 		snap.err = fmt.Errorf("REQ_GET_STATUS: %w", err)
@@ -173,7 +177,7 @@ func (d *Device) ReadMeter() MeterSnapshot {
 // ClearClips sends REQ_CLEAR_CLIPS (0x83) to reset the clip bitmask on the device.
 func (d *Device) ClearClips() error {
 	buf := make([]byte, 2)
-	_, err := d.device.Control(0xC1, reqClearClips, 0, macOSVendorInterface, buf)
+	_, err := d.device.Control(vendorInterfaceInRequest, reqClearClips, 0, macOSVendorInterface, buf)
 
 	if err != nil {
 		return fmt.Errorf("clearing clips: %w", err)
