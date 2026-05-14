@@ -8,9 +8,8 @@ import (
 
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/suhlig/dspi"
 )
-
-// ─── colour palette ────────────────────────────────────────────────────
 
 var (
 	colBG       = lipgloss.Color("#1a1b26")
@@ -75,13 +74,11 @@ var channelColors = []lipgloss.Color{
 	colPurple, // PDM Sub
 }
 
-// ─── TUI model ─────────────────────────────────────────────────────────
-
 type model struct {
-	device      *DSPiDevice
-	lastSnap    MeterSnapshot
-	clippedCh   []int   // channels that have clipped (held for display)
-	clipTimer   int     // counts down ticks before clearing clip display
+	device      *dspi.DSPiDevice
+	lastSnap    dspi.MeterSnapshot
+	clippedCh   []int
+	clipTimer   int
 	err         error
 	width       int
 	connected   bool
@@ -94,8 +91,6 @@ func initialModel() model {
 	return model{width: 80}
 }
 
-// ─── commands ──────────────────────────────────────────────────────────
-
 func tick() tea.Cmd {
 	return tea.Tick(60*time.Millisecond, func(t time.Time) tea.Msg {
 		return tickMsg(t)
@@ -103,14 +98,12 @@ func tick() tea.Cmd {
 }
 
 func connectCmd() tea.Msg {
-	dev, err := OpenDSPi()
+	dev, err := dspi.OpenDSPi()
 	if err != nil {
 		return errMsg{fmt.Errorf("connect: %w", err)}
 	}
 	return dev
 }
-
-// ─── init / update / view ──────────────────────────────────────────────
 
 func (m model) Init() tea.Cmd {
 	return tea.Batch(connectCmd, tick())
@@ -127,7 +120,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		case "c":
-			// Clear clip indicators
 			m.clippedCh = nil
 			m.clipTimer = 0
 			if m.device != nil {
@@ -135,7 +127,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "r":
-			// Reconnect
 			if m.device != nil {
 				m.device.Close()
 			}
@@ -149,7 +140,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.connected = false
 		return m, nil
 
-	case *DSPiDevice:
+	case *dspi.DSPiDevice:
 		m.device = msg
 		m.connected = true
 		m.err = nil
@@ -169,7 +160,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.lastSnap = snap
 
-		// Track newly clipped channels for display
 		newClips := snap.ClipFlags
 		var clipped []int
 		for i := 0; i < snap.Channels; i++ {
@@ -179,7 +169,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if len(clipped) > 0 {
 			m.clippedCh = append(m.clippedCh, clipped...)
-			m.clipTimer = 170 // ~10 seconds at 60ms tick
+			m.clipTimer = 170
 		}
 		if m.clipTimer > 0 {
 			m.clipTimer--
@@ -205,14 +195,12 @@ func (m model) View() string {
 	}
 
 	var b strings.Builder
-	channels := channelTable(m.device.Platform())
+	channels := dspi.ChannelTable(m.device.Platform())
 	snap := m.lastSnap
 
-	// Title
 	b.WriteString(styleTitle.Render("DSPi Live Meter"))
 	b.WriteString("\n")
 
-	// Platform & CPU
 	cpu0col := cpuColor(snap.CPU0)
 	cpu1col := cpuColor(snap.CPU1)
 	platStr := fmt.Sprintf("Platform: %s  |  CPU0: %d%%  CPU1: %d%%",
@@ -222,13 +210,11 @@ func (m model) View() string {
 	))
 	b.WriteString("\n\n")
 
-	// Separator line
 	b.WriteString(lipgloss.NewStyle().
 		Foreground(colBorder).
 		Render(strings.Repeat("─", min(m.width, 80))))
 	b.WriteString("\n")
 
-	// Draw CPU bars
 	cpuBar := drawBar(float64(snap.CPU0)/100.0, 30, cpu0col)
 	b.WriteString(lipgloss.NewStyle().PaddingLeft(2).Render(
 		fmt.Sprintf("Core 0 %s %3d%%", cpuBar, snap.CPU0),
@@ -240,9 +226,8 @@ func (m model) View() string {
 	))
 	b.WriteString("\n\n")
 
-	// Group channels by category
 	type groupEntry struct {
-		info ChannelInfo
+		info dspi.ChannelInfo
 		peak float64
 	}
 
@@ -261,7 +246,6 @@ func (m model) View() string {
 			continue
 		}
 
-		// Group header
 		b.WriteString(lipgloss.NewStyle().
 			Foreground(colMuted).
 			Bold(true).
@@ -275,7 +259,6 @@ func (m model) View() string {
 			peak := e.peak
 			col := channelColors[idx%len(channelColors)]
 
-			// Determine if this channel is clipped
 			isClipped := false
 			for _, c := range m.clippedCh {
 				if c == idx {
@@ -294,7 +277,7 @@ func (m model) View() string {
 				Foreground(col).
 				Bold(true).
 				PaddingLeft(2)
-			dbfsStr := DBFS(peak)
+			dbfsStr := dspi.DBFS(peak)
 			valStyle := lipgloss.NewStyle().
 				Width(8).
 				Align(lipgloss.Right).
@@ -313,7 +296,6 @@ func (m model) View() string {
 		b.WriteString("\n")
 	}
 
-	// Clip summary line
 	if len(m.clippedCh) > 0 {
 		var clipNames []string
 		for _, idx := range m.clippedCh {
@@ -330,7 +312,6 @@ func (m model) View() string {
 		b.WriteString("\n\n")
 	}
 
-	// Footer
 	b.WriteString(lipgloss.NewStyle().
 		Foreground(colBorder).
 		Render(strings.Repeat("─", min(m.width, 80))))
@@ -344,8 +325,6 @@ func (m model) View() string {
 		Padding(1, 2).
 		Render(b.String())
 }
-
-// ─── helpers ───────────────────────────────────────────────────────────
 
 func drawBar(fraction float64, width int, color lipgloss.Color) string {
 	if fraction < 0 {
@@ -369,7 +348,7 @@ func drawBar(fraction float64, width int, color lipgloss.Color) string {
 	return lipgloss.NewStyle().
 		Foreground(color).
 		Background(colBarBg).
-		Render(fillStr+emptyStr)
+		Render(fillStr + emptyStr)
 }
 
 func cpuColor(load int) lipgloss.Color {
@@ -419,8 +398,6 @@ func renderError(err error) string {
 			),
 		)
 }
-
-// ─── entry point ───────────────────────────────────────────────────────
 
 func main() {
 	p := tea.NewProgram(initialModel(), tea.WithAltScreen())

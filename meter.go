@@ -1,4 +1,4 @@
-package main
+package dspi
 
 import (
 	"encoding/binary"
@@ -52,8 +52,8 @@ type ChannelInfo struct {
 	Group string
 }
 
-// channelTable returns the channel mapping for the given platform.
-func channelTable(platform Platform) []ChannelInfo {
+// ChannelTable returns the channel mapping for the given platform.
+func ChannelTable(platform Platform) []ChannelInfo {
 	if platform == PlatformRP2350 {
 		return []ChannelInfo{
 			{0, "USB L", "USB Input"},
