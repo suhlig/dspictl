@@ -46,10 +46,12 @@ var (
 	styleTitle = lipgloss.NewStyle().
 			Foreground(colTitle).
 			Bold(true).
+			Background(colBG).
 			Align(lipgloss.Center)
 
 	styleSubtitle = lipgloss.NewStyle().
 			Foreground(colMuted).
+			Background(colBG).
 			Align(lipgloss.Center)
 
 	styleClipLabel = lipgloss.NewStyle().
@@ -66,6 +68,7 @@ var (
 
 	styleFooter = lipgloss.NewStyle().
 			Foreground(colMuted).
+			Background(colBG).
 			Align(lipgloss.Center)
 
 	styleTabActive = lipgloss.NewStyle().
