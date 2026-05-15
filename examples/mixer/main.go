@@ -2,14 +2,15 @@ package main
 
 import (
 	"fmt"
+	"image/color"
 	"math"
 	"os"
 	"slices"
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/suhlig/dspi"
 )
 
@@ -17,7 +18,6 @@ const (
 	tickInterval      = 60 * time.Millisecond
 	scanInterval      = 100 // in ticks (~6s at 60ms/tick)
 	clipTimerDuration = 170 // in ticks (~10s at 60ms/tick)
-	barWidth          = 30
 	nameWidth         = 14
 	dbfsValueWidth    = 10
 )
@@ -86,7 +86,7 @@ var (
 			Padding(0, 1)
 )
 
-var channelColors = []lipgloss.Color{
+var channelColors = []color.Color{
 	colBlue,
 	colRed,
 	colCyan,
@@ -110,6 +110,7 @@ type model struct {
 	masterVolume   []dspi.Gain
 	err            error
 	width          int
+	height         int
 	connected      bool
 }
 
@@ -118,7 +119,7 @@ type errMsg struct{ error }
 type devicesMsg []*dspi.Device
 
 func initialModel() model {
-	return model{width: 80}
+	return model{width: 80, height: 24}
 }
 
 func tick() tea.Cmd {
@@ -158,11 +159,16 @@ func (m model) Init() tea.Cmd {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
+		if !acceptWidth(msg.Width) {
+			return m, nil
+		}
+
 		m.width = msg.Width
+		m.height = msg.Height
 
 		return m, nil
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "q", "ctrl+c":
 			for _, dev := range m.devices {
@@ -361,18 +367,200 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) View() string {
+func acceptWidth(w int) bool {
+	return w >= 22
+}
+
+// barWidth computes the bar graph width based on the available terminal width.
+// It also returns the effective name width and whether dBFS/CPU% should be shown.
+func barWidth(termWidth int) (bw int, nameW int, showDBFS bool) {
+	const outerPad = 4
+	const namePad = 2
+	const shortNameW = 3
+	const sepAfterBar = 1
+	const sepBeforeDbfs = 1
+	const sepBeforeClip = 1
+	const leftRightSep = 2
+	const sliderW = 7
+
+	wideOverhead := outerPad + namePad + nameWidth + sepBeforeDbfs + sepAfterBar + dbfsValueWidth + sepBeforeClip + leftRightSep + sliderW
+
+	bw = termWidth - wideOverhead
+
+	if bw >= 10 {
+		return bw, nameWidth, true
+	}
+
+	mediumOverhead := outerPad + namePad + nameWidth + sepAfterBar + sepBeforeClip + leftRightSep + sliderW
+	bw = termWidth - mediumOverhead
+
+	if bw >= 4 {
+		return bw, nameWidth, false
+	}
+
+	narrowOverhead := outerPad + namePad + shortNameW + sepAfterBar + sepBeforeClip + leftRightSep + sliderW
+	bw = termWidth - narrowOverhead
+
+	return bw, shortNameW, false
+}
+
+func shortenChannelName(name string) string {
+	switch {
+	case strings.HasPrefix(name, "USB "):
+		return name[4:]
+	case strings.HasPrefix(name, "SPDIF "):
+		parts := strings.Split(name, " ")
+		if len(parts) == 3 {
+			return parts[1] + parts[2]
+		}
+		return name
+	case name == "PDM Sub":
+		return "Sub"
+	default:
+		return name
+	}
+}
+
+func cpuSuffix(load int, showDBFS bool) string {
+	if !showDBFS {
+		return ""
+	}
+	return fmt.Sprintf(" %3d%%", load)
+}
+
+func (m model) View() tea.View {
 	if m.err != nil {
-		return renderError(m.err, m.width)
+		return renderError(m.err, m.width, m.height)
 	}
 
 	if !m.connected || len(m.devices) == 0 {
-		return renderConnecting(m.width)
+		return renderConnecting(m.width, m.height)
 	}
 
 	dev := m.devices[m.activeDevice]
 	snap := m.snaps[m.activeDevice]
 	channels := dspi.ChannelTable(dev.Platform())
+
+	bw, nameW, showDBFS := barWidth(m.width)
+
+	cpu0col := cpuColor(snap.CPU0)
+	cpu1col := cpuColor(snap.CPU1)
+
+	type groupEntry struct {
+		info dspi.ChannelInfo
+		peak dspi.Level
+	}
+
+	groupDisplay := map[string]string{
+		"USB Input":     "Input",
+		"S/PDIF Output": "Output",
+		"PDM Sub":       "Subwoofer",
+	}
+	groupOrder := []string{"Input", "Output", "Subwoofer"}
+	groups := map[string][]groupEntry{}
+	channelTotal := 0
+
+	for _, ch := range channels {
+		if ch.Index >= snap.Channels {
+			continue
+		}
+		displayName := groupDisplay[ch.Group]
+		if displayName == "" {
+			displayName = ch.Group
+		}
+		groups[displayName] = append(groups[displayName], groupEntry{ch, snap.Peaks[ch.Index]})
+		channelTotal++
+	}
+
+	// Count rows needed at each compression level
+	// Fixed: title + tabs + subtitle + top separator + bottom separator + footer
+	fixedRows := 1 // title
+	if len(m.devices) > 1 {
+		fixedRows++ // tabs
+	}
+	fixedRows += 1 // subtitle (no blank line after, per user request)
+	fixedRows += 1 // top separator
+	fixedRows += 1 // bottom separator
+	fixedRows += 1 // footer
+	if len(m.clippedCh[m.activeDevice]) > 0 {
+		fixedRows += 2 // clip text + blank
+	}
+
+	fixedRowsNoSep := fixedRows - 3 // no subtitle, no top sep, no bottom sep
+
+	cpuRows := 4 // heading + 2 cores + blank line
+
+	// Channel rows with full headers and blanks between sections
+	chRowsFull := 0
+	for i, g := range groupOrder {
+		entries := groups[g]
+
+		if len(entries) == 0 {
+			continue
+		}
+
+		chRowsFull += 1 // heading
+		chRowsFull += len(entries)
+
+		if i < len(groupOrder)-1 {
+			chRowsFull += 1 // blank after section
+		}
+	}
+
+	chRowsCompact := channelTotal
+
+	totalRowsCPUVisible := fixedRows + cpuRows + chRowsFull
+	totalRowsCPUHidden := fixedRows + chRowsFull
+	totalRowsCompact := fixedRows + chRowsCompact
+	totalRowsNoSubtitle := fixedRows - 1 + chRowsCompact
+	totalRowsNoSep := fixedRowsNoSep + chRowsCompact
+
+	available := m.height - 1 // outer PaddingTop(1)
+
+	var showCPUSection bool
+	var showHeaders bool
+	var showSubtitle bool
+	var showTopSep bool
+	var showBottomSep bool
+
+	switch {
+	case totalRowsCPUVisible <= available:
+		showCPUSection = true
+		showHeaders = true
+		showSubtitle = true
+		showTopSep = true
+		showBottomSep = true
+	case totalRowsCPUHidden <= available:
+		showCPUSection = false
+		showHeaders = true
+		showSubtitle = true
+		showTopSep = true
+		showBottomSep = true
+	case totalRowsCompact <= available:
+		showCPUSection = false
+		showHeaders = false
+		showSubtitle = true
+		showTopSep = true
+		showBottomSep = true
+	case totalRowsNoSubtitle <= available:
+		showCPUSection = false
+		showHeaders = false
+		showSubtitle = false
+		showTopSep = true
+		showBottomSep = true
+	case totalRowsNoSep <= available:
+		showCPUSection = false
+		showHeaders = false
+		showSubtitle = false
+		showTopSep = false
+		showBottomSep = false
+	default:
+		showCPUSection = false
+		showHeaders = false
+		showSubtitle = false
+		showTopSep = false
+		showBottomSep = false
+	}
 
 	var b strings.Builder
 
@@ -381,60 +569,68 @@ func (m model) View() string {
 
 	b.WriteString(m.renderTabs())
 
-	cpu0col := cpuColor(snap.CPU0)
-	cpu1col := cpuColor(snap.CPU1)
-	subStr := fmt.Sprintf("Device %d/%d  |  %s  |  Serial: %s  |  CPU0: %d%%  CPU1: %d%%",
-		m.activeDevice+1, len(m.devices), dev.Platform(), dev.Serial(), snap.CPU0, snap.CPU1)
-	b.WriteString(styleSubtitle.Width(m.width).Render(subStr))
-	b.WriteString("\n\n")
+	if showSubtitle {
+		var devicePart string
+		if len(m.devices) > 1 {
+			devicePart = fmt.Sprintf("Device %d/%d  |  ", m.activeDevice+1, len(m.devices))
+		}
+		subStr := fmt.Sprintf("%s%s  |  Serial: %s",
+			devicePart, dev.Platform(), dev.Serial())
+		if !showCPUSection {
+			subStr += fmt.Sprintf("  |  CPU0: %d%%  CPU1: %d%%", snap.CPU0, snap.CPU1)
+		}
+		b.WriteString(styleSubtitle.Width(m.width).Render(subStr))
+		b.WriteString("\n")
+	}
 
-	b.WriteString(lipgloss.NewStyle().
-		Foreground(colBorder).
-		Render(strings.Repeat("─", m.width)))
-	b.WriteString("\n")
+	if showTopSep {
+		b.WriteString(lipgloss.NewStyle().
+			Foreground(colBorder).
+			Render(strings.Repeat("─", m.width)))
+		b.WriteString("\n")
+	}
 
 	// Build left content (CPU + channels)
 	var left strings.Builder
 
-	cpuBar := drawBar(float64(snap.CPU0)/100.0, barWidth, cpu0col)
-	left.WriteString(lipgloss.NewStyle().PaddingLeft(2).Render(
-		fmt.Sprintf("Core 0 %s %3d%%", cpuBar, snap.CPU0),
-	))
-	left.WriteString("\n")
-	cpuBar = drawBar(float64(snap.CPU1)/100.0, barWidth, cpu1col)
-	left.WriteString(lipgloss.NewStyle().PaddingLeft(2).Render(
-		fmt.Sprintf("Core 1 %s %3d%%", cpuBar, snap.CPU1),
-	))
-	left.WriteString("\n\n")
-
-	type groupEntry struct {
-		info dspi.ChannelInfo
-		peak dspi.Level
-	}
-
-	groups := map[string][]groupEntry{}
-
-	for _, ch := range channels {
-		if ch.Index >= snap.Channels {
-			continue
-		}
-		groups[ch.Group] = append(groups[ch.Group], groupEntry{ch, snap.Peaks[ch.Index]})
-	}
-
-	groupOrder := []string{"USB Input", "S/PDIF Output", "PDM Sub"}
-	for _, g := range groupOrder {
-		entries, ok := groups[g]
-
-		if !ok || len(entries) == 0 {
-			continue
-		}
-
+	if showCPUSection {
 		left.WriteString(lipgloss.NewStyle().
 			Foreground(colMuted).
 			Bold(true).
 			PaddingLeft(2).
-			Render(g))
+			Render("Cores"))
 		left.WriteString("\n")
+
+		cpuLabelStyle := lipgloss.NewStyle().Width(nameW).PaddingLeft(2)
+
+		if nameW < nameWidth {
+			left.WriteString(cpuLabelStyle.Render("0") + drawBar(float64(snap.CPU0)/100.0, bw, cpu0col))
+			left.WriteString("\n")
+			left.WriteString(cpuLabelStyle.Render("1") + drawBar(float64(snap.CPU1)/100.0, bw, cpu1col))
+		} else {
+			left.WriteString(cpuLabelStyle.Render("Core 0") + drawBar(float64(snap.CPU0)/100.0, bw, cpu0col) + cpuSuffix(snap.CPU0, showDBFS))
+			left.WriteString("\n")
+			left.WriteString(cpuLabelStyle.Render("Core 1") + drawBar(float64(snap.CPU1)/100.0, bw, cpu1col) + cpuSuffix(snap.CPU1, showDBFS))
+		}
+
+		left.WriteString("\n\n")
+	}
+
+	for i, g := range groupOrder {
+		entries := groups[g]
+
+		if len(entries) == 0 {
+			continue
+		}
+
+		if showHeaders {
+			left.WriteString(lipgloss.NewStyle().
+				Foreground(colMuted).
+				Bold(true).
+				PaddingLeft(2).
+				Render(g))
+			left.WriteString("\n")
+		}
 
 		for _, e := range entries {
 			ch := e.info
@@ -446,37 +642,92 @@ func (m model) View() string {
 
 			clipMark := ""
 			if isClipped {
-				clipMark = styleClipChannel.Render("CLIP")
+				clipMark = " " + styleClipChannel.Render("CLIP")
+			}
+
+			chName := ch.Name
+			if nameW < nameWidth {
+				chName = shortenChannelName(chName)
 			}
 
 			nameStyle := lipgloss.NewStyle().
-				Width(nameWidth).
+				Width(nameW).
 				Foreground(col).
 				Bold(true).
 				PaddingLeft(2)
-			dbfsStr := peak.String()
-			valStyle := lipgloss.NewStyle().
-				Width(dbfsValueWidth).
-				Align(lipgloss.Right).
-				Foreground(colMuted)
+			bar := drawBar(peak.Linear(), bw, col)
 
-			bar := drawBar(peak.Linear(), barWidth, col)
-			line := fmt.Sprintf("%s%s %s %s",
-				nameStyle.Render(ch.Name),
-				bar,
-				valStyle.Render(dbfsStr),
-				clipMark,
-			)
-			left.WriteString(line)
+			if showDBFS {
+				dbfsStr := peak.String()
+				valStyle := lipgloss.NewStyle().
+					Width(dbfsValueWidth).
+					Align(lipgloss.Right).
+					Foreground(colMuted)
+				fmt.Fprintf(&left, "%s%s %s%s",
+					nameStyle.Render(chName),
+					bar,
+					valStyle.Render(dbfsStr),
+					clipMark,
+				)
+			} else {
+				fmt.Fprintf(&left, "%s%s%s",
+					nameStyle.Render(chName),
+					bar,
+					clipMark,
+				)
+			}
 			left.WriteString("\n")
 		}
-		left.WriteString("\n")
+
+		if showHeaders && i < len(groupOrder)-1 {
+			left.WriteString("\n")
+		}
 	}
 
 	// Join left content with vertical slider
 	leftStr := left.String()
 	leftLines := strings.Count(leftStr, "\n")
 	rightStr := m.renderMasterVolumeSlider(leftLines)
+
+	// Compute stable max left width (theoretical, accounting for clip marks and dBFS)
+	maxLeftWidth := nameW + bw + 5 // channel line without dBFS
+
+	if showDBFS {
+		maxLeftWidth = nameW + bw + 1 + dbfsValueWidth + 5 // channel with dBFS + clip
+	}
+
+	if showCPUSection {
+		cpuWidth := nameW + bw
+
+		if showDBFS {
+			cpuWidth += 5 // " 100%" suffix
+		}
+
+		if cpuWidth > maxLeftWidth {
+			maxLeftWidth = cpuWidth
+		}
+	}
+
+	// Pad left content to push slider to the rightmost position
+	contentWidth := m.width - 4 // outer PaddingLeft(2) + PaddingRight(2)
+	separatorWidth := 2
+	sliderWidth := 6
+	targetLeftWidth := contentWidth - separatorWidth - sliderWidth
+
+	if targetLeftWidth > maxLeftWidth {
+		padWidth := targetLeftWidth - maxLeftWidth
+		leftLines := strings.Split(strings.TrimSuffix(leftStr, "\n"), "\n")
+
+		for i, line := range leftLines {
+			lineWidth := lipgloss.Width(line)
+			if lineWidth < maxLeftWidth+padWidth {
+				leftLines[i] = line + strings.Repeat(" ", maxLeftWidth+padWidth-lineWidth)
+			}
+		}
+
+		leftStr = strings.Join(leftLines, "\n") + "\n"
+	}
+
 	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, leftStr, "  ", rightStr))
 	b.WriteString("\n")
 
@@ -498,18 +749,41 @@ func (m model) View() string {
 		b.WriteString("\n\n")
 	}
 
-	b.WriteString(lipgloss.NewStyle().
-		Foreground(colBorder).
-		Render(strings.Repeat("─", m.width)))
-	b.WriteString("\n")
-	b.WriteString(styleFooter.Width(m.width).Render(
-		"q: quit  |  Tab: switch device  |  ↑↓: master volume  |  c: clear clips  |  r: rescan",
-	))
+	// Pad to push the bottom separator and footer to the last rows
+	linesInB := strings.Count(b.String(), "\n")
+	bottomLines := 1 // footer always shown
+	if showBottomSep {
+		bottomLines++ // bottom separator
+	}
+	paddingNeeded := (m.height - 1) - linesInB - bottomLines // -1 for outer top padding
 
-	return lipgloss.NewStyle().
+	for range paddingNeeded {
+		b.WriteString("\n")
+	}
+
+	if showBottomSep {
+		b.WriteString(lipgloss.NewStyle().
+			Foreground(colBorder).
+			Render(strings.Repeat("─", m.width)))
+		b.WriteString("\n")
+	}
+	var footer string
+	if len(m.devices) > 1 {
+		footer = "q: quit  |  Tab: switch device  |  ↑↓: master volume  |  c: clear clips  |  r: rescan"
+	} else {
+		footer = "q: quit  |  ↑↓: master volume  |  c: clear clips  |  r: rescan"
+	}
+	b.WriteString(styleFooter.Width(m.width).Render(footer))
+
+	v := tea.NewView(lipgloss.NewStyle().
 		Background(colBG).
-		Padding(1, 2).
-		Render(b.String())
+		PaddingTop(1).
+		PaddingLeft(2).
+		PaddingRight(2).
+		Render(b.String()))
+	v.AltScreen = true
+
+	return v
 }
 
 func (m model) renderTabs() string {
@@ -539,23 +813,34 @@ func (m model) renderTabs() string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, tabs...) + "\n"
 }
 
-func drawBar(fraction float64, width int, color lipgloss.Color) string {
+func drawBar(fraction float64, width int, color color.Color) string {
 	if fraction < 0 {
 		fraction = 0
 	}
 	if fraction > 1 {
 		fraction = 1
 	}
-	filled := min(int(fraction*float64(width)), width)
-	empty := width - filled
 
-	fillStr := strings.Repeat("█", filled)
-	emptyStr := strings.Repeat("░", empty)
+	totalSubCells := width * 8
+	filledSubCells := max(0, min(totalSubCells, int(math.Round(fraction*float64(totalSubCells)))))
+
+	full := filledSubCells / 8
+	rem := filledSubCells % 8
+
+	var bld strings.Builder
+	bld.WriteString(strings.Repeat("█", full))
+	if rem > 0 {
+		bld.WriteString([]string{"▏", "▎", "▍", "▌", "▋", "▊", "▉"}[rem-1])
+		full++
+	}
+	if empty := width - full; empty > 0 {
+		bld.WriteString(strings.Repeat("░", empty))
+	}
 
 	return lipgloss.NewStyle().
 		Foreground(color).
 		Background(colBarBg).
-		Render(fillStr + emptyStr)
+		Render(bld.String())
 }
 
 func (m model) renderMasterVolumeSlider(height int) string {
@@ -566,31 +851,48 @@ func (m model) renderMasterVolumeSlider(height int) string {
 	fraction := math.Pow(x, 3.19)
 
 	barHeight := max(height-2, 1)
-	filled := int(fraction * float64(barHeight))
-	filled = max(0, min(barHeight, filled))
 
 	barStyle := lipgloss.NewStyle().Foreground(colVolume).Background(colBarBg)
 
+	partials := []string{"▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"}
+	effectiveFilled := fraction * float64(barHeight)
+	fullFilled := int(effectiveFilled)
+	remainder := effectiveFilled - float64(fullFilled)
+
 	var bld strings.Builder
 
-	bld.WriteString("  VOL ")
+	bld.WriteString(barStyle.Render("  VOL "))
 	bld.WriteString("\n")
 
 	for i := range barHeight {
-		if i >= barHeight-filled {
-			bld.WriteString(barStyle.Render("  █  "))
-		} else {
-			bld.WriteString(barStyle.Render("  ░  "))
+		distFromBottom := barHeight - 1 - i
+
+		var ch string
+		switch {
+		case distFromBottom < fullFilled:
+			ch = "█"
+		case distFromBottom == fullFilled && remainder > 0:
+			idx := int(math.Round(remainder * 8))
+
+			if idx == 0 {
+				ch = "░"
+			} else {
+				ch = partials[idx-1]
+			}
+		default:
+			ch = "░"
 		}
+
+		bld.WriteString(barStyle.Render(fmt.Sprintf("  %s  ", ch)))
 		bld.WriteString("\n")
 	}
 
-	fmt.Fprintf(&bld, "%6s", mv.String())
+	bld.WriteString(barStyle.Render(fmt.Sprintf("%6s", mv.String())))
 
 	return bld.String()
 }
 
-func cpuColor(load int) lipgloss.Color {
+func cpuColor(load int) color.Color {
 	switch {
 	case load >= 90:
 		return colCPUCrit
@@ -601,11 +903,11 @@ func cpuColor(load int) lipgloss.Color {
 	}
 }
 
-func renderFrame(width int, body string) string {
-	return lipgloss.NewStyle().
+func renderFrame(width int, height int, body string) tea.View {
+	v := tea.NewView(lipgloss.NewStyle().
 		Background(colBG).
-		Padding(2, 2).
 		Width(width).
+		Height(height).
 		Align(lipgloss.Center).
 		Render(
 			lipgloss.JoinVertical(lipgloss.Center,
@@ -613,12 +915,16 @@ func renderFrame(width int, body string) string {
 				"",
 				body,
 			),
-		)
+		))
+	v.AltScreen = true
+
+	return v
 }
 
-func renderConnecting(width int) string {
-	return renderFrame(width,
+func renderConnecting(width int, height int) tea.View {
+	return renderFrame(width, height,
 		lipgloss.JoinVertical(lipgloss.Center,
+			"",
 			lipgloss.NewStyle().Foreground(colYellow).Render("Connecting to DSPi..."),
 			"",
 			lipgloss.NewStyle().Foreground(colMuted).Render("Make sure the device(s) are plugged in via USB"),
@@ -626,9 +932,10 @@ func renderConnecting(width int) string {
 	)
 }
 
-func renderError(err error, width int) string {
-	return renderFrame(width,
+func renderError(err error, width int, height int) tea.View {
+	return renderFrame(width, height,
 		lipgloss.JoinVertical(lipgloss.Center,
+			"",
 			lipgloss.NewStyle().Foreground(colRed).Bold(true).Render("Connection Error"),
 			"",
 			lipgloss.NewStyle().Foreground(colFG).Render(err.Error()),
@@ -648,7 +955,7 @@ func main() {
 }
 
 func mainE() error {
-	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
+	p := tea.NewProgram(initialModel())
 
 	_, err := p.Run()
 

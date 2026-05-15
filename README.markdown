@@ -29,7 +29,7 @@ brew install watchexec
 Then run it with
 
 ```command
-watchexec --restart go run ./examples/mixer
+watchexec --restart --wrap-process=none go run ./examples/mixer
 ```
 
 ## Requirements
