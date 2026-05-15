@@ -1,0 +1,190 @@
+package main
+
+import (
+	"time"
+
+	"github.com/suhlig/dspi"
+)
+
+type tickMsg time.Time
+
+type errMsg struct{ error }
+
+type devicesMsg []*dspi.Device
+
+type model struct {
+	dm             *deviceManager
+	activeDevice   int
+	ticksSinceScan int
+	err            error
+	width          int
+	height         int
+	connected      bool
+}
+
+func initialModel() model {
+	return model{
+		dm:     newDeviceManager(),
+		width:  80,
+		height: 24,
+	}
+}
+
+type deviceManager struct {
+	devices      []*dspi.Device
+	snaps        []dspi.MeterSnapshot
+	clippedCh    [][]int
+	clipTimer    []int
+	masterVolume []dspi.Gain
+}
+
+func newDeviceManager() *deviceManager {
+	return &deviceManager{}
+}
+
+func (dm *deviceManager) Initialize(devices []*dspi.Device) {
+	dm.devices = devices
+	n := len(devices)
+	dm.snaps = make([]dspi.MeterSnapshot, n)
+	dm.masterVolume = make([]dspi.Gain, n)
+	dm.clippedCh = make([][]int, n)
+	dm.clipTimer = make([]int, n)
+
+	for i := range dm.masterVolume {
+		dm.masterVolume[i] = dspi.NewGain(-20)
+	}
+}
+
+func (dm *deviceManager) Resync(devices []*dspi.Device) {
+	newSerials := make(map[string]struct{}, len(devices))
+
+	for _, dev := range devices {
+		newSerials[dev.Serial()] = struct{}{}
+	}
+
+	for i := len(dm.devices) - 1; i >= 0; i-- {
+		if _, exists := newSerials[dm.devices[i].Serial()]; !exists {
+			dm.devices[i].Close()
+			dm.devices = append(dm.devices[:i], dm.devices[i+1:]...)
+			dm.snaps = append(dm.snaps[:i], dm.snaps[i+1:]...)
+			dm.clippedCh = append(dm.clippedCh[:i], dm.clippedCh[i+1:]...)
+			dm.clipTimer = append(dm.clipTimer[:i], dm.clipTimer[i+1:]...)
+			dm.masterVolume = append(dm.masterVolume[:i], dm.masterVolume[i+1:]...)
+		}
+	}
+
+	remainingSerials := make(map[string]struct{}, len(dm.devices))
+
+	for _, dev := range dm.devices {
+		remainingSerials[dev.Serial()] = struct{}{}
+	}
+
+	for _, dev := range devices {
+		if _, exists := remainingSerials[dev.Serial()]; !exists {
+			dm.devices = append(dm.devices, dev)
+			dm.snaps = append(dm.snaps, dspi.MeterSnapshot{})
+			dm.masterVolume = append(dm.masterVolume, dspi.NewGain(-20))
+			dm.clippedCh = append(dm.clippedCh, nil)
+			dm.clipTimer = append(dm.clipTimer, 0)
+		} else {
+			dev.Close()
+		}
+	}
+}
+
+func (dm *deviceManager) Len() int {
+	return len(dm.devices)
+}
+
+func (dm *deviceManager) Device(i int) *dspi.Device {
+	return dm.devices[i]
+}
+
+func (dm *deviceManager) Snap(i int) dspi.MeterSnapshot {
+	return dm.snaps[i]
+}
+
+func (dm *deviceManager) MasterVolume(i int) dspi.Gain {
+	return dm.masterVolume[i]
+}
+
+func (dm *deviceManager) SetMasterVolume(i int, g dspi.Gain) {
+	dm.masterVolume[i] = g
+}
+
+func (dm *deviceManager) HasClip(i int) bool {
+	return len(dm.clippedCh[i]) > 0
+}
+
+func (dm *deviceManager) ClippedCh(i int) []int {
+	return dm.clippedCh[i]
+}
+
+func (dm *deviceManager) AllDevices() []*dspi.Device {
+	return dm.devices
+}
+
+func (dm *deviceManager) AllClippedCh() [][]int {
+	return dm.clippedCh
+}
+
+func (dm *deviceManager) ClearAllClips() {
+	for _, dev := range dm.devices {
+		_ = dev.ClearClips()
+	}
+
+	dm.clippedCh = make([][]int, len(dm.devices))
+	dm.clipTimer = make([]int, len(dm.devices))
+}
+
+func (dm *deviceManager) CloseAll() {
+	for _, dev := range dm.devices {
+		dev.Close()
+	}
+}
+
+func (dm *deviceManager) ReadMeter(i int) {
+	snap := dm.devices[i].ReadMeter()
+	dm.snaps[i] = snap
+}
+
+func (dm *deviceManager) ProcessClips(i int) {
+	snap := dm.snaps[i]
+
+	if snap.Err() != nil {
+		return
+	}
+
+	var clipped []int
+	newClips := snap.ClipFlags
+
+	for j := 0; j < snap.Channels; j++ {
+		if newClips&(1<<j) != 0 {
+			clipped = append(clipped, j)
+		}
+	}
+
+	if len(clipped) > 0 {
+		dm.clippedCh[i] = append(dm.clippedCh[i], clipped...)
+		dm.clipTimer[i] = clipTimerDuration
+	}
+}
+
+func (dm *deviceManager) TickClipTimer(i int) {
+	if dm.clipTimer[i] <= 0 {
+		return
+	}
+
+	dm.clipTimer[i]--
+
+	if dm.clipTimer[i] == 0 {
+		dm.clippedCh[i] = nil
+		_ = dm.devices[i].ClearClips()
+	}
+}
+
+func (dm *deviceManager) RefreshMasterVolume(i int) {
+	if mv, err := dm.devices[i].GetMasterVolume(); err == nil {
+		dm.masterVolume[i] = mv
+	}
+}
