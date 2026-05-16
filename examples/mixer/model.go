@@ -36,6 +36,7 @@ type deviceManager struct {
 	clippedCh    [][]int
 	clipTimer    []int
 	masterVolume []dspi.Gain
+	channels     [][]dspi.ChannelInfo
 }
 
 func newDeviceManager() *deviceManager {
@@ -49,9 +50,16 @@ func (dm *deviceManager) Initialize(devices []*dspi.Device) {
 	dm.masterVolume = make([]dspi.Gain, n)
 	dm.clippedCh = make([][]int, n)
 	dm.clipTimer = make([]int, n)
+	dm.channels = make([][]dspi.ChannelInfo, n)
 
 	for i := range dm.masterVolume {
 		dm.masterVolume[i] = dspi.NewGain(-20)
+	}
+
+	for i, dev := range devices {
+		if chs, err := dev.Channels(); err == nil {
+			dm.channels[i] = chs
+		}
 	}
 }
 
@@ -70,6 +78,7 @@ func (dm *deviceManager) Resync(devices []*dspi.Device) {
 			dm.clippedCh = append(dm.clippedCh[:i], dm.clippedCh[i+1:]...)
 			dm.clipTimer = append(dm.clipTimer[:i], dm.clipTimer[i+1:]...)
 			dm.masterVolume = append(dm.masterVolume[:i], dm.masterVolume[i+1:]...)
+			dm.channels = append(dm.channels[:i], dm.channels[i+1:]...)
 		}
 	}
 
@@ -86,6 +95,12 @@ func (dm *deviceManager) Resync(devices []*dspi.Device) {
 			dm.masterVolume = append(dm.masterVolume, dspi.NewGain(-20))
 			dm.clippedCh = append(dm.clippedCh, nil)
 			dm.clipTimer = append(dm.clipTimer, 0)
+
+			if chs, err := dev.Channels(); err == nil {
+				dm.channels = append(dm.channels, chs)
+			} else {
+				dm.channels = append(dm.channels, nil)
+			}
 		} else {
 			dev.Close()
 		}
@@ -126,6 +141,10 @@ func (dm *deviceManager) AllDevices() []*dspi.Device {
 
 func (dm *deviceManager) AllClippedCh() [][]int {
 	return dm.clippedCh
+}
+
+func (dm *deviceManager) Channels(i int) []dspi.ChannelInfo {
+	return dm.channels[i]
 }
 
 func (dm *deviceManager) ClearAllClips() {

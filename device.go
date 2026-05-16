@@ -1,6 +1,7 @@
 package dspi
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -22,6 +23,7 @@ const (
 	reqClearClips      = 0x83
 	reqSetMasterVolume = 0xD2
 	reqGetMasterVolume = 0xD3
+	reqGetChannelName  = 0x9C
 )
 
 // Device wraps a USB connection to a DSPi.
@@ -265,6 +267,130 @@ func (d *Device) GetMasterVolume() (Gain, error) {
 	}
 
 	return NewGain(float64(math.Float32frombits(binary.LittleEndian.Uint32(buf)))), nil
+}
+
+// ChannelName fetches the name of a channel from the device hardware.
+// The channelIndex should be 0-based.
+func (d *Device) ChannelName(channelIndex int) (string, error) {
+	if d.device == nil {
+		return "", fmt.Errorf("device is closed")
+	}
+
+	buf := make([]byte, 64)
+	n, err := d.device.Control(vendorInterfaceInRequest, reqGetChannelName, uint16(channelIndex), vendorInterface, buf)
+
+	if err != nil {
+		return "", fmt.Errorf("REQ_GET_CHANNEL_NAME: %w", err)
+	}
+
+	// Find null terminator or use full buffer
+	end := bytes.IndexByte(buf[:n], 0)
+	if end == -1 {
+		end = n
+	}
+
+	return string(bytes.TrimSpace(buf[:end])), nil
+}
+
+// Channels queries the device for all channel names and returns a slice of ChannelInfo.
+// The number of channels is determined by the platform (7 for RP2040, 11 for RP2350).
+func (d *Device) Channels() ([]ChannelInfo, error) {
+	if d.device == nil {
+		return nil, fmt.Errorf("device is closed")
+	}
+
+	channelCount := 7
+	if d.platform == PlatformRP2350 {
+		channelCount = 11
+	}
+
+	channels := make([]ChannelInfo, 0, channelCount)
+
+	for i := 0; i < channelCount; i++ {
+		name, err := d.ChannelName(i)
+		if err != nil {
+			return nil, fmt.Errorf("reading channel %d name: %w", i, err)
+		}
+
+		// Fallback to default name if device returns empty
+		if name == "" {
+			name = defaultChannelName(i, d.platform)
+		}
+
+		channels = append(channels, ChannelInfo{
+			Index: i,
+			Name:  name,
+			Group: channelGroup(i, d.platform),
+		})
+	}
+
+	return channels, nil
+}
+
+// defaultChannelName returns a default name for a channel based on its index and platform.
+func defaultChannelName(index int, platform Platform) string {
+	if platform == PlatformRP2350 {
+		switch index {
+		case 0:
+			return "USB L"
+		case 1:
+			return "USB R"
+		case 2:
+			return "SPDIF 1 L"
+		case 3:
+			return "SPDIF 1 R"
+		case 4:
+			return "SPDIF 2 L"
+		case 5:
+			return "SPDIF 2 R"
+		case 6:
+			return "SPDIF 3 L"
+		case 7:
+			return "SPDIF 3 R"
+		case 8:
+			return "SPDIF 4 L"
+		case 9:
+			return "SPDIF 4 R"
+		case 10:
+			return "PDM Sub"
+		}
+	} else {
+		switch index {
+		case 0:
+			return "USB L"
+		case 1:
+			return "USB R"
+		case 2:
+			return "SPDIF 1 L"
+		case 3:
+			return "SPDIF 1 R"
+		case 4:
+			return "SPDIF 2 L"
+		case 5:
+			return "SPDIF 2 R"
+		case 6:
+			return "PDM Sub"
+		}
+	}
+
+	return fmt.Sprintf("Ch %d", index)
+}
+
+// channelGroup returns the group name for a channel based on its index and platform.
+func channelGroup(index int, platform Platform) string {
+	maxIndex := 6
+	if platform == PlatformRP2350 {
+		maxIndex = 10
+	}
+
+	switch {
+	case index <= 1:
+		return "USB Input"
+	case index < maxIndex:
+		return "S/PDIF Output"
+	default:
+		return "PDM Sub"
+	}
 }
 
 func normalize(raw uint16) float64 {

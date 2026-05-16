@@ -6,7 +6,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/suhlig/dspi"
 
 	"github.com/suhlig/dspi/examples/mixer/ui"
 )
@@ -22,7 +21,7 @@ func (m model) View() tea.View {
 
 	dev := m.dm.Device(m.activeDevice)
 	snap := m.dm.Snap(m.activeDevice)
-	channels := dspi.ChannelTable(dev.Platform())
+	channels := m.dm.Channels(m.activeDevice)
 
 	groups, groupOrder, channelTotal := ui.BuildGroups(channels, snap)
 	clippedCh := m.dm.ClippedCh(m.activeDevice)
