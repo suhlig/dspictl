@@ -16,14 +16,6 @@ const (
 	vendorInterfaceInRequest = gousb.ControlIn | gousb.ControlVendor | gousb.ControlInterface
 
 	vendorInterfaceOutRequest = gousb.ControlOut | gousb.ControlVendor | gousb.ControlInterface
-
-	// https://github.com/WeebLabs/DSPi/blob/5c71c5d2a09b25761abf3013781aa6a905cc001c/firmware/DSPi/config.h
-	reqGetStatus       = 0x50
-	reqGetPlatform     = 0x7F
-	reqClearClips      = 0x83
-	reqSetMasterVolume = 0xD2
-	reqGetMasterVolume = 0xD3
-	reqGetChannelName  = 0x9C
 )
 
 // Device wraps a USB connection to a DSPi.

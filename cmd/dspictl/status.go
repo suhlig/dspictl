@@ -1,0 +1,76 @@
+package main
+
+import (
+	"fmt"
+	"log/slog"
+
+	"github.com/spf13/cobra"
+	"github.com/suhlig/dspi"
+)
+
+func newStatusCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "status",
+		Short: "Show a summary of connected DSPi devices",
+		RunE:  runStatus,
+	}
+}
+
+func runStatus(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+
+	defer closeDevices(devices)
+
+	for _, d := range devices {
+		volume, err := d.GetMasterVolume()
+
+		if err != nil {
+			slog.Error("getting master volume failed", "serial", d.Serial(), "error", err)
+			continue
+		}
+
+		preset, err := d.GetActivePreset()
+
+		if err != nil {
+			slog.Error("getting active preset failed", "serial", d.Serial(), "error", err)
+			continue
+		}
+
+		meter := d.ReadMeter()
+
+		if meter.Err() != nil {
+			slog.Error("reading meter failed", "serial", d.Serial(), "error", meter.Err())
+			continue
+		}
+
+		channels := dspi.ChannelTable(d.Platform())
+
+		fmt.Printf("Serial: %s\n", d.Serial())
+		fmt.Printf("Type: %s\n", d.Platform())
+		fmt.Printf("Volume: %s\n", volume)
+		fmt.Printf("Preset: %d\n", preset)
+		fmt.Printf("CPU: %d%% / %d%%\n", meter.CPU0, meter.CPU1)
+		fmt.Println()
+
+		for i, ch := range channels {
+			if i >= meter.Channels {
+				break
+			}
+			clip := ""
+
+			if meter.ClipFlags&(1<<i) != 0 {
+				clip = " CLIP"
+			}
+
+			fmt.Printf("  ch %d  %-12s %s%s\n", ch.Index, ch.Name, meter.Peaks[i], clip)
+		}
+
+		fmt.Println()
+	}
+
+	return nil
+}
