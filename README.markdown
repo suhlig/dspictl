@@ -1,12 +1,25 @@
 # DSPi-Go
 
-A Go library and example application for reading real-time telemetry from a [DSPi audio device](https://github.com/WeebLabs/DSPi) over USB.
+A command-line tool and Go library to control a [DSPi audio device](https://github.com/WeebLabs/DSPi) from the command line.
 
-## What It Does
+Pre-built Linux binaries are available from [GitHub Releases](https://github.com/suhlig/dspi/releases).
 
-DSPi-Go talks to a DSPi (a Raspberry Pi Pico-based digital audio platform) through its vendor-specific USB control interface. The library exposes per-channel peak levels, CPU load, and clip flags so you can build meters, monitors, or automation tools in Go.
+Choose the binary that matches your platform:
 
-The USB control protocol is documented at the [DSPi repository](https://github.com/WeebLabs/DSPi#usb-control-protocol).
+| File | Architecture | Typical Hardware |
+|---|---|---|
+| `dspictl-linux-amd64` | x86_64 | Desktop PCs, laptops |
+| `dspictl-linux-arm64` | ARM 64-bit | Raspberry Pi 3/4/5 (64-bit OS) |
+| `dspictl-linux-armv7` | ARM 32-bit | Raspberry Pi 2/3/4/5 (32-bit OS) |
+
+After downloading, make it executable and run it:
+
+```sh
+chmod +x dspictl-linux-*
+./dspictl-linux-*
+```
+
+> **Note:** You may need a [udev rule](#troubleshooting) for USB access as a regular user.
 
 ## Example Application
 
@@ -104,3 +117,7 @@ echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="2e8b", ATTR{idProduct}=="feaa", GROUP="
 ## License
 
 MIT
+
+## References
+
+* The USB control protocol is documented at the [DSPi repository](https://github.com/WeebLabs/DSPi#usb-control-protocol)

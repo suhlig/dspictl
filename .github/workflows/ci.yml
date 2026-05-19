@@ -64,9 +64,23 @@ jobs:
         run: go test ./...
 
   build:
-    name: Build dspictl for Linux
+    name: Build dspictl for ${{ matrix.goos }}/${{ matrix.goarch }}
     runs-on: ubuntu-latest
     needs: checks
+
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            binary: dspictl-linux-amd64
+          - goos: linux
+            goarch: arm
+            goarm: "7"
+            binary: dspictl-linux-armv7
+          - goos: linux
+            goarch: arm64
+            binary: dspictl-linux-arm64
 
     steps:
       - name: Checkout Repository
@@ -84,12 +98,13 @@ jobs:
 
       - name: Build dspictl Binary
         env:
-          GOOS: linux
-          GOARCH: amd64
-        run: go build -o dspictl ./cmd/dspictl
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
+        run: go build -o ${{ matrix.binary }} ./cmd/dspictl
 
       - name: Upload Binary
         uses: actions/upload-artifact@v4
         with:
-          name: dspictl-linux-amd64
-          path: dspictl
+          name: ${{ matrix.binary }}
+          path: ${{ matrix.binary }}
