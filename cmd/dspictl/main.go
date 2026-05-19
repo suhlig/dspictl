@@ -98,6 +98,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newMatrixCmd())
 	rootCmd.AddCommand(newChannelNameCmd())
 	rootCmd.AddCommand(newConfigCmd())
+	rootCmd.AddCommand(newTargetsCmd())
 
 	return rootCmd
 }

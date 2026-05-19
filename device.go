@@ -24,6 +24,8 @@ type Device struct {
 	device   *gousb.Device
 	platform Platform
 	serial   string
+	bus      int
+	address  int
 }
 
 // Open opens a specific DSPi device identified by info.
@@ -65,9 +67,11 @@ func Open(info DeviceInfo) (*Device, error) {
 	}
 
 	d := &Device{
-		ctx:    ctx,
-		device: target,
-		serial: info.Serial,
+		ctx:     ctx,
+		device:  target,
+		serial:  info.Serial,
+		bus:     info.Bus,
+		address: info.Address,
 	}
 
 	plat, err := d.detectPlatform()
@@ -138,6 +142,12 @@ func (d *Device) Platform() Platform { return d.platform }
 
 // Serial returns the unique serial number of the device.
 func (d *Device) Serial() string { return d.serial }
+
+// Bus returns the USB bus number of the device.
+func (d *Device) Bus() int { return d.bus }
+
+// Address returns the USB device address on the bus.
+func (d *Device) Address() int { return d.address }
 
 func (d *Device) detectPlatform() (Platform, error) {
 	buf := make([]byte, 4)
