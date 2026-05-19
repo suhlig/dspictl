@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"regexp"
 
 	"github.com/spf13/cobra"
 	"github.com/suhlig/dspi"
@@ -24,7 +25,51 @@ func main() {
 }
 
 func mainE(ctx context.Context) error {
-	return newRootCmd().ExecuteContext(ctx)
+	cmd := newRootCmd()
+	cmd.SetArgs(protectNegativeArgs(os.Args[1:]))
+
+	return cmd.ExecuteContext(ctx)
+}
+
+var knownValueTakingFlags = map[string]bool{
+	"--target": true,
+}
+
+var negativeNumberRe = regexp.MustCompile(`^-\d+(\.\d+)?$`)
+
+// protectNegativeArgs inserts -- before negative numbers that look like dB
+// values, so cobra/pflag doesn't interpret them as shorthand flags.
+//
+// For example, ["volume", "set", "-20"] becomes ["volume", "set", "--", "-20"].
+// Negative numbers preceded by a known value-taking flag (like --target) are
+// left alone.
+func protectNegativeArgs(args []string) []string {
+	var result []string
+	afterDoubleDash := false
+
+	for i, arg := range args {
+		if arg == "--" {
+			afterDoubleDash = true
+
+			result = append(result, arg)
+
+			continue
+		}
+
+		if !afterDoubleDash && negativeNumberRe.MatchString(arg) {
+			if i > 0 && knownValueTakingFlags[args[i-1]] {
+				result = append(result, arg)
+
+				continue
+			}
+
+			result = append(result, "--")
+		}
+
+		result = append(result, arg)
+	}
+
+	return result
 }
 
 func newRootCmd() *cobra.Command {
