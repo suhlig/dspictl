@@ -11,22 +11,29 @@ permissions:
 
 jobs:
   build:
-    name: Build dspictl for ${{ matrix.goos }}/${{ matrix.goarch }}
-    runs-on: ubuntu-latest
+    name: Build dspictl for ${{ matrix.goarch }}
+    runs-on: ${{ matrix.runner }}
 
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - goos: linux
+          - runner: ubuntu-latest
+            goos: linux
             goarch: amd64
             binary: dspictl-linux-amd64
-          - goos: linux
+          - runner: ubuntu-24.04-arm
+            goos: linux
+            goarch: arm64
+            binary: dspictl-linux-arm64
+          - runner: ubuntu-24.04-arm
+            goos: linux
             goarch: arm
             goarm: "7"
             binary: dspictl-linux-armv7
-          - goos: linux
-            goarch: arm64
-            binary: dspictl-linux-arm64
+            cc: arm-linux-gnueabihf-gcc
+            cross_arch: armhf
+            pkg_config_path: /usr/lib/arm-linux-gnueabihf/pkgconfig
 
     steps:
       - name: Checkout Repository
@@ -35,7 +42,13 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libusb-1.0-0-dev
+          if [ -n "${{ matrix.cross_arch }}" ]; then
+            sudo dpkg --add-architecture ${{ matrix.cross_arch }}
+            sudo apt-get update
+            sudo apt-get install -y pkg-config libusb-1.0-0-dev:${{ matrix.cross_arch }} gcc-arm-linux-gnueabihf
+          else
+            sudo apt-get install -y libusb-1.0-0-dev
+          fi
 
       - name: Set Up Go
         uses: actions/setup-go@v5
@@ -47,6 +60,9 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           GOARM: ${{ matrix.goarm }}
+          CC: ${{ matrix.cc }}
+          CGO_ENABLED: "1"
+          PKG_CONFIG_PATH: ${{ matrix.pkg_config_path }}
         run: go build -o ${{ matrix.binary }} ./cmd/dspictl
 
       - name: Upload Binary
