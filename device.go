@@ -15,6 +15,8 @@ const (
 	// device-to-host (IN) control transfers addressed to an interface.
 	vendorInterfaceInRequest = gousb.ControlIn | gousb.ControlVendor | gousb.ControlInterface
 
+	// vendorInterfaceOutRequest is the USB bmRequestType for vendor-specific,
+	// host-to-device (OUT) control transfers addressed to an interface.
 	vendorInterfaceOutRequest = gousb.ControlOut | gousb.ControlVendor | gousb.ControlInterface
 )
 

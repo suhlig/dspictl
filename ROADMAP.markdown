@@ -242,3 +242,9 @@ dspictl config mck multiplier 256
 # Export
 
 TODO Think about dumping the complete config and allowing a restore from it (e.g. as JSON)
+
+# Tests
+
+* TODO What can we test without access to the hardware?
+  * Is the channel_test.go really useful? Do we use the static channel table anywhere?
+* TODO What can we test _with_ access to the hardware?
