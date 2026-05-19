@@ -5,7 +5,6 @@ import (
 	"log/slog"
 
 	"github.com/spf13/cobra"
-	"github.com/suhlig/dspi"
 )
 
 func newStatusCmd() *cobra.Command {
@@ -47,29 +46,11 @@ func runStatus(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
-		channels := dspi.ChannelTable(d.Platform())
-
 		fmt.Printf("Serial: %s\n", d.Serial())
 		fmt.Printf("Type: %s\n", d.Platform())
 		fmt.Printf("Volume: %s\n", volume)
 		fmt.Printf("Preset: %d\n", preset)
 		fmt.Printf("CPU: %d%% / %d%%\n", meter.CPU0, meter.CPU1)
-		fmt.Println()
-
-		for i, ch := range channels {
-			if i >= meter.Channels {
-				break
-			}
-			clip := ""
-
-			if meter.ClipFlags&(1<<i) != 0 {
-				clip = " CLIP"
-			}
-
-			fmt.Printf("  ch %d  %-12s %s%s\n", ch.Index, ch.Name, meter.Peaks[i], clip)
-		}
-
-		fmt.Println()
 	}
 
 	return nil

@@ -55,7 +55,7 @@ docker run --rm -v "$PWD":/src -e CGO_ENABLED=1 dspi-builder
 We can then copy the compiled `dspictl` binary to the target device (e.g. `pi5`) and run it as a regular user:
 
 ```sh
-scp dspictl pi5: && ssh pi5 ./dspictl
+scp dspictl pi5:bin && ssh pi5 dspictl
 ```
 
 ### Troubleshooting
