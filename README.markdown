@@ -93,6 +93,14 @@ echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="2e8b", ATTR{idProduct}=="feaa", GROUP="
   | sudo tee /etc/udev/rules.d/99-dspi.rules
 ```
 
+## GitHub Actions
+
+* Show the most recently failed GitHub Actions run:
+
+  ```sh
+  $ gh run view --log $(gh run list --workflow=ci.yml --status failure --json databaseId --jq '.[].databaseId')
+  ```
+
 ## License
 
 MIT
