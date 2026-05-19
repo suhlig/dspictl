@@ -85,11 +85,19 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newMuteCmd())
 	rootCmd.AddCommand(newUnmuteCmd())
 	rootCmd.AddCommand(newStatusCmd())
+	rootCmd.AddCommand(newClearClipsCmd())
+	rootCmd.AddCommand(newBufferStatsCmd())
+	rootCmd.AddCommand(newUSBErrorsCmd())
+	rootCmd.AddCommand(newCore1Cmd())
+	rootCmd.AddCommand(newBootloaderCmd())
+	rootCmd.AddCommand(newFactoryResetCmd())
 	rootCmd.AddCommand(newVolumeCmd())
 	rootCmd.AddCommand(newPreampCmd())
 	rootCmd.AddCommand(newOutputCmd())
 	rootCmd.AddCommand(newPresetCmd())
 	rootCmd.AddCommand(newMatrixCmd())
+	rootCmd.AddCommand(newChannelNameCmd())
+	rootCmd.AddCommand(newConfigCmd())
 
 	return rootCmd
 }

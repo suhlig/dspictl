@@ -1,7 +1,9 @@
-# dspictl Command Reference
+# dspictl Roadmap
 
 High-level design for the `dspictl` CLI, derived from the
 [DSPi USB Control Protocol](https://github.com/WeebLabs/DSPi#usb-control-protocol).
+
+# Commands
 
 ## Design Conventions
 
@@ -43,6 +45,16 @@ Serial: E6614103E32C3B2D
 Type: RP2350
 Volume: -20 dB
 Preset: 3
+```
+
+### `dspictl targets`
+
+Lists all connected devices by their serial number.
+
+```
+$ dspictl targets
+E6614103E32C3B2D
+D3615A4863503A79
 ```
 
 ### `dspictl clear-clips`
@@ -226,3 +238,7 @@ dspictl config mck multiplier 256
 
 - `--target <serial>` — Operate on a specific device by serial number.
   Without it, every command addresses all connected DSPi devices.
+
+# Export
+
+TODO Think about dumping the complete config and allowing a restore from it (e.g. as JSON)

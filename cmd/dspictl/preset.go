@@ -54,7 +54,198 @@ func newPresetCmd() *cobra.Command {
 		RunE:  runPresetActive,
 	})
 
+	cmd.AddCommand(&cobra.Command{
+		Use:   "startup-mode [specified|last]",
+		Short: "Get or set startup mode",
+		Args:  cobra.MaximumNArgs(1),
+		RunE:  runPresetStartupMode,
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "default-slot [<slot>]",
+		Short: "Get or set default boot slot",
+		Args:  cobra.MaximumNArgs(1),
+		RunE:  runPresetDefaultSlot,
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "include-pins [true|false]",
+		Short: "Get or set pin-config inclusion",
+		Args:  cobra.MaximumNArgs(1),
+		RunE:  runPresetIncludePins,
+	})
+
 	return cmd
+}
+
+func runPresetStartupMode(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+
+	defer closeDevices(devices)
+
+	if len(args) == 0 {
+		for _, d := range devices {
+			mode, slot, err := d.GetPresetStartup()
+
+			if err != nil {
+				slog.Error("getting startup mode failed", "serial", d.Serial(), "error", err)
+
+				continue
+			}
+
+			name := "specified"
+
+			if mode == 1 {
+				name = "last"
+			}
+
+			fmt.Printf("%s: %s (default slot %d)\n", d.Serial(), name, slot)
+		}
+
+		return nil
+	}
+
+	var mode int
+
+	switch args[0] {
+	case "specified":
+		mode = 0
+	case "last":
+		mode = 1
+	default:
+		return fmt.Errorf("invalid mode: %s (expected specified or last)", args[0])
+	}
+
+	for _, d := range devices {
+		_, currentSlot, err := d.GetPresetStartup()
+
+		if err != nil {
+			slog.Error("getting startup mode failed", "serial", d.Serial(), "error", err)
+
+			continue
+		}
+
+		err = d.SetPresetStartup(mode, currentSlot)
+
+		if err != nil {
+			slog.Error("setting startup mode failed", "serial", d.Serial(), "error", err)
+
+			continue
+		}
+
+		fmt.Printf("%s: startup-mode=%s\n", d.Serial(), args[0])
+	}
+
+	return nil
+}
+
+func runPresetDefaultSlot(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+
+	defer closeDevices(devices)
+
+	if len(args) == 0 {
+		for _, d := range devices {
+			_, slot, err := d.GetPresetStartup()
+
+			if err != nil {
+				slog.Error("getting default slot failed", "serial", d.Serial(), "error", err)
+
+				continue
+			}
+
+			fmt.Printf("%s: default slot %d\n", d.Serial(), slot)
+		}
+
+		return nil
+	}
+
+	slot, err := strconv.Atoi(args[0])
+
+	if err != nil {
+		return fmt.Errorf("invalid slot: %w", err)
+	}
+
+	for _, d := range devices {
+		currentMode, _, err := d.GetPresetStartup()
+
+		if err != nil {
+			slog.Error("getting startup mode failed", "serial", d.Serial(), "error", err)
+
+			continue
+		}
+
+		err = d.SetPresetStartup(currentMode, slot)
+
+		if err != nil {
+			slog.Error("setting default slot failed", "serial", d.Serial(), "error", err)
+
+			continue
+		}
+
+		fmt.Printf("%s: default-slot=%d\n", d.Serial(), slot)
+	}
+
+	return nil
+}
+
+func runPresetIncludePins(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+
+	defer closeDevices(devices)
+
+	if len(args) == 0 {
+		for _, d := range devices {
+			include, err := d.GetPresetIncludePins()
+
+			if err != nil {
+				slog.Error("getting include-pins failed", "serial", d.Serial(), "error", err)
+
+				continue
+			}
+
+			fmt.Printf("%s: %v\n", d.Serial(), include)
+		}
+
+		return nil
+	}
+
+	var include bool
+
+	switch args[0] {
+	case "true":
+		include = true
+	case "false":
+		include = false
+	default:
+		return fmt.Errorf("invalid value: %s (expected true or false)", args[0])
+	}
+
+	for _, d := range devices {
+		err := d.SetPresetIncludePins(include)
+
+		if err != nil {
+			slog.Error("setting include-pins failed", "serial", d.Serial(), "error", err)
+
+			continue
+		}
+
+		fmt.Printf("%s: include-pins=%v\n", d.Serial(), include)
+	}
+
+	return nil
 }
 
 func runPresetList(cmd *cobra.Command, args []string) error {

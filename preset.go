@@ -148,3 +148,75 @@ func (d *Device) GetActivePreset() (int, error) {
 
 	return int(buf[0]), nil
 }
+
+// SetPresetStartup sets the startup mode and default slot.
+// mode: 0=specified (use defaultSlot), 1=last active.
+func (d *Device) SetPresetStartup(mode, defaultSlot int) error {
+	if d.device == nil {
+		return fmt.Errorf("device is closed")
+	}
+
+	buf := []byte{byte(mode), byte(defaultSlot)}
+	_, err := d.device.Control(vendorInterfaceOutRequest, reqPresetSetStartup, 0, vendorInterface, buf)
+
+	if err != nil {
+		return fmt.Errorf("REQ_PRESET_SET_STARTUP: %w", err)
+	}
+
+	return nil
+}
+
+// GetPresetStartup returns the startup mode and default slot.
+// mode: 0=specified, 1=last active.
+func (d *Device) GetPresetStartup() (mode int, defaultSlot int, err error) {
+	if d.device == nil {
+		return 0, 0, fmt.Errorf("device is closed")
+	}
+
+	buf := make([]byte, 2)
+	_, err = d.device.Control(vendorInterfaceInRequest, reqPresetGetStartup, 0, vendorInterface, buf)
+
+	if err != nil {
+		return 0, 0, fmt.Errorf("REQ_PRESET_GET_STARTUP: %w", err)
+	}
+
+	return int(buf[0]), int(buf[1]), nil
+}
+
+// SetPresetIncludePins sets whether pin configuration is included when
+// saving and loading presets.
+func (d *Device) SetPresetIncludePins(include bool) error {
+	if d.device == nil {
+		return fmt.Errorf("device is closed")
+	}
+
+	val := byte(0)
+	if include {
+		val = 1
+	}
+
+	_, err := d.device.Control(vendorInterfaceOutRequest, reqPresetSetIncludePins, 0, vendorInterface, []byte{val})
+
+	if err != nil {
+		return fmt.Errorf("REQ_PRESET_SET_INCLUDE_PINS: %w", err)
+	}
+
+	return nil
+}
+
+// GetPresetIncludePins returns whether pin configuration is included in
+// preset save/load operations.
+func (d *Device) GetPresetIncludePins() (bool, error) {
+	if d.device == nil {
+		return false, fmt.Errorf("device is closed")
+	}
+
+	buf := make([]byte, 1)
+	_, err := d.device.Control(vendorInterfaceInRequest, reqPresetGetIncludePins, 0, vendorInterface, buf)
+
+	if err != nil {
+		return false, fmt.Errorf("REQ_PRESET_GET_INCLUDE_PINS: %w", err)
+	}
+
+	return buf[0] != 0, nil
+}

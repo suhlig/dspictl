@@ -28,7 +28,101 @@ func newVolumeCmd() *cobra.Command {
 		RunE:  runVolumeSet,
 	})
 
+	cmd.AddCommand(&cobra.Command{
+		Use:   "mode [independent|preset]",
+		Short: "Get or set persistence mode",
+		Args:  cobra.MaximumNArgs(1),
+		RunE:  runVolumeMode,
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "save",
+		Short: "Save current volume as boot default",
+		RunE:  runVolumeSave,
+	})
+
 	return cmd
+}
+
+func runVolumeMode(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+
+	defer closeDevices(devices)
+
+	if len(args) == 0 {
+		for _, d := range devices {
+			mode, err := d.GetMasterVolumeMode()
+
+			if err != nil {
+				slog.Error("getting volume mode failed", "serial", d.Serial(), "error", err)
+
+				continue
+			}
+
+			name := "independent"
+
+			if mode == 1 {
+				name = "preset"
+			}
+
+			fmt.Printf("%s: %s\n", d.Serial(), name)
+		}
+
+		return nil
+	}
+
+	var mode int
+
+	switch args[0] {
+	case "independent":
+		mode = 0
+	case "preset":
+		mode = 1
+	default:
+		return fmt.Errorf("invalid mode: %s (expected independent or preset)", args[0])
+	}
+
+	for _, d := range devices {
+		err := d.SetMasterVolumeMode(mode)
+
+		if err != nil {
+			slog.Error("setting volume mode failed", "serial", d.Serial(), "error", err)
+
+			continue
+		}
+
+		fmt.Printf("%s: mode=%s\n", d.Serial(), args[0])
+	}
+
+	return nil
+}
+
+func runVolumeSave(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+
+	defer closeDevices(devices)
+
+	for _, d := range devices {
+		err := d.SaveMasterVolume()
+
+		if err != nil {
+			slog.Error("saving master volume failed", "serial", d.Serial(), "error", err)
+
+			continue
+		}
+
+		fmt.Printf("%s: master volume saved\n", d.Serial())
+	}
+
+	return nil
 }
 
 func runVolumeGet(cmd *cobra.Command, args []string) error {
