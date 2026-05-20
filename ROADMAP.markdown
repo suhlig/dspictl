@@ -251,8 +251,3 @@ TODO Think about dumping the complete config and allowing a restore from it (e.g
 # Tests
 
 * TODO What can we test _with_ access to the hardware?
-
-# Release
-
-* TODO Shall we add a homebrew formula (cask) for macOS?
-* TODO Would goreleaser make any of that easier?

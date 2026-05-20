@@ -2,28 +2,29 @@
 
 A command-line tool and Go library to control a [DSPi audio device](https://github.com/WeebLabs/DSPi) from the command line.
 
-Pre-built binaries are available from [GitHub Releases](https://github.com/suhlig/dspi/releases).
+Pre-built archives are available from [GitHub Releases](https://github.com/suhlig/dspi/releases).
 
-Choose the binary that matches your platform:
+Choose the archive that matches your platform:
 
 | File | Architecture | Typical Hardware |
 |---|---|---|
-| `dspictl-linux-amd64` | x86_64 | Desktop PCs, laptops |
-| `dspictl-linux-arm64` | ARM 64-bit | Raspberry Pi 3/4/5 (64-bit OS) |
-| `dspictl-linux-armv7` | ARM 32-bit | Raspberry Pi 2/3/4/5 (32-bit OS) |
-| `dspictl-darwin-amd64` | x86_64 | Intel Macs |
-| `dspictl-darwin-arm64` | ARM 64-bit | Apple Silicon Macs |
+| `dspictl-*-linux-amd64.tar.gz` | x86_64 | Desktop PCs, laptops |
+| `dspictl-*-linux-arm64.tar.gz` | ARM 64-bit | Raspberry Pi 3/4/5 (64-bit OS) |
+| `dspictl-*-linux-armv7.tar.gz` | ARM 32-bit | Raspberry Pi 2/3/4/5 (32-bit OS) |
+| `dspictl-*-darwin-amd64.tar.gz` | x86_64 | Intel Macs |
+| `dspictl-*-darwin-arm64.tar.gz` | ARM 64-bit | Apple Silicon Macs |
 
-After downloading, make it executable and run it:
+After downloading, extract the archive and run it:
 
 ```sh
-chmod +x dspictl-*
-./dspictl-*
+tar xzf dspictl-*-*.tar.gz
+chmod +x dspictl
+./dspictl
 ```
 
 > **Note:** You may need a [udev rule](#troubleshooting) for USB access as a regular user on Linux.
 
-The macOS version needs to be allowed to be executed with `xattr -d com.apple.quarantine dspictl-darwin-arm64` once because it is not a signed binary.
+The macOS version needs to be allowed to be executed with `xattr -d com.apple.quarantine dspictl` once because it is not a signed binary.
 
 ## Example Application
 

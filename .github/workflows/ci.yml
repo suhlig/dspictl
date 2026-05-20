@@ -105,7 +105,7 @@ jobs:
 
       - name: Compute Version
         id: version
-        run: echo "version=$(bash scripts/compute-version.sh)" >> "$GITHUB_OUTPUT"
+        run: echo "version=$(git describe --tags --always --match 'v*' 2>/dev/null || echo dev)" >> "$GITHUB_OUTPUT"
 
       - name: Install System Dependencies
         run: |
