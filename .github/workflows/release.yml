@@ -103,6 +103,7 @@ jobs:
           merge-multiple: true
 
       - name: Create Archives
+        id: archives
         run: |
           mkdir -p archives
           for binary in artifacts/dspictl-*; do
@@ -115,6 +116,7 @@ jobs:
             rm -rf "$tmpdir"
           done
           cd archives && sha256sum * > checksums.txt
+          echo "darwin_arm64_sha256=$(sha256sum "dspictl-${GITHUB_REF_NAME}-darwin-arm64.tar.gz" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -128,5 +130,6 @@ jobs:
           formula-name: dspictl
           homebrew-tap: suhlig/homebrew-tap
           download-url: https://github.com/suhlig/dspi/releases/download/${{ github.ref_name }}/dspictl-${{ github.ref_name }}-darwin-arm64.tar.gz
+          download-sha256: ${{ steps.archives.outputs.darwin_arm64_sha256 }}
         env:
           COMMITTER_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
