@@ -256,4 +256,4 @@ TODO Think about dumping the complete config and allowing a restore from it (e.g
 # Release
 
 * TODO Shall we add a homebrew formula (cask) for macOS?
-* TODO Would gorelease make any of that easier?
+* TODO Would goreleaser make any of that easier?

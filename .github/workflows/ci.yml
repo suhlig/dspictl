@@ -88,7 +88,7 @@ jobs:
             cc: arm-linux-gnueabihf-gcc
             cross_arch: armhf
             pkg_config_path: /usr/lib/arm-linux-gnueabihf/pkgconfig
-          - runner: macos-13
+          - runner: macos-15-intel
             goos: darwin
             goarch: amd64
             binary: dspictl-darwin-amd64
