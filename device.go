@@ -20,14 +20,27 @@ const (
 	vendorInterfaceOutRequest = gousb.ControlOut | gousb.ControlVendor | gousb.ControlInterface
 )
 
+type gousbControlTransfer struct {
+	device *gousb.Device
+}
+
+func (c *gousbControlTransfer) ControlTransfer(bmRequestType, bRequest uint8, wValue, wIndex uint16, data []byte) (int, error) {
+	return c.device.Control(bmRequestType, bRequest, wValue, wIndex, data)
+}
+
+func (c *gousbControlTransfer) Close() error {
+	return c.device.Close()
+}
+
 // Device wraps a USB connection to a DSPi.
 type Device struct {
+	usb      USBControlTransfer
 	ctx      *gousb.Context
-	device   *gousb.Device
 	platform Platform
 	serial   string
 	bus      int
 	address  int
+	closed   bool
 }
 
 // Open opens a specific DSPi device identified by info.
@@ -70,7 +83,7 @@ func Open(info DeviceInfo) (*Device, error) {
 
 	d := &Device{
 		ctx:     ctx,
-		device:  target,
+		usb:     &gousbControlTransfer{device: target},
 		serial:  info.Serial,
 		bus:     info.Bus,
 		address: info.Address,
@@ -129,14 +142,16 @@ func OpenAll() ([]*Device, error) {
 
 // Close releases the USB device.
 func (d *Device) Close() {
-	if d.device != nil {
-		_ = d.device.Close()
-		d.device = nil
+	if d.closed {
+		return
+	}
+	if d.usb != nil {
+		_ = d.usb.Close()
 	}
 	if d.ctx != nil {
 		_ = d.ctx.Close()
-		d.ctx = nil
 	}
+	d.closed = true
 }
 
 // Platform returns the detected hardware platform.
@@ -153,7 +168,7 @@ func (d *Device) Address() int { return d.address }
 
 func (d *Device) detectPlatform() (Platform, error) {
 	buf := make([]byte, 4)
-	_, err := d.device.Control(vendorInterfaceInRequest, reqGetPlatform, 0, vendorInterface, buf)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetPlatform, 0, vendorInterface, buf)
 
 	if err != nil {
 		return 0, fmt.Errorf("REQ_GET_PLATFORM: %w", err)
@@ -169,7 +184,7 @@ func (d *Device) detectPlatform() (Platform, error) {
 func (d *Device) ReadMeter() MeterSnapshot {
 	var snap MeterSnapshot
 
-	if d.device == nil {
+	if d.closed {
 		snap.err = fmt.Errorf("device is closed")
 
 		return snap
@@ -177,7 +192,7 @@ func (d *Device) ReadMeter() MeterSnapshot {
 
 	buf := make([]byte, maxChannels*2+5)
 
-	n, err := d.device.Control(vendorInterfaceInRequest, reqGetStatus, 9, vendorInterface, buf)
+	n, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetStatus, 9, vendorInterface, buf)
 
 	if err != nil {
 		snap.err = fmt.Errorf("REQ_GET_STATUS: %w", err)
@@ -225,12 +240,12 @@ func (d *Device) ReadMeter() MeterSnapshot {
 
 // ClearClips sends REQ_CLEAR_CLIPS (0x83) to reset the clip bitmask on the device.
 func (d *Device) ClearClips() error {
-	if d.device == nil {
+	if d.closed {
 		return fmt.Errorf("device is closed")
 	}
 
 	buf := make([]byte, 2)
-	_, err := d.device.Control(vendorInterfaceInRequest, reqClearClips, 0, vendorInterface, buf)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqClearClips, 0, vendorInterface, buf)
 
 	if err != nil {
 		return fmt.Errorf("clearing clips: %w", err)
@@ -242,13 +257,13 @@ func (d *Device) ClearClips() error {
 // SetMasterVolume sets the device-side master volume.
 // Range: -128 (mute sentinel) to 0 dB. Typical range: -127 to 0 dB.
 func (d *Device) SetMasterVolume(g Gain) error {
-	if d.device == nil {
+	if d.closed {
 		return fmt.Errorf("device is closed")
 	}
 
 	buf := make([]byte, 4)
 	binary.LittleEndian.PutUint32(buf, math.Float32bits(float32(g.DB())))
-	_, err := d.device.Control(vendorInterfaceOutRequest, reqSetMasterVolume, 0, vendorInterface, buf)
+	_, err := d.usb.ControlTransfer(vendorInterfaceOutRequest, ReqSetMasterVolume, 0, vendorInterface, buf)
 
 	if err != nil {
 		return fmt.Errorf("REQ_SET_MASTER_VOLUME: %w", err)
@@ -259,12 +274,12 @@ func (d *Device) SetMasterVolume(g Gain) error {
 
 // GetMasterVolume reads the current device-side master volume.
 func (d *Device) GetMasterVolume() (Gain, error) {
-	if d.device == nil {
+	if d.closed {
 		return 0, fmt.Errorf("device is closed")
 	}
 
 	buf := make([]byte, 4)
-	_, err := d.device.Control(vendorInterfaceInRequest, reqGetMasterVolume, 0, vendorInterface, buf)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetMasterVolume, 0, vendorInterface, buf)
 
 	if err != nil {
 		return 0, fmt.Errorf("REQ_GET_MASTER_VOLUME: %w", err)
@@ -276,12 +291,12 @@ func (d *Device) GetMasterVolume() (Gain, error) {
 // ChannelName fetches the name of a channel from the device hardware.
 // The channelIndex should be 0-based.
 func (d *Device) ChannelName(channelIndex int) (string, error) {
-	if d.device == nil {
+	if d.closed {
 		return "", fmt.Errorf("device is closed")
 	}
 
 	buf := make([]byte, 64)
-	n, err := d.device.Control(vendorInterfaceInRequest, reqGetChannelName, uint16(channelIndex), vendorInterface, buf)
+	n, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetChannelName, uint16(channelIndex), vendorInterface, buf)
 
 	if err != nil {
 		return "", fmt.Errorf("REQ_GET_CHANNEL_NAME: %w", err)
@@ -299,7 +314,7 @@ func (d *Device) ChannelName(channelIndex int) (string, error) {
 // Channels queries the device for all channel names and returns a slice of ChannelInfo.
 // The number of channels is determined by the platform (7 for RP2040, 11 for RP2350).
 func (d *Device) Channels() ([]ChannelInfo, error) {
-	if d.device == nil {
+	if d.closed {
 		return nil, fmt.Errorf("device is closed")
 	}
 

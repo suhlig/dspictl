@@ -7,13 +7,13 @@ import (
 )
 
 func (d *Device) SetOutputGain(output int, gain Gain) error {
-	if d.device == nil {
+	if d.closed {
 		return fmt.Errorf("device is closed")
 	}
 
 	buf := make([]byte, 4)
 	binary.LittleEndian.PutUint32(buf, math.Float32bits(float32(gain.DB())))
-	_, err := d.device.Control(vendorInterfaceOutRequest, reqSetOutputGain, uint16(output), vendorInterface, buf)
+	_, err := d.usb.ControlTransfer(vendorInterfaceOutRequest, ReqSetOutputGain, uint16(output), vendorInterface, buf)
 
 	if err != nil {
 		return fmt.Errorf("REQ_SET_OUTPUT_GAIN: %w", err)
@@ -23,12 +23,12 @@ func (d *Device) SetOutputGain(output int, gain Gain) error {
 }
 
 func (d *Device) GetOutputGain(output int) (Gain, error) {
-	if d.device == nil {
+	if d.closed {
 		return 0, fmt.Errorf("device is closed")
 	}
 
 	buf := make([]byte, 4)
-	_, err := d.device.Control(vendorInterfaceInRequest, reqGetOutputGain, uint16(output), vendorInterface, buf)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetOutputGain, uint16(output), vendorInterface, buf)
 
 	if err != nil {
 		return 0, fmt.Errorf("REQ_GET_OUTPUT_GAIN: %w", err)
@@ -38,7 +38,7 @@ func (d *Device) GetOutputGain(output int) (Gain, error) {
 }
 
 func (d *Device) SetOutputMute(output int, muted bool) error {
-	if d.device == nil {
+	if d.closed {
 		return fmt.Errorf("device is closed")
 	}
 
@@ -48,7 +48,7 @@ func (d *Device) SetOutputMute(output int, muted bool) error {
 		val = 1
 	}
 
-	_, err := d.device.Control(vendorInterfaceOutRequest, reqSetOutputMute, uint16(output), vendorInterface, []byte{val})
+	_, err := d.usb.ControlTransfer(vendorInterfaceOutRequest, ReqSetOutputMute, uint16(output), vendorInterface, []byte{val})
 
 	if err != nil {
 		return fmt.Errorf("REQ_SET_OUTPUT_MUTE: %w", err)
@@ -58,12 +58,12 @@ func (d *Device) SetOutputMute(output int, muted bool) error {
 }
 
 func (d *Device) GetOutputMute(output int) (bool, error) {
-	if d.device == nil {
+	if d.closed {
 		return false, fmt.Errorf("device is closed")
 	}
 
 	buf := make([]byte, 1)
-	_, err := d.device.Control(vendorInterfaceInRequest, reqGetOutputMute, uint16(output), vendorInterface, buf)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetOutputMute, uint16(output), vendorInterface, buf)
 
 	if err != nil {
 		return false, fmt.Errorf("REQ_GET_OUTPUT_MUTE: %w", err)
@@ -73,13 +73,13 @@ func (d *Device) GetOutputMute(output int) (bool, error) {
 }
 
 func (d *Device) SetOutputDelay(output int, ms float64) error {
-	if d.device == nil {
+	if d.closed {
 		return fmt.Errorf("device is closed")
 	}
 
 	buf := make([]byte, 4)
 	binary.LittleEndian.PutUint32(buf, math.Float32bits(float32(ms)))
-	_, err := d.device.Control(vendorInterfaceOutRequest, reqSetOutputDelay, uint16(output), vendorInterface, buf)
+	_, err := d.usb.ControlTransfer(vendorInterfaceOutRequest, ReqSetOutputDelay, uint16(output), vendorInterface, buf)
 
 	if err != nil {
 		return fmt.Errorf("REQ_SET_OUTPUT_DELAY: %w", err)
@@ -89,12 +89,12 @@ func (d *Device) SetOutputDelay(output int, ms float64) error {
 }
 
 func (d *Device) GetOutputDelay(output int) (float64, error) {
-	if d.device == nil {
+	if d.closed {
 		return 0, fmt.Errorf("device is closed")
 	}
 
 	buf := make([]byte, 4)
-	_, err := d.device.Control(vendorInterfaceInRequest, reqGetOutputDelay, uint16(output), vendorInterface, buf)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetOutputDelay, uint16(output), vendorInterface, buf)
 
 	if err != nil {
 		return 0, fmt.Errorf("REQ_GET_OUTPUT_DELAY: %w", err)
@@ -104,7 +104,7 @@ func (d *Device) GetOutputDelay(output int) (float64, error) {
 }
 
 func (d *Device) SetOutputEnable(output int, enabled bool) error {
-	if d.device == nil {
+	if d.closed {
 		return fmt.Errorf("device is closed")
 	}
 
@@ -114,7 +114,7 @@ func (d *Device) SetOutputEnable(output int, enabled bool) error {
 		val = 1
 	}
 
-	_, err := d.device.Control(vendorInterfaceOutRequest, reqSetOutputEnable, uint16(output), vendorInterface, []byte{val})
+	_, err := d.usb.ControlTransfer(vendorInterfaceOutRequest, ReqSetOutputEnable, uint16(output), vendorInterface, []byte{val})
 
 	if err != nil {
 		return fmt.Errorf("REQ_SET_OUTPUT_ENABLE: %w", err)
@@ -124,12 +124,12 @@ func (d *Device) SetOutputEnable(output int, enabled bool) error {
 }
 
 func (d *Device) GetOutputEnable(output int) (bool, error) {
-	if d.device == nil {
+	if d.closed {
 		return false, fmt.Errorf("device is closed")
 	}
 
 	buf := make([]byte, 1)
-	_, err := d.device.Control(vendorInterfaceInRequest, reqGetOutputEnable, uint16(output), vendorInterface, buf)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetOutputEnable, uint16(output), vendorInterface, buf)
 
 	if err != nil {
 		return false, fmt.Errorf("REQ_GET_OUTPUT_ENABLE: %w", err)

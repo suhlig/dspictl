@@ -16,7 +16,7 @@ type MatrixRoute struct {
 }
 
 func (d *Device) SetMatrixRoute(route *MatrixRoute) error {
-	if d.device == nil {
+	if d.closed {
 		return fmt.Errorf("device is closed")
 	}
 
@@ -39,7 +39,7 @@ func (d *Device) SetMatrixRoute(route *MatrixRoute) error {
 	buf[3] = phase
 	binary.LittleEndian.PutUint32(buf[4:8], math.Float32bits(float32(route.Gain.DB())))
 
-	_, err := d.device.Control(vendorInterfaceOutRequest, reqSetMatrixRoute, 0, vendorInterface, buf)
+	_, err := d.usb.ControlTransfer(vendorInterfaceOutRequest, ReqSetMatrixRoute, 0, vendorInterface, buf)
 
 	if err != nil {
 		return fmt.Errorf("REQ_SET_MATRIX_ROUTE: %w", err)
@@ -49,13 +49,13 @@ func (d *Device) SetMatrixRoute(route *MatrixRoute) error {
 }
 
 func (d *Device) GetMatrixRoute(input, output int) (*MatrixRoute, error) {
-	if d.device == nil {
+	if d.closed {
 		return nil, fmt.Errorf("device is closed")
 	}
 
 	wValue := uint16(input)<<8 | uint16(output)
 	buf := make([]byte, 8)
-	_, err := d.device.Control(vendorInterfaceInRequest, reqGetMatrixRoute, wValue, vendorInterface, buf)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetMatrixRoute, wValue, vendorInterface, buf)
 
 	if err != nil {
 		return nil, fmt.Errorf("REQ_GET_MATRIX_ROUTE: %w", err)

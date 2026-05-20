@@ -250,7 +250,6 @@ TODO Think about dumping the complete config and allowing a restore from it (e.g
 
 # Tests
 
-* TODO What can we test without access to the hardware?
 * TODO What can we test _with_ access to the hardware?
 
 # Release

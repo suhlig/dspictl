@@ -23,12 +23,12 @@ type BufferStats struct {
 // FactoryReset resets the live DSP state to factory defaults.
 // Does NOT erase any preset slots.
 func (d *Device) FactoryReset() error {
-	if d.device == nil {
+	if d.closed {
 		return fmt.Errorf("device is closed")
 	}
 
 	buf := make([]byte, 1)
-	_, err := d.device.Control(vendorInterfaceInRequest, reqFactoryReset, 0, vendorInterface, buf)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqFactoryReset, 0, vendorInterface, buf)
 
 	if err != nil {
 		return fmt.Errorf("REQ_FACTORY_RESET: %w", err)
@@ -40,12 +40,12 @@ func (d *Device) FactoryReset() error {
 // EnterBootloader sends the enter-bootloader command, causing the device to
 // reboot into UF2 mode for firmware updates.
 func (d *Device) EnterBootloader() error {
-	if d.device == nil {
+	if d.closed {
 		return fmt.Errorf("device is closed")
 	}
 
 	buf := make([]byte, 1)
-	_, err := d.device.Control(vendorInterfaceInRequest, reqEnterBootloader, 0, vendorInterface, buf)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqEnterBootloader, 0, vendorInterface, buf)
 
 	if err != nil {
 		return fmt.Errorf("REQ_ENTER_BOOTLOADER: %w", err)
@@ -57,12 +57,12 @@ func (d *Device) EnterBootloader() error {
 // GetCore1Mode queries the Core 1 operating mode.
 // Returns: 0=Idle, 1=PDM, 2=EQ Worker.
 func (d *Device) GetCore1Mode() (int, error) {
-	if d.device == nil {
+	if d.closed {
 		return 0, fmt.Errorf("device is closed")
 	}
 
 	buf := make([]byte, 1)
-	_, err := d.device.Control(vendorInterfaceInRequest, reqGetCore1Mode, 0, vendorInterface, buf)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetCore1Mode, 0, vendorInterface, buf)
 
 	if err != nil {
 		return 0, fmt.Errorf("REQ_GET_CORE1_MODE: %w", err)
@@ -73,12 +73,12 @@ func (d *Device) GetCore1Mode() (int, error) {
 
 // GetCore1Conflict checks if a PDM vs EQ Worker conflict exists.
 func (d *Device) GetCore1Conflict() (bool, error) {
-	if d.device == nil {
+	if d.closed {
 		return false, fmt.Errorf("device is closed")
 	}
 
 	buf := make([]byte, 1)
-	_, err := d.device.Control(vendorInterfaceInRequest, reqGetCore1Conflict, 0, vendorInterface, buf)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetCore1Conflict, 0, vendorInterface, buf)
 
 	if err != nil {
 		return false, fmt.Errorf("REQ_GET_CORE1_CONFLICT: %w", err)
@@ -89,12 +89,12 @@ func (d *Device) GetCore1Conflict() (bool, error) {
 
 // GetBufferStats reads buffer fill statistics from the device.
 func (d *Device) GetBufferStats() (*BufferStats, error) {
-	if d.device == nil {
+	if d.closed {
 		return nil, fmt.Errorf("device is closed")
 	}
 
 	buf := make([]byte, 64)
-	n, err := d.device.Control(vendorInterfaceInRequest, reqGetBufferStats, 0, vendorInterface, buf)
+	n, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetBufferStats, 0, vendorInterface, buf)
 
 	if err != nil {
 		return nil, fmt.Errorf("REQ_GET_BUFFER_STATS: %w", err)
@@ -105,12 +105,12 @@ func (d *Device) GetBufferStats() (*BufferStats, error) {
 
 // GetUSBErrorStats reads USB PHY error counters.
 func (d *Device) GetUSBErrorStats() (*USBErrorStats, error) {
-	if d.device == nil {
+	if d.closed {
 		return nil, fmt.Errorf("device is closed")
 	}
 
 	buf := make([]byte, 24)
-	_, err := d.device.Control(vendorInterfaceInRequest, reqGetUSBErrorStats, 0, vendorInterface, buf)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetUSBErrorStats, 0, vendorInterface, buf)
 
 	if err != nil {
 		return nil, fmt.Errorf("REQ_GET_USB_ERROR_STATS: %w", err)
