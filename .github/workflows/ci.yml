@@ -117,7 +117,7 @@ jobs:
           CC: ${{ matrix.cc }}
           CGO_ENABLED: "1"
           PKG_CONFIG_PATH: ${{ matrix.pkg_config_path }}
-        run: go build -o ${{ matrix.binary }} ./cmd/dspictl
+        run: go build -trimpath -ldflags="-s -w" -o ${{ matrix.binary }} ./cmd/dspictl
 
       - name: Upload Binary
         uses: actions/upload-artifact@v4
