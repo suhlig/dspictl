@@ -2,9 +2,7 @@
 
 A command-line tool and Go library to control a [DSPi audio device](https://github.com/WeebLabs/DSPi) from the command line.
 
-Pre-built archives are available from [GitHub Releases](https://github.com/suhlig/dspi/releases).
-
-Choose the archive that matches your platform:
+Homebrew users can install it via `brew install suhlig/tap/dspictl`. For other platforms, pre-built archives are available from [GitHub Releases](https://github.com/suhlig/dspi/releases):
 
 | File | Architecture | Typical Hardware |
 |---|---|---|
@@ -24,7 +22,7 @@ chmod +x dspictl
 
 > **Note:** You may need a [udev rule](#troubleshooting) for USB access as a regular user on Linux.
 
-The macOS version needs to be allowed to be executed with `xattr -d com.apple.quarantine dspictl` once because it is not a signed binary.
+If you download the macOS version manually, the `dspictl` binary needs to be allowed to be executed with `xattr -d com.apple.quarantine dspictl` once because it is not a signed binary. This is not necessary when using homebrew.
 
 ## Example Application
 
