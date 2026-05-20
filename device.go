@@ -316,11 +316,6 @@ func (d *Device) Channels() ([]ChannelInfo, error) {
 			return nil, fmt.Errorf("reading channel %d name: %w", i, err)
 		}
 
-		// Fallback to default name if device returns empty
-		if name == "" {
-			name = defaultChannelName(i, d.platform)
-		}
-
 		channels = append(channels, ChannelInfo{
 			Index: i,
 			Name:  name,
@@ -329,55 +324,6 @@ func (d *Device) Channels() ([]ChannelInfo, error) {
 	}
 
 	return channels, nil
-}
-
-// defaultChannelName returns a default name for a channel based on its index and platform.
-func defaultChannelName(index int, platform Platform) string {
-	if platform == PlatformRP2350 {
-		switch index {
-		case 0:
-			return "USB L"
-		case 1:
-			return "USB R"
-		case 2:
-			return "SPDIF 1 L"
-		case 3:
-			return "SPDIF 1 R"
-		case 4:
-			return "SPDIF 2 L"
-		case 5:
-			return "SPDIF 2 R"
-		case 6:
-			return "SPDIF 3 L"
-		case 7:
-			return "SPDIF 3 R"
-		case 8:
-			return "SPDIF 4 L"
-		case 9:
-			return "SPDIF 4 R"
-		case 10:
-			return "PDM Sub"
-		}
-	} else {
-		switch index {
-		case 0:
-			return "USB L"
-		case 1:
-			return "USB R"
-		case 2:
-			return "SPDIF 1 L"
-		case 3:
-			return "SPDIF 1 R"
-		case 4:
-			return "SPDIF 2 L"
-		case 5:
-			return "SPDIF 2 R"
-		case 6:
-			return "PDM Sub"
-		}
-	}
-
-	return fmt.Sprintf("Ch %d", index)
 }
 
 // channelGroup returns the group name for a channel based on its index and platform.

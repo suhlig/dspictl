@@ -238,6 +238,11 @@ dspictl config mck multiplier 256
 
 - `--target <serial>` — Operate on a specific device by serial number.
   Without it, every command addresses all connected DSPi devices.
+- TODO When `--target` is given, most commands should not print the serial number.
+
+## Completion
+
+- TODO Add value completion for subcommands and arguments, e.g. pressing TAB after `--target` shows available serial numbers
 
 # Export
 
@@ -246,5 +251,9 @@ TODO Think about dumping the complete config and allowing a restore from it (e.g
 # Tests
 
 * TODO What can we test without access to the hardware?
-  * Is the channel_test.go really useful? Do we use the static channel table anywhere?
 * TODO What can we test _with_ access to the hardware?
+
+# Release
+
+* TODO Shall we add a homebrew formula (cask) for macOS?
+* TODO Would gorelease make any of that easier?

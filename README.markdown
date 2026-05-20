@@ -2,7 +2,7 @@
 
 A command-line tool and Go library to control a [DSPi audio device](https://github.com/WeebLabs/DSPi) from the command line.
 
-Pre-built Linux binaries are available from [GitHub Releases](https://github.com/suhlig/dspi/releases).
+Pre-built binaries are available from [GitHub Releases](https://github.com/suhlig/dspi/releases).
 
 Choose the binary that matches your platform:
 
@@ -11,15 +11,19 @@ Choose the binary that matches your platform:
 | `dspictl-linux-amd64` | x86_64 | Desktop PCs, laptops |
 | `dspictl-linux-arm64` | ARM 64-bit | Raspberry Pi 3/4/5 (64-bit OS) |
 | `dspictl-linux-armv7` | ARM 32-bit | Raspberry Pi 2/3/4/5 (32-bit OS) |
+| `dspictl-darwin-amd64` | x86_64 | Intel Macs |
+| `dspictl-darwin-arm64` | ARM 64-bit | Apple Silicon Macs |
 
 After downloading, make it executable and run it:
 
 ```sh
-chmod +x dspictl-linux-*
-./dspictl-linux-*
+chmod +x dspictl-*
+./dspictl-*
 ```
 
-> **Note:** You may need a [udev rule](#troubleshooting) for USB access as a regular user.
+> **Note:** You may need a [udev rule](#troubleshooting) for USB access as a regular user on Linux.
+
+The macOS version needs to be allowed to be executed with `xattr -d com.apple.quarantine dspictl-darwin-arm64` once because it is not a signed binary.
 
 ## Example Application
 
@@ -51,7 +55,7 @@ watchexec --restart --wrap-process=none go run ./examples/mixer
 - [libusb-1.0](https://libusb.info/) installed on your system (required by `github.com/google/gousb`)
 - A DSPi device connected via USB
 
-## Compiling for Linux
+## Local Compiling for Linux
 
 As we have C code dependencies, the easiest is to compile for the target platform in a container:
 

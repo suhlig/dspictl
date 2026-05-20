@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    name: Build dspictl for ${{ matrix.goarch }}
+    name: Build dspictl for ${{ matrix.goos }}-${{ matrix.goarch }}
     runs-on: ${{ matrix.runner }}
 
     strategy:
@@ -34,20 +34,38 @@ jobs:
             cc: arm-linux-gnueabihf-gcc
             cross_arch: armhf
             pkg_config_path: /usr/lib/arm-linux-gnueabihf/pkgconfig
+          - runner: macos-13
+            goos: darwin
+            goarch: amd64
+            binary: dspictl-darwin-amd64
+          - runner: macos-latest
+            goos: darwin
+            goarch: arm64
+            binary: dspictl-darwin-arm64
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute Version
+        id: version
+        run: echo "version=$(bash scripts/compute-version.sh)" >> "$GITHUB_OUTPUT"
 
       - name: Install System Dependencies
         run: |
-          sudo apt-get update
-          if [ -n "${{ matrix.cross_arch }}" ]; then
-            sudo dpkg --add-architecture ${{ matrix.cross_arch }}
-            sudo apt-get update
-            sudo apt-get install -y pkg-config libusb-1.0-0-dev:${{ matrix.cross_arch }} gcc-arm-linux-gnueabihf
+          if [ "${{ runner.os }}" == "macOS" ]; then
+            brew install libusb pkg-config
           else
-            sudo apt-get install -y libusb-1.0-0-dev
+            sudo apt-get update
+            if [ -n "${{ matrix.cross_arch }}" ]; then
+              sudo dpkg --add-architecture ${{ matrix.cross_arch }}
+              sudo apt-get update
+              sudo apt-get install -y pkg-config libusb-1.0-0-dev:${{ matrix.cross_arch }} gcc-arm-linux-gnueabihf
+            else
+              sudo apt-get install -y libusb-1.0-0-dev
+            fi
           fi
 
       - name: Set Up Go
@@ -63,7 +81,7 @@ jobs:
           CC: ${{ matrix.cc }}
           CGO_ENABLED: "1"
           PKG_CONFIG_PATH: ${{ matrix.pkg_config_path }}
-        run: go build -trimpath -ldflags="-s -w" -o ${{ matrix.binary }} ./cmd/dspictl
+        run: go build -trimpath -ldflags="-s -w -X main.version=${{ steps.version.outputs.version }}" -o ${{ matrix.binary }} ./cmd/dspictl
 
       - name: Upload Binary
         uses: actions/upload-artifact@v4

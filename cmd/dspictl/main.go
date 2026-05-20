@@ -13,6 +13,8 @@ import (
 
 var targetSerial string
 
+var version = "unknown"
+
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{})))
 
@@ -78,6 +80,7 @@ func newRootCmd() *cobra.Command {
 		Short:         "Control DSPi audio devices",
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		Version:       version,
 	}
 
 	rootCmd.PersistentFlags().StringVar(&targetSerial, "target", "", "Operate on a specific device by serial number")

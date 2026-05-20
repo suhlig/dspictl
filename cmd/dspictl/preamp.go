@@ -45,7 +45,13 @@ func runPreampGet(cmd *cobra.Command, args []string) error {
 	numChannels := 2
 
 	for _, d := range devices {
-		channels := dspi.ChannelTable(d.Platform())
+		channels, err := d.Channels()
+
+		if err != nil {
+			slog.Error("getting channels failed", "serial", d.Serial(), "error", err)
+
+			continue
+		}
 
 		if len(args) == 0 {
 			// Show all input channels
@@ -77,7 +83,7 @@ func runPreampGet(cmd *cobra.Command, args []string) error {
 				return fmt.Errorf("%s: %w", d.Serial(), err)
 			}
 
-			name := dspi.ChannelTable(d.Platform())[ch].Name
+			name := channels[ch].Name
 			fmt.Printf("%s: ch %d %s: %s\n", d.Serial(), ch, name, gain)
 		}
 	}
@@ -115,7 +121,15 @@ func runPreampSet(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
-		name := dspi.ChannelTable(d.Platform())[ch].Name
+		channels, err := d.Channels()
+
+		if err != nil {
+			slog.Error("getting channels failed", "serial", d.Serial(), "error", err)
+
+			continue
+		}
+
+		name := channels[ch].Name
 		fmt.Printf("%s: ch %d %s: %s\n", d.Serial(), ch, name, dspi.NewGain(db))
 	}
 
