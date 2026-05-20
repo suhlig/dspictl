@@ -129,7 +129,7 @@ jobs:
         with:
           formula-name: dspictl
           homebrew-tap: suhlig/homebrew-tap
-          download-url: https://github.com/suhlig/dspi/releases/download/${{ github.ref_name }}/dspictl-${{ github.ref_name }}-darwin-arm64.tar.gz
+          download-url: https://github.com/suhlig/dspictl/releases/download/${{ github.ref_name }}/dspictl-${{ github.ref_name }}-darwin-arm64.tar.gz
           download-sha256: ${{ steps.archives.outputs.darwin_arm64_sha256 }}
         env:
           COMMITTER_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
