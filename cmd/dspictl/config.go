@@ -2,10 +2,13 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log/slog"
+	"os"
 	"strconv"
 
 	"github.com/spf13/cobra"
+	"github.com/suhlig/dspi"
 )
 
 func newConfigCmd() *cobra.Command {
@@ -63,7 +66,81 @@ func newConfigCmd() *cobra.Command {
 
 	cmd.AddCommand(mckCmd)
 
+	cmd.AddCommand(&cobra.Command{
+		Use:   "export",
+		Short: "Export complete DSP state to stdout",
+		RunE:  runConfigExport,
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "import",
+		Short: "Import complete DSP state from stdin",
+		RunE:  runConfigImport,
+	})
+
 	return cmd
+}
+
+func runConfigExport(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+	defer closeDevices(devices)
+
+	if len(devices) > 1 && targetSerial == "" {
+		return fmt.Errorf("multiple devices found; use --target to select one")
+	}
+
+	for _, d := range devices {
+		bp, err := d.GetAllParams()
+		if err != nil {
+			return fmt.Errorf("%s: get all params: %w", d.Serial(), err)
+		}
+
+		_, err = os.Stdout.Write(bp.Raw)
+		if err != nil {
+			return fmt.Errorf("writing export: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func runConfigImport(cmd *cobra.Command, args []string) error {
+	data, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		return fmt.Errorf("reading stdin: %w", err)
+	}
+
+	if len(data) == 0 {
+		return fmt.Errorf("no data on stdin")
+	}
+
+	devices, err := openDevices()
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+	defer closeDevices(devices)
+
+	if len(devices) > 1 && targetSerial == "" {
+		return fmt.Errorf("multiple devices found; use --target to select one")
+	}
+
+	bp := &dspi.BulkParams{
+		Header: dspi.ParseBulkHeader(data),
+		Raw:    data,
+	}
+
+	for _, d := range devices {
+		if err := d.SetAllParams(bp); err != nil {
+			return fmt.Errorf("%s: set all params: %w", d.Serial(), err)
+		}
+
+		slog.Info("imported", "serial", d.Serial(), "bytes", len(data))
+	}
+
+	return nil
 }
 
 func runConfigOutputType(cmd *cobra.Command, args []string) error {

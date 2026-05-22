@@ -47,7 +47,7 @@ func (d *Device) GetAllParams() (*BulkParams, error) {
 	}
 
 	raw := append([]byte(nil), buf[:n]...)
-	h := parseBulkHeader(raw)
+	h := ParseBulkHeader(raw)
 
 	return &BulkParams{
 		Header: h,
@@ -63,6 +63,9 @@ func (d *Device) SetAllParams(params *BulkParams) error {
 	if params == nil || len(params.Raw) == 0 {
 		return fmt.Errorf("no params to restore")
 	}
+	if params.Header.Platform != d.platform {
+		return fmt.Errorf("platform mismatch (snapshot is %s, device is %s)", params.Header.Platform, d.platform)
+	}
 
 	_, err := d.usb.ControlTransfer(vendorInterfaceOutRequest, ReqSetAllParams, 0, vendorInterface, params.Raw)
 	if err != nil {
@@ -72,7 +75,8 @@ func (d *Device) SetAllParams(params *BulkParams) error {
 	return nil
 }
 
-func parseBulkHeader(raw []byte) BulkHeader {
+// ParseBulkHeader parses a BulkHeader from the first 16 bytes of a raw payload.
+func ParseBulkHeader(raw []byte) BulkHeader {
 	return BulkHeader{
 		FormatVersion: raw[0],
 		Platform:      Platform(raw[1]),

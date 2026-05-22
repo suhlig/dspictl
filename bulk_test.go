@@ -113,6 +113,23 @@ var _ = Describe("Bulk", func() {
 			Expect(err).To(MatchError(ContainSubstring("no params")))
 		})
 
+		It("errors on platform mismatch", func() {
+			mock := &mockControlTransfer{}
+			dev := newTestDevice(mock, dspi.PlatformRP2040)
+
+			bp := &dspi.BulkParams{
+				Header: dspi.BulkHeader{
+					FormatVersion: 2,
+					Platform:      dspi.PlatformRP2350,
+				},
+				Raw: make([]byte, 16),
+			}
+			err := dev.SetAllParams(bp)
+			Expect(err).To(MatchError(ContainSubstring("platform mismatch")))
+			Expect(err).To(MatchError(ContainSubstring("RP2350")))
+			Expect(err).To(MatchError(ContainSubstring("RP2040")))
+		})
+
 		It("errors when given empty raw data", func() {
 			mock := &mockControlTransfer{}
 			dev := newTestDevice(mock, dspi.PlatformRP2040)
