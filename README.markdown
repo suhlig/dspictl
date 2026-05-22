@@ -48,6 +48,21 @@ Then run it with
 watchexec --restart --wrap-process=none go run ./examples/mixer
 ```
 
+## Tests
+
+The library includes two test suites:
+
+1. **Unit tests** — mock-based, run anywhere, exercise request encoding and response decoding.
+2. **Hardware tests** — require a real DSPi device connected via USB. They are non-destructive: each test captures the full device state at the start and restores it afterwards.
+
+| Scenario | Command |
+|---|---|
+| Unit tests only (CI, no hardware) | `go tool ginkgo ./...` |
+| Unit + hardware tests locally | `go tool ginkgo -tags=hwtest ./...` |
+| Target only RP2350 | `DSPI_TEST_PLATFORM=RP2350 go tool ginkgo -tags=hwtest ./...` |
+| Target specific serial | `DSPI_TEST_SERIAL=ABC123 go tool ginkgo -tags=hwtest ./...` |
+| Start from factory reset | `DSPI_FACTORY_RESET=1 go tool ginkgo -tags=hwtest ./...` |
+
 ## Requirements
 
 - Go 1.26 or later
@@ -75,6 +90,8 @@ scp dspictl pi5:bin && ssh pi5 dspictl
 ```
 
 ### Troubleshooting
+
+#### libusb: bad access [code -3]
 
 You'll likely see the following error message when running as regular user on Linux:
 
@@ -109,6 +126,21 @@ echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="2e8b", ATTR{idProduct}=="feaa", GROUP="
   | sudo tee /etc/udev/rules.d/99-dspi.rules
 ```
 
+#### Package libusb-1.0 was not found in the pkg-config search path
+
+```
+Package libusb-1.0 was not found in the pkg-config search path.
+Perhaps you should add the directory containing `libusb-1.0.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'libusb-1.0', required by 'virtual:world', not found
+```
+
+You are missing `libusb-1.0-0-dev`:
+
+```sh
+sudo apt-get install -y libusb-1.0-0-dev
+```
+
 ## GitHub Actions
 
 * Show the most recently failed GitHub Actions run:
@@ -116,6 +148,24 @@ echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="2e8b", ATTR{idProduct}=="feaa", GROUP="
   ```sh
   $ gh run view --log $(gh run list --workflow=ci.yml --status failure --json databaseId --jq '.[].databaseId')
   ```
+
+### Hardware Tests on Self-Hosted Runners
+
+The repository includes a `.github/workflows/hardware.yml` workflow that runs the full hardware test suite on a self-hosted runner. It is triggered manually via **Actions → Hardware Tests → Run workflow**.
+
+To set up a Raspberry Pi (or any Linux machine) as a self-hosted runner:
+
+1. Install the runner from your repository's **Settings → Actions → Runners → New self-hosted runner** page.
+2. Install system dependencies:
+   ```sh
+   sudo apt-get update
+   sudo apt-get install -y libusb-1.0-0-dev
+   ```
+3. Install Go (see [Requirements](#requirements)).
+4. Add a [udev rule](#libusb-bad-access-code--3) so the runner user can access DSPi devices.
+5. Connect the DSPi devices and start the runner service.
+
+The workflow runs `go test -tags=hwtest -v ./...` against whatever devices are connected, reporting firmware versions and platform info in the logs.
 
 ## License
 

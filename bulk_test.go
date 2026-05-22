@@ -14,11 +14,13 @@ var _ = Describe("Bulk", func() {
 			payload := make([]byte, 64)
 			payload[0] = 1 // format version
 			payload[1] = byte(dspi.PlatformRP2350)
-			payload[2] = 11                                  // num channels
-			payload[3] = 8                                   // num outputs
-			binary.LittleEndian.PutUint32(payload[4:8], 64)  // payload length
-			binary.LittleEndian.PutUint16(payload[8:10], 2)  // fw major
-			binary.LittleEndian.PutUint16(payload[10:12], 5) // fw minor
+			payload[2] = 11                                   // num channels
+			payload[3] = 9                                    // num output channels
+			payload[4] = 2                                    // num input channels
+			payload[5] = 12                                   // max bands
+			binary.LittleEndian.PutUint16(payload[6:8], 2832) // payload length
+			binary.LittleEndian.PutUint16(payload[8:10], 2)   // fw major
+			binary.LittleEndian.PutUint16(payload[10:12], 5)  // fw minor
 
 			mock := &mockControlTransfer{
 				ReturnData: map[[3]uint16][]byte{
@@ -33,8 +35,8 @@ var _ = Describe("Bulk", func() {
 			Expect(bp.Header.FormatVersion).To(Equal(uint8(1)))
 			Expect(bp.Header.Platform).To(Equal(dspi.PlatformRP2350))
 			Expect(bp.Header.NumChannels).To(Equal(11))
-			Expect(bp.Header.NumOutputs).To(Equal(8))
-			Expect(bp.Header.PayloadLength).To(Equal(64))
+			Expect(bp.Header.NumOutputs).To(Equal(9))
+			Expect(bp.Header.PayloadLength).To(Equal(2832))
 			Expect(bp.Header.FWMajor).To(Equal(uint16(2)))
 			Expect(bp.Header.FWMinor).To(Equal(uint16(5)))
 			Expect(bp.Raw).To(HaveLen(64))

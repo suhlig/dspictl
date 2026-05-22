@@ -8,7 +8,9 @@ import (
 const (
 	// safeMaxPayload is a generous upper bound for a WireBulkParams transfer.
 	// The firmware payload is ~2896 bytes; this gives ample headroom.
-	safeMaxPayload = 8192
+	// Linux usbfs limits control transfers to 4096 bytes, so we stay within
+	// that bound to avoid libusb: invalid param [code -2] on Linux hosts.
+	safeMaxPayload = 4096
 )
 
 // BulkHeader is the 16-byte header parsed from a WireBulkParams payload.
@@ -76,7 +78,7 @@ func parseBulkHeader(raw []byte) BulkHeader {
 		Platform:      Platform(raw[1]),
 		NumChannels:   int(raw[2]),
 		NumOutputs:    int(raw[3]),
-		PayloadLength: int(binary.LittleEndian.Uint32(raw[4:8])),
+		PayloadLength: int(binary.LittleEndian.Uint16(raw[6:8])),
 		FWMajor:       binary.LittleEndian.Uint16(raw[8:10]),
 		FWMinor:       binary.LittleEndian.Uint16(raw[10:12]),
 	}

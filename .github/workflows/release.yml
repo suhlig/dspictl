@@ -38,10 +38,14 @@ jobs:
             goos: darwin
             goarch: amd64
             binary: dspictl-darwin-amd64
+            pkg_config_path: /usr/local/lib/pkgconfig
+            cgo_ldflags: "-L/usr/local/lib"
           - runner: macos-latest
             goos: darwin
             goarch: arm64
             binary: dspictl-darwin-arm64
+            pkg_config_path: /opt/homebrew/lib/pkgconfig
+            cgo_ldflags: "-L/opt/homebrew/lib"
 
     steps:
       - name: Checkout Repository
@@ -77,6 +81,7 @@ jobs:
           CC: ${{ matrix.cc }}
           CGO_ENABLED: "1"
           PKG_CONFIG_PATH: ${{ matrix.pkg_config_path }}
+          CGO_LDFLAGS: ${{ matrix.cgo_ldflags }}
         run: go build -trimpath -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o ${{ matrix.binary }} ./cmd/dspictl
 
       - name: Upload Binary
