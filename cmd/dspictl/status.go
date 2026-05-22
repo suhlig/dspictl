@@ -47,12 +47,12 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		}
 
 		fmt.Printf("Serial: %s\n", d.Serial())
-		fmt.Printf("USB Bus Number: %d\n", d.Bus())
-		fmt.Printf("USB Device Address: %d\n", d.Address())
-		fmt.Printf("Type: %s\n", d.Platform())
-		fmt.Printf("Volume: %s\n", volume)
-		fmt.Printf("Preset: %d\n", preset)
-		fmt.Printf("CPU: %d%% / %d%%\n", meter.CPU0, meter.CPU1)
+		fmt.Printf("  USB Bus Number: %d\n", d.Bus())
+		fmt.Printf("  USB Device Address: %d\n", d.Address())
+		fmt.Printf("  Type: %s\n", d.Platform())
+		fmt.Printf("  Volume: %s\n", volume)
+		fmt.Printf("  Preset: %d\n", preset)
+		fmt.Printf("  CPU: %d%% / %d%%\n", meter.CPU0, meter.CPU1)
 	}
 
 	return nil
