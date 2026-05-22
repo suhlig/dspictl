@@ -67,4 +67,7 @@ const (
 
 	ReqGetBufferStats   = 0xB0
 	ReqGetUSBErrorStats = 0xB2
+
+	ReqGetAllParams = 0xA0
+	ReqSetAllParams = 0xA1
 )
