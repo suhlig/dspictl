@@ -117,11 +117,11 @@ jobs:
             tmpdir=$(mktemp -d)
             cp "$binary" "$tmpdir/dspictl"
             chmod +x "$tmpdir/dspictl"
-            tar czf "archives/dspictl-${GITHUB_REF_NAME}-${platform}.tar.gz" -C "$tmpdir" dspictl
+            tar czf "archives/dspictl-${platform}.tar.gz" -C "$tmpdir" dspictl
             rm -rf "$tmpdir"
           done
           cd archives && sha256sum * > checksums.txt
-          echo "darwin_arm64_sha256=$(sha256sum "dspictl-${GITHUB_REF_NAME}-darwin-arm64.tar.gz" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          echo "darwin_arm64_sha256=$(sha256sum "dspictl-darwin-arm64.tar.gz" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
       - name: Extract Release Notes
         id: notes
@@ -149,7 +149,7 @@ jobs:
         with:
           formula-name: dspictl
           homebrew-tap: suhlig/homebrew-tap
-          download-url: https://github.com/suhlig/dspictl/releases/download/${{ github.ref_name }}/dspictl-${{ github.ref_name }}-darwin-arm64.tar.gz
+          download-url: https://github.com/suhlig/dspictl/releases/download/${{ github.ref_name }}/dspictl-darwin-arm64.tar.gz
           download-sha256: ${{ steps.archives.outputs.darwin_arm64_sha256 }}
         env:
           COMMITTER_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
