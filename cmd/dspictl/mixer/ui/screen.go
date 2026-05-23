@@ -13,7 +13,7 @@ func RenderFrame(width int, height int, body string) tea.View {
 		Align(lipgloss.Center).
 		Render(
 			lipgloss.JoinVertical(lipgloss.Center,
-				StyleTitle.Width(width).Render("DSPi Live Meter"),
+				StyleTitle.Width(width).Render("DSPi Mixer"),
 				"",
 				body,
 			),

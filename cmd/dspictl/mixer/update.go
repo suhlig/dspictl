@@ -1,4 +1,4 @@
-package main
+package mixer
 
 import (
 	tea "charm.land/bubbletea/v2"
@@ -6,7 +6,7 @@ import (
 )
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(connectCmd(), tick())
+	return tea.Batch(connectCmd(m.targetSerial), tick())
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -91,7 +91,19 @@ func (m model) handleKeyPress(msg tea.KeyPressMsg) (model, tea.Cmd) {
 		m.connected = false
 		m.err = nil
 
-		return m, connectCmd()
+		return m, connectCmd(m.targetSerial)
+
+	case "m":
+		if m.dm.Len() > 0 && m.activeDevice < m.dm.Len() {
+			m.dm.ToggleMute(m.activeDevice)
+		}
+
+		return m, nil
+
+	case "M":
+		m.dm.ToggleMuteAll()
+
+		return m, nil
 	}
 
 	return m, nil
@@ -135,7 +147,7 @@ func (m model) handleTick() (model, tea.Cmd) {
 
 	if m.ticksSinceScan >= scanInterval {
 		m.ticksSinceScan = 0
-		cmds = append(cmds, rescanCmd())
+		cmds = append(cmds, rescanCmd(m.targetSerial))
 	}
 
 	cmds = append(cmds, tick())

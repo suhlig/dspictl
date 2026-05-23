@@ -1,4 +1,4 @@
-package main
+package mixer
 
 import (
 	"time"
@@ -20,23 +20,26 @@ type model struct {
 	width          int
 	height         int
 	connected      bool
+	targetSerial   string
 }
 
-func initialModel() model {
+func newModel(targetSerial string) model {
 	return model{
-		dm:     newDeviceManager(),
-		width:  80,
-		height: 24,
+		dm:           newDeviceManager(),
+		width:        80,
+		height:       24,
+		targetSerial: targetSerial,
 	}
 }
 
 type deviceManager struct {
-	devices      []*dspi.Device
-	snaps        []dspi.MeterSnapshot
-	clippedCh    [][]int
-	clipTimer    []int
-	masterVolume []dspi.Gain
-	channels     [][]dspi.ChannelInfo
+	devices       []*dspi.Device
+	snaps         []dspi.MeterSnapshot
+	clippedCh     [][]int
+	clipTimer     []int
+	masterVolume  []dspi.Gain
+	preMuteVolume []dspi.Gain
+	channels      [][]dspi.ChannelInfo
 }
 
 func newDeviceManager() *deviceManager {
@@ -48,12 +51,14 @@ func (dm *deviceManager) Initialize(devices []*dspi.Device) {
 	n := len(devices)
 	dm.snaps = make([]dspi.MeterSnapshot, n)
 	dm.masterVolume = make([]dspi.Gain, n)
+	dm.preMuteVolume = make([]dspi.Gain, n)
 	dm.clippedCh = make([][]int, n)
 	dm.clipTimer = make([]int, n)
 	dm.channels = make([][]dspi.ChannelInfo, n)
 
 	for i := range dm.masterVolume {
 		dm.masterVolume[i] = dspi.NewGain(-20)
+		dm.preMuteVolume[i] = dspi.NewGain(-20)
 	}
 
 	for i, dev := range devices {
@@ -78,6 +83,7 @@ func (dm *deviceManager) Resync(devices []*dspi.Device) {
 			dm.clippedCh = append(dm.clippedCh[:i], dm.clippedCh[i+1:]...)
 			dm.clipTimer = append(dm.clipTimer[:i], dm.clipTimer[i+1:]...)
 			dm.masterVolume = append(dm.masterVolume[:i], dm.masterVolume[i+1:]...)
+			dm.preMuteVolume = append(dm.preMuteVolume[:i], dm.preMuteVolume[i+1:]...)
 			dm.channels = append(dm.channels[:i], dm.channels[i+1:]...)
 		}
 	}
@@ -93,6 +99,7 @@ func (dm *deviceManager) Resync(devices []*dspi.Device) {
 			dm.devices = append(dm.devices, dev)
 			dm.snaps = append(dm.snaps, dspi.MeterSnapshot{})
 			dm.masterVolume = append(dm.masterVolume, dspi.NewGain(-20))
+			dm.preMuteVolume = append(dm.preMuteVolume, dspi.NewGain(-20))
 			dm.clippedCh = append(dm.clippedCh, nil)
 			dm.clipTimer = append(dm.clipTimer, 0)
 
@@ -205,5 +212,48 @@ func (dm *deviceManager) TickClipTimer(i int) {
 func (dm *deviceManager) RefreshMasterVolume(i int) {
 	if mv, err := dm.devices[i].GetMasterVolume(); err == nil {
 		dm.masterVolume[i] = mv
+	}
+}
+
+const muteThresholdDB = -120
+
+func (dm *deviceManager) IsMuted(i int) bool {
+	return dm.masterVolume[i].DB() <= muteThresholdDB
+}
+
+func (dm *deviceManager) ToggleMute(i int) {
+	if dm.IsMuted(i) {
+		dm.masterVolume[i] = dm.preMuteVolume[i]
+	} else {
+		dm.preMuteVolume[i] = dm.masterVolume[i]
+		dm.masterVolume[i] = dspi.NewGain(-128)
+	}
+	_ = dm.devices[i].SetMasterVolume(dm.masterVolume[i])
+}
+
+func (dm *deviceManager) ToggleMuteAll() {
+	if dm.Len() == 0 {
+		return
+	}
+	allMuted := true
+	for i := range dm.Len() {
+		if !dm.IsMuted(i) {
+			allMuted = false
+			break
+		}
+	}
+	if allMuted {
+		for i := range dm.Len() {
+			dm.masterVolume[i] = dm.preMuteVolume[i]
+			_ = dm.devices[i].SetMasterVolume(dm.masterVolume[i])
+		}
+	} else {
+		for i := range dm.Len() {
+			if !dm.IsMuted(i) {
+				dm.preMuteVolume[i] = dm.masterVolume[i]
+			}
+			dm.masterVolume[i] = dspi.NewGain(-128)
+			_ = dm.devices[i].SetMasterVolume(dm.masterVolume[i])
+		}
 	}
 }

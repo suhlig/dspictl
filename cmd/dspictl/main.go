@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/suhlig/dspi"
+	"github.com/suhlig/dspi/cmd/dspictl/mixer"
 )
 
 var targetSerial string
@@ -102,6 +103,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newChannelNameCmd())
 	rootCmd.AddCommand(newConfigCmd())
 	rootCmd.AddCommand(newTargetsCmd())
+	rootCmd.AddCommand(mixer.NewCmd())
 
 	return rootCmd
 }

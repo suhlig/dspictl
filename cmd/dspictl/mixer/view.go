@@ -1,4 +1,4 @@
-package main
+package mixer
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
-	"github.com/suhlig/dspi/examples/mixer/ui"
+	"github.com/suhlig/dspi/cmd/dspictl/mixer/ui"
 )
 
 func (m model) View() tea.View {
@@ -29,7 +29,7 @@ func (m model) View() tea.View {
 
 	var b strings.Builder
 
-	b.WriteString(ui.StyleTitle.Width(m.width).Render("DSPi Live Meter"))
+	b.WriteString(ui.StyleTitle.Width(m.width).Render("DSPi Mixer"))
 	b.WriteString("\n")
 
 	b.WriteString(ui.RenderTabs(m.dm.AllDevices(), m.dm.AllClippedCh(), m.activeDevice))
@@ -149,9 +149,9 @@ func (m model) View() tea.View {
 	var footer string
 
 	if m.dm.Len() > 1 {
-		footer = "q: quit  |  Tab: switch device  |  ↑↓: master volume  |  c: clear clips  |  r: rescan"
+		footer = "q: quit  |  Tab: switch device  |  ↑↓: volume  |  m: mute  |  M: mute all  |  c: clear clips  |  r: rescan"
 	} else {
-		footer = "q: quit  |  ↑↓: master volume  |  c: clear clips  |  r: rescan"
+		footer = "q: quit  |  ↑↓: volume  |  m: mute  |  c: clear clips  |  r: rescan"
 	}
 
 	b.WriteString(ui.StyleFooter.Width(m.width).Render(footer))

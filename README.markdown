@@ -1,6 +1,6 @@
-# DSPi-Go
+# dspictl
 
-A command-line tool and Go library to control a [DSPi audio device](https://github.com/WeebLabs/DSPi) from the command line.
+A command-line tool and Go library to control one or more [DSPi audio devices](https://github.com/WeebLabs/DSPi) from the command line. A full-screen terminal UI is also available as `dspictl mixer`.
 
 Homebrew users can install it via `brew install suhlig/tap/dspictl`. For other platforms, pre-built archives are available from [GitHub Releases](https://github.com/suhlig/dspi/releases):
 
@@ -22,12 +22,6 @@ chmod +x dspictl
 
 > **Note:** You may need a [udev rule](#troubleshooting) for USB access as a regular user on Linux.
 
-If you download the macOS version manually, the `dspictl` binary needs to be allowed to be executed with `xattr -d com.apple.quarantine dspictl` once because it is not a signed binary. This is not necessary when using homebrew.
-
-## Example Application
-
-`examples/mixer` is a full-screen terminal UI built with [Bubble Tea](https://github.com/charmbracelet/bubbletea) and [Lipgloss](https://github.com/charmbracelet/lipgloss). It renders a live meter with colored bars, CPU usage, and clip indicators.
-
 ## Development
 
 This project uses [pre-commit](https://pre-commit.com/) to check formatting, linting, and compilation before each commit. After cloning, install the hook:
@@ -45,7 +39,7 @@ brew install watchexec
 Then run it with
 
 ```sh
-watchexec --restart --wrap-process=none go run ./examples/mixer
+watchexec --restart --wrap-process=none go run ./cmd/dspictl mixer
 ```
 
 ## Tests
