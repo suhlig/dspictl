@@ -6,18 +6,16 @@ Homebrew users can install it via `brew install suhlig/tap/dspictl`. For other p
 
 | File | Architecture | Typical Hardware |
 |---|---|---|
-| `dspictl-*-linux-amd64.tar.gz` | x86_64 | Desktop PCs, laptops |
-| `dspictl-*-linux-arm64.tar.gz` | ARM 64-bit | Raspberry Pi 3/4/5 (64-bit OS) |
-| `dspictl-*-linux-armv7.tar.gz` | ARM 32-bit | Raspberry Pi 2/3/4/5 (32-bit OS) |
-| `dspictl-*-darwin-amd64.tar.gz` | x86_64 | Intel Macs |
-| `dspictl-*-darwin-arm64.tar.gz` | ARM 64-bit | Apple Silicon Macs |
+| `dspictl-linux-amd64.tar.gz` | x86_64 | Desktop PCs, laptops |
+| `dspictl-linux-arm64.tar.gz` | ARM 64-bit | Raspberry Pi 3/4/5 (64-bit OS) |
+| `dspictl-linux-armv7.tar.gz` | ARM 32-bit | Raspberry Pi 2/3/4/5 (32-bit OS) |
+| `dspictl-darwin-amd64.tar.gz` | x86_64 | Intel Macs |
+| `dspictl-darwin-arm64.tar.gz` | ARM 64-bit | Apple Silicon Macs |
 
-After downloading, extract the archive and run it:
+### Linux
 
 ```sh
-tar xzf dspictl-*-*.tar.gz
-chmod +x dspictl
-./dspictl
+arch=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/;s/armv7l/armv7/') && curl -sL "https://github.com/suhlig/dspictl/releases/latest/download/dspictl-linux-${arch}.tar.gz" | tar xz && sudo mv dspictl /usr/local/bin
 ```
 
 > **Note:** You may need a [udev rule](#troubleshooting) for USB access as a regular user on Linux.
