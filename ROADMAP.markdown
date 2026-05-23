@@ -6,9 +6,6 @@ High-level design for the `dspictl` CLI, derived from the
 # TODO
 
 - As we have `dspictl completion zsh`, can we add this to the homebrew formula?
-- What can we test _with_ access to the hardware?
-- When `--target` is given, most commands should not print the serial number.
-- Think about dumping the complete config and allowing a restore from it (e.g. as JSON)
 - Add value completion for subcommands and arguments, e.g. pressing TAB after `--target` shows available serial numbers
 - EQ management
 - Loudness
