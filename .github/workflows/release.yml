@@ -123,11 +123,26 @@ jobs:
           cd archives && sha256sum * > checksums.txt
           echo "darwin_arm64_sha256=$(sha256sum "dspictl-${GITHUB_REF_NAME}-darwin-arm64.tar.gz" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
+      - name: Extract Release Notes
+        id: notes
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" {flag=1; next}
+            $0 ~ "^## \\[" {flag=0; next}
+            flag
+          ' CHANGELOG.md > release_notes.md
+
+          if [ ! -s release_notes.md ]; then
+            echo "Error: No release notes found in CHANGELOG.md for version $VERSION" >&2
+            exit 1
+          fi
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: archives/*
-          generate_release_notes: true
+          body_path: release_notes.md
 
       - name: Bump Homebrew Formula
         uses: mislav/bump-homebrew-formula-action@v4
