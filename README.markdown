@@ -89,9 +89,9 @@ We can then copy the compiled `dspictl` binary to the target device (e.g. `pi5`)
 scp dspictl pi5:bin && ssh pi5 dspictl
 ```
 
-### Troubleshooting
+## Troubleshooting
 
-#### libusb: bad access [code -3]
+### libusb: bad access [code -3]
 
 You'll likely see the following error message when running as regular user on Linux:
 
@@ -126,7 +126,7 @@ echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="2e8b", ATTR{idProduct}=="feaa", GROUP="
   | sudo tee /etc/udev/rules.d/99-dspi.rules
 ```
 
-#### Package libusb-1.0 was not found in the pkg-config search path
+### Package libusb-1.0 was not found in the pkg-config search path
 
 ```
 Package libusb-1.0 was not found in the pkg-config search path.
@@ -141,7 +141,7 @@ You are missing `libusb-1.0-0-dev`:
 sudo apt-get install -y libusb-1.0-0-dev
 ```
 
-## GitHub Actions
+### GitHub Actions
 
 * Show the most recently failed GitHub Actions run:
 
@@ -149,7 +149,7 @@ sudo apt-get install -y libusb-1.0-0-dev
   $ gh run view --log $(gh run list --workflow=ci.yml --status failure --json databaseId --jq '.[].databaseId')
   ```
 
-### Hardware Tests on Self-Hosted Runners
+## Hardware Tests on Self-Hosted Runners
 
 The repository includes a `.github/workflows/hardware.yml` workflow that runs the full hardware test suite on a self-hosted runner. It is triggered manually via **Actions → Hardware Tests → Run workflow**.
 
@@ -166,6 +166,30 @@ To set up a Raspberry Pi (or any Linux machine) as a self-hosted runner:
 5. Connect the DSPi devices and start the runner service.
 
 The workflow runs `go test -tags=hwtest -v ./...` against whatever devices are connected, reporting firmware versions and platform info in the logs.
+
+## Releasing
+
+> Requires [git-cliff](https://git-cliff.org) (e.g. `brew install git-cliff`)
+
+1. Generate a starting point for the next version:
+
+   ```sh
+   git cliff --unreleased --bump --prepend CHANGELOG.md
+   ```
+
+1. Edit and then commit the updated `CHANGELOG.md`:
+
+   ```sh
+   git add CHANGELOG.md && git commit -m "Prepare changelog for $(git cliff --bumped-version)"
+   ```
+
+1. Push a tag to trigger the release workflow:
+
+   ```sh
+   version=$(git cliff --bumped-version)
+   git tag "$version"
+   git push origin "$version"
+   ```
 
 ## License
 
