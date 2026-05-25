@@ -20,32 +20,38 @@ func newPresetCmd() *cobra.Command {
 		RunE:  runPresetList,
 	})
 
+	var slotChoices = []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
+
 	cmd.AddCommand(&cobra.Command{
-		Use:   "save <slot>",
-		Short: "Save current DSP state to slot",
-		Args:  cobra.ExactArgs(1),
-		RunE:  runPresetSave,
+		Use:               "save <slot>",
+		Short:             "Save current DSP state to slot",
+		Args:              cobra.ExactArgs(1),
+		RunE:              runPresetSave,
+		ValidArgsFunction: completeChoices(slotChoices),
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "load <slot>",
-		Short: "Load slot into live state",
-		Args:  cobra.ExactArgs(1),
-		RunE:  runPresetLoad,
+		Use:               "load <slot>",
+		Short:             "Load slot into live state",
+		Args:              cobra.ExactArgs(1),
+		RunE:              runPresetLoad,
+		ValidArgsFunction: completeChoices(slotChoices),
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "delete <slot>",
-		Short: "Delete (clear) a preset slot",
-		Args:  cobra.ExactArgs(1),
-		RunE:  runPresetDelete,
+		Use:               "delete <slot>",
+		Short:             "Delete (clear) a preset slot",
+		Args:              cobra.ExactArgs(1),
+		RunE:              runPresetDelete,
+		ValidArgsFunction: completeChoices(slotChoices),
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "name <slot> <name>",
-		Short: "Set a slot name",
-		Args:  cobra.ExactArgs(2),
-		RunE:  runPresetName,
+		Use:               "name <slot> <name>",
+		Short:             "Set a slot name",
+		Args:              cobra.ExactArgs(2),
+		RunE:              runPresetName,
+		ValidArgsFunction: completeChoices(slotChoices, nil),
 	})
 
 	cmd.AddCommand(&cobra.Command{
@@ -55,24 +61,27 @@ func newPresetCmd() *cobra.Command {
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "startup-mode [specified|last]",
-		Short: "Get or set startup mode",
-		Args:  cobra.MaximumNArgs(1),
-		RunE:  runPresetStartupMode,
+		Use:               "startup-mode [specified|last]",
+		Short:             "Get or set startup mode",
+		Args:              cobra.MaximumNArgs(1),
+		RunE:              runPresetStartupMode,
+		ValidArgsFunction: completeChoices([]string{"specified", "last"}),
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "default-slot [<slot>]",
-		Short: "Get or set default boot slot",
-		Args:  cobra.MaximumNArgs(1),
-		RunE:  runPresetDefaultSlot,
+		Use:               "default-slot [<slot>]",
+		Short:             "Get or set default boot slot",
+		Args:              cobra.MaximumNArgs(1),
+		RunE:              runPresetDefaultSlot,
+		ValidArgsFunction: completeChoices(slotChoices),
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "include-pins [true|false]",
-		Short: "Get or set pin-config inclusion",
-		Args:  cobra.MaximumNArgs(1),
-		RunE:  runPresetIncludePins,
+		Use:               "include-pins [true|false]",
+		Short:             "Get or set pin-config inclusion",
+		Args:              cobra.MaximumNArgs(1),
+		RunE:              runPresetIncludePins,
+		ValidArgsFunction: completeChoices([]string{"true", "false"}),
 	})
 
 	return cmd

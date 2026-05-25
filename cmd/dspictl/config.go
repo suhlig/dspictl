@@ -18,10 +18,11 @@ func newConfigCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "output-type <slot> [spdif|i2s]",
-		Short: "Get or set slot output type",
-		Args:  cobra.RangeArgs(1, 2),
-		RunE:  runConfigOutputType,
+		Use:               "output-type <slot> [spdif|i2s]",
+		Short:             "Get or set slot output type",
+		Args:              cobra.RangeArgs(1, 2),
+		RunE:              runConfigOutputType,
+		ValidArgsFunction: completeChoices(nil, []string{"spdif", "i2s"}),
 	})
 
 	cmd.AddCommand(&cobra.Command{
@@ -44,10 +45,11 @@ func newConfigCmd() *cobra.Command {
 	}
 
 	mckCmd.AddCommand(&cobra.Command{
-		Use:   "enable [true|false]",
-		Short: "Get or set MCK output state",
-		Args:  cobra.MaximumNArgs(1),
-		RunE:  runConfigMCKEnable,
+		Use:               "enable [true|false]",
+		Short:             "Get or set MCK output state",
+		Args:              cobra.MaximumNArgs(1),
+		RunE:              runConfigMCKEnable,
+		ValidArgsFunction: completeChoices([]string{"true", "false"}),
 	})
 
 	mckCmd.AddCommand(&cobra.Command{
@@ -58,10 +60,11 @@ func newConfigCmd() *cobra.Command {
 	})
 
 	mckCmd.AddCommand(&cobra.Command{
-		Use:   "multiplier [128|256]",
-		Short: "Get or set MCK multiplier",
-		Args:  cobra.MaximumNArgs(1),
-		RunE:  runConfigMCKMultiplier,
+		Use:               "multiplier [128|256]",
+		Short:             "Get or set MCK multiplier",
+		Args:              cobra.MaximumNArgs(1),
+		RunE:              runConfigMCKMultiplier,
+		ValidArgsFunction: completeChoices([]string{"128", "256"}),
 	})
 
 	cmd.AddCommand(mckCmd)

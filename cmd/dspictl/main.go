@@ -85,6 +85,7 @@ func newRootCmd() *cobra.Command {
 	}
 
 	rootCmd.PersistentFlags().StringVar(&targetSerial, "target", "", "Operate on a specific device by serial number")
+	_ = rootCmd.RegisterFlagCompletionFunc("target", completeSerialNumbers)
 
 	rootCmd.AddCommand(newMuteCmd())
 	rootCmd.AddCommand(newUnmuteCmd())
@@ -111,6 +112,34 @@ func newRootCmd() *cobra.Command {
 func closeDevices(devices []*dspi.Device) {
 	for _, d := range devices {
 		d.Close()
+	}
+}
+
+// completeSerialNumbers returns connected DSPi serial numbers for shell completion.
+func completeSerialNumbers(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	devices, err := dspi.List()
+
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	serials := make([]string, 0, len(devices))
+
+	for _, d := range devices {
+		serials = append(serials, d.Serial)
+	}
+
+	return serials, cobra.ShellCompDirectiveNoFileComp
+}
+
+// completeChoices returns a ValidArgsFunction that suggests values per argument position.
+func completeChoices(choices ...[]string) func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
+	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		if len(args) < len(choices) {
+			return choices[len(args)], cobra.ShellCompDirectiveNoFileComp
+		}
+
+		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 }
 

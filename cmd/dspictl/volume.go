@@ -29,10 +29,11 @@ func newVolumeCmd() *cobra.Command {
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "mode [independent|preset]",
-		Short: "Get or set persistence mode",
-		Args:  cobra.MaximumNArgs(1),
-		RunE:  runVolumeMode,
+		Use:               "mode [independent|preset]",
+		Short:             "Get or set persistence mode",
+		Args:              cobra.MaximumNArgs(1),
+		RunE:              runVolumeMode,
+		ValidArgsFunction: completeChoices([]string{"independent", "preset"}),
 	})
 
 	cmd.AddCommand(&cobra.Command{

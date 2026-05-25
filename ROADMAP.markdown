@@ -5,8 +5,6 @@ High-level design for the `dspictl` CLI, derived from the
 
 # TODO
 
-- As we have `dspictl completion zsh`, can we add this to the homebrew formula?
-- Add value completion for subcommands and arguments, e.g. pressing TAB after `--target` shows available serial numbers
 - EQ management
 - Loudness
 - Crossfeed
