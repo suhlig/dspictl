@@ -22,45 +22,51 @@ func newOutputCmd() *cobra.Command {
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "gain <channel> <db>",
-		Short: "Set output gain",
-		Args:  cobra.ExactArgs(2),
-		RunE:  runOutputGain,
+		Use:               "gain <channel> <db>",
+		Short:             "Set output gain",
+		Args:              cobra.ExactArgs(2),
+		RunE:              runOutputGain,
+		ValidArgsFunction: completeOutputChannels,
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "mute <channel>",
-		Short: "Mute output",
-		Args:  cobra.ExactArgs(1),
-		RunE:  runOutputMute,
+		Use:               "mute <channel>",
+		Short:             "Mute output",
+		Args:              cobra.ExactArgs(1),
+		RunE:              runOutputMute,
+		ValidArgsFunction: completeOutputChannels,
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "unmute <channel>",
-		Short: "Unmute output",
-		Args:  cobra.ExactArgs(1),
-		RunE:  runOutputUnmute,
+		Use:               "unmute <channel>",
+		Short:             "Unmute output",
+		Args:              cobra.ExactArgs(1),
+		RunE:              runOutputUnmute,
+		ValidArgsFunction: completeOutputChannels,
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "delay <channel> <ms>",
-		Short: "Set time alignment delay (0-85 ms)",
-		Args:  cobra.ExactArgs(2),
-		RunE:  runOutputDelay,
+		Use:               "delay <channel> <ms>",
+		Short:             "Set time alignment delay (0-85 ms)",
+		Args:              cobra.ExactArgs(2),
+		RunE:              runOutputDelay,
+		ValidArgsFunction: completeOutputChannels,
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "enable <channel>",
-		Short: "Enable output channel",
-		Args:  cobra.ExactArgs(1),
-		RunE:  runOutputEnable,
+		Use:               "enable <channel>",
+		Short:             "Enable output channel",
+		Args:              cobra.ExactArgs(1),
+		RunE:              runOutputEnable,
+		ValidArgsFunction: completeOutputChannels,
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "disable <channel>",
-		Short: "Disable output channel",
-		Args:  cobra.ExactArgs(1),
-		RunE:  runOutputDisable,
+		Use:               "disable <channel>",
+		Short:             "Disable output channel",
+		Args:              cobra.ExactArgs(1),
+		RunE:              runOutputDisable,
+		ValidArgsFunction: completeOutputChannels,
 	})
 
 	return cmd

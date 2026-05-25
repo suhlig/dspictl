@@ -22,38 +22,43 @@ func newMatrixCmd() *cobra.Command {
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "get <input> <output>",
-		Short: "Show a single crosspoint",
-		Args:  cobra.ExactArgs(2),
-		RunE:  runMatrixGet,
+		Use:               "get <input> <output>",
+		Short:             "Show a single crosspoint",
+		Args:              cobra.ExactArgs(2),
+		RunE:              runMatrixGet,
+		ValidArgsFunction: completeMatrixRoutes,
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "set <input> <output> <db>",
-		Short: "Set crosspoint gain",
-		Args:  cobra.ExactArgs(3),
-		RunE:  runMatrixSet,
+		Use:               "set <input> <output> <db>",
+		Short:             "Set crosspoint gain",
+		Args:              cobra.ExactArgs(3),
+		RunE:              runMatrixSet,
+		ValidArgsFunction: completeMatrixRoutes,
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "enable <input> <output>",
-		Short: "Enable a crosspoint",
-		Args:  cobra.ExactArgs(2),
-		RunE:  runMatrixEnable,
+		Use:               "enable <input> <output>",
+		Short:             "Enable a crosspoint",
+		Args:              cobra.ExactArgs(2),
+		RunE:              runMatrixEnable,
+		ValidArgsFunction: completeMatrixRoutes,
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "disable <input> <output>",
-		Short: "Disable a crosspoint",
-		Args:  cobra.ExactArgs(2),
-		RunE:  runMatrixDisable,
+		Use:               "disable <input> <output>",
+		Short:             "Disable a crosspoint",
+		Args:              cobra.ExactArgs(2),
+		RunE:              runMatrixDisable,
+		ValidArgsFunction: completeMatrixRoutes,
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "invert <input> <output>",
-		Short: "Toggle phase invert",
-		Args:  cobra.ExactArgs(2),
-		RunE:  runMatrixInvert,
+		Use:               "invert <input> <output>",
+		Short:             "Toggle phase invert",
+		Args:              cobra.ExactArgs(2),
+		RunE:              runMatrixInvert,
+		ValidArgsFunction: completeMatrixRoutes,
 	})
 
 	return cmd

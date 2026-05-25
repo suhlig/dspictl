@@ -143,6 +143,156 @@ func completeChoices(choices ...[]string) func(*cobra.Command, []string, string)
 	}
 }
 
+// completeInputChannels returns input channel indices (0-1) with names for shell completion.
+func completeInputChannels(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) > 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	return completeChannelIndices(func(ch dspi.ChannelInfo) bool { return ch.Index <= 1 })
+}
+
+// completeOutputChannels returns output channel indices with names for shell completion.
+func completeOutputChannels(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) > 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	devices, err := openDevices()
+
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	defer closeDevices(devices)
+
+	seen := make(map[string]bool)
+	var completions []string
+
+	for _, d := range devices {
+		channels, err := d.Channels()
+
+		if err != nil {
+			continue
+		}
+
+		for _, ch := range channels {
+			if ch.Index < 2 {
+				continue
+			}
+
+			outputIndex := ch.Index - 2
+			item := fmt.Sprintf("%d\t%s", outputIndex, ch.Name)
+
+			if !seen[item] {
+				seen[item] = true
+				completions = append(completions, item)
+			}
+		}
+	}
+
+	return completions, cobra.ShellCompDirectiveNoFileComp
+}
+
+// completeMatrixRoutes returns input (0-1) or output indices with names for matrix commands.
+func completeMatrixRoutes(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	devices, err := openDevices()
+
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	defer closeDevices(devices)
+
+	seen := make(map[string]bool)
+	var completions []string
+
+	switch len(args) {
+	case 0:
+		for _, d := range devices {
+			channels, err := d.Channels()
+
+			if err != nil {
+				continue
+			}
+
+			for _, ch := range channels {
+				if ch.Index > 1 {
+					continue
+				}
+
+				item := fmt.Sprintf("%d\t%s", ch.Index, ch.Name)
+
+				if !seen[item] {
+					seen[item] = true
+					completions = append(completions, item)
+				}
+			}
+		}
+	case 1:
+		for _, d := range devices {
+			channels, err := d.Channels()
+
+			if err != nil {
+				continue
+			}
+
+			for _, ch := range channels {
+				if ch.Index < 2 {
+					continue
+				}
+
+				outputIndex := ch.Index - 2
+				item := fmt.Sprintf("%d\t%s", outputIndex, ch.Name)
+
+				if !seen[item] {
+					seen[item] = true
+					completions = append(completions, item)
+				}
+			}
+		}
+	}
+
+	return completions, cobra.ShellCompDirectiveNoFileComp
+}
+
+// completeChannelIndices returns channel completions matching the filter.
+func completeChannelIndices(filter func(dspi.ChannelInfo) bool) ([]string, cobra.ShellCompDirective) {
+	devices, err := openDevices()
+
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	defer closeDevices(devices)
+
+	seen := make(map[string]bool)
+	var completions []string
+
+	for _, d := range devices {
+		channels, err := d.Channels()
+
+		if err != nil {
+			continue
+		}
+
+		for _, ch := range channels {
+			if !filter(ch) {
+				continue
+			}
+
+			item := fmt.Sprintf("%d\t%s", ch.Index, ch.Name)
+
+			if !seen[item] {
+				seen[item] = true
+				completions = append(completions, item)
+			}
+		}
+	}
+
+	return completions, cobra.ShellCompDirectiveNoFileComp
+}
+
 func openDevices() ([]*dspi.Device, error) {
 	if targetSerial != "" {
 		dev, err := dspi.Open(dspi.DeviceInfo{Serial: targetSerial})

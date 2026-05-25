@@ -16,17 +16,19 @@ func newPreampCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "get [channel]",
-		Short: "Show preamp for all channels, or one channel",
-		Args:  cobra.MaximumNArgs(1),
-		RunE:  runPreampGet,
+		Use:               "get [channel]",
+		Short:             "Show preamp for all channels, or one channel",
+		Args:              cobra.MaximumNArgs(1),
+		RunE:              runPreampGet,
+		ValidArgsFunction: completeInputChannels,
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "set <channel> <db>",
-		Short: "Set preamp gain for a channel",
-		Args:  cobra.ExactArgs(2),
-		RunE:  runPreampSet,
+		Use:               "set <channel> <db>",
+		Short:             "Set preamp gain for a channel",
+		Args:              cobra.ExactArgs(2),
+		RunE:              runPreampSet,
+		ValidArgsFunction: completeInputChannels,
 	})
 
 	return cmd
