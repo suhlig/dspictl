@@ -1,0 +1,216 @@
+package dspi_test
+
+import (
+	"encoding/binary"
+	"math"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	dspi "github.com/suhlig/dspi"
+)
+
+var _ = Describe("EQBand", func() {
+	var (
+		mock *mockControlTransfer
+		dev  *dspi.Device
+	)
+
+	BeforeEach(func() {
+		mock = &mockControlTransfer{
+			ReturnData: map[[3]uint16][]byte{
+				{uint16(dspi.ReqSetEQParam), 0, 0}: {},
+				{uint16(dspi.ReqGetEQParam), 0x0250, 0}: func() []byte {
+					b := make([]byte, 4)
+					binary.LittleEndian.PutUint32(b, uint32(dspi.FilterTypePeaking))
+					return b
+				}(),
+				{uint16(dspi.ReqGetEQParam), 0x0251, 0}: func() []byte {
+					b := make([]byte, 4)
+					binary.LittleEndian.PutUint32(b, math.Float32bits(1000.0))
+					return b
+				}(),
+				{uint16(dspi.ReqGetEQParam), 0x0252, 0}: func() []byte {
+					b := make([]byte, 4)
+					binary.LittleEndian.PutUint32(b, math.Float32bits(1.5))
+					return b
+				}(),
+				{uint16(dspi.ReqGetEQParam), 0x0253, 0}: func() []byte {
+					b := make([]byte, 4)
+					binary.LittleEndian.PutUint32(b, math.Float32bits(-3.5))
+					return b
+				}(),
+				{uint16(dspi.ReqSetBypass), 0, 0}: {},
+				{uint16(dspi.ReqGetBypass), 0, 0}: {1},
+			},
+		}
+		dev = newTestDevice(mock, dspi.PlatformRP2040)
+	})
+
+	Describe("SetEQBand", func() {
+		It("sends the correct 16-byte packet", func() {
+			band := &dspi.EQBand{
+				Channel:       2,
+				Band:          3,
+				Type:          dspi.FilterTypePeaking,
+				Freq:          1000,
+				QualityFactor: 1.5,
+				Gain:          -3.5,
+			}
+
+			err := dev.SetEQBand(band)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(mock.CapturedRequests).To(HaveLen(1))
+			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqSetEQParam)))
+
+			data := mock.CapturedRequests[0].Data
+			Expect(data).To(HaveLen(16))
+			Expect(data[0]).To(Equal(byte(2)))
+			Expect(data[1]).To(Equal(byte(3)))
+			Expect(data[2]).To(Equal(byte(1)))
+			Expect(math.Float32frombits(binary.LittleEndian.Uint32(data[4:8]))).To(BeNumerically("~", 1000.0, 0.01))
+			Expect(math.Float32frombits(binary.LittleEndian.Uint32(data[8:12]))).To(BeNumerically("~", 1.5, 0.01))
+			Expect(math.Float32frombits(binary.LittleEndian.Uint32(data[12:16]))).To(BeNumerically("~", -3.5, 0.01))
+		})
+
+		It("rejects an invalid channel", func() {
+			band := &dspi.EQBand{
+				Channel:       99,
+				Band:          0,
+				Type:          dspi.FilterTypePeaking,
+				Freq:          1000,
+				QualityFactor: 1.0,
+				Gain:          0,
+			}
+
+			err := dev.SetEQBand(band)
+			Expect(err).To(MatchError(ContainSubstring("channel 99 out of range")))
+		})
+
+		It("rejects an invalid band", func() {
+			band := &dspi.EQBand{
+				Channel:       0,
+				Band:          10,
+				Type:          dspi.FilterTypePeaking,
+				Freq:          1000,
+				QualityFactor: 1.0,
+				Gain:          0,
+			}
+
+			err := dev.SetEQBand(band)
+			Expect(err).To(MatchError(ContainSubstring("band 10 out of range")))
+		})
+
+		It("rejects non-positive frequency", func() {
+			band := &dspi.EQBand{
+				Channel:       0,
+				Band:          0,
+				Type:          dspi.FilterTypePeaking,
+				Freq:          0,
+				QualityFactor: 1.0,
+				Gain:          0,
+			}
+
+			err := dev.SetEQBand(band)
+			Expect(err).To(MatchError(ContainSubstring("frequency must be > 0")))
+		})
+
+		It("rejects non-positive Q", func() {
+			band := &dspi.EQBand{
+				Channel:       0,
+				Band:          0,
+				Type:          dspi.FilterTypePeaking,
+				Freq:          1000,
+				QualityFactor: 0,
+				Gain:          0,
+			}
+
+			err := dev.SetEQBand(band)
+			Expect(err).To(MatchError(ContainSubstring("quality factor must be > 0")))
+		})
+
+		It("allows flat filters without frequency or Q validation", func() {
+			band := &dspi.EQBand{
+				Channel:       0,
+				Band:          0,
+				Type:          dspi.FilterTypeFlat,
+				Freq:          0,
+				QualityFactor: 0,
+				Gain:          0,
+			}
+
+			err := dev.SetEQBand(band)
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	Describe("GetEQBand", func() {
+		It("parses the response correctly", func() {
+			band, err := dev.GetEQBand(2, 5)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(band.Channel).To(Equal(2))
+			Expect(band.Band).To(Equal(5))
+			Expect(band.Type).To(Equal(dspi.FilterTypePeaking))
+			Expect(band.Freq).To(BeNumerically("~", 1000.0, 0.01))
+			Expect(band.QualityFactor).To(BeNumerically("~", 1.5, 0.01))
+			Expect(band.Gain).To(BeNumerically("~", -3.5, 0.01))
+		})
+
+		It("sends the correct requests", func() {
+			_, _ = dev.GetEQBand(2, 5)
+			Expect(mock.CapturedRequests).To(HaveLen(4))
+			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetEQParam)))
+			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0x0250)))
+			Expect(mock.CapturedRequests[1].WValue).To(Equal(uint16(0x0251)))
+			Expect(mock.CapturedRequests[2].WValue).To(Equal(uint16(0x0252)))
+			Expect(mock.CapturedRequests[3].WValue).To(Equal(uint16(0x0253)))
+		})
+	})
+
+	Describe("SetMasterEQBypass", func() {
+		It("sends the correct value", func() {
+			err := dev.SetMasterEQBypass(true)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(mock.CapturedRequests).To(HaveLen(1))
+			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqSetBypass)))
+			Expect(mock.CapturedRequests[0].Data).To(Equal([]byte{1}))
+		})
+	})
+
+	Describe("GetMasterEQBypass", func() {
+		It("returns true when bypass is on", func() {
+			bypass, err := dev.GetMasterEQBypass()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bypass).To(BeTrue())
+		})
+	})
+
+	Describe("FilterType", func() {
+		It("formats known types", func() {
+			Expect(dspi.FilterTypeFlat.String()).To(Equal("flat"))
+			Expect(dspi.FilterTypePeaking.String()).To(Equal("peak"))
+			Expect(dspi.FilterTypeLowShelf.String()).To(Equal("lowshelf"))
+			Expect(dspi.FilterTypeHighShelf.String()).To(Equal("highshelf"))
+			Expect(dspi.FilterTypeLowPass.String()).To(Equal("lowpass"))
+			Expect(dspi.FilterTypeHighPass.String()).To(Equal("highpass"))
+		})
+
+		It("parses known type strings", func() {
+			t, err := dspi.ParseFilterType("peak")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(t).To(Equal(dspi.FilterTypePeaking))
+
+			t, err = dspi.ParseFilterType("lowshelf")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(t).To(Equal(dspi.FilterTypeLowShelf))
+
+			t, err = dspi.ParseFilterType("highpass")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(t).To(Equal(dspi.FilterTypeHighPass))
+		})
+
+		It("rejects unknown type strings", func() {
+			_, err := dspi.ParseFilterType("notch")
+			Expect(err).To(MatchError(ContainSubstring("unknown filter type")))
+		})
+	})
+})

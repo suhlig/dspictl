@@ -103,6 +103,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newMatrixCmd())
 	rootCmd.AddCommand(newChannelNameCmd())
 	rootCmd.AddCommand(newConfigCmd())
+	rootCmd.AddCommand(newEQCmd())
 	rootCmd.AddCommand(newTargetsCmd())
 	rootCmd.AddCommand(mixer.NewCmd())
 
@@ -150,6 +151,47 @@ func completeInputChannels(cmd *cobra.Command, args []string, toComplete string)
 	}
 
 	return completeChannelIndices(func(ch dspi.ChannelInfo) bool { return ch.Index <= 1 })
+}
+
+// completeEQMasterChannels returns master EQ channel indices (0-1) with names.
+func completeEQMasterChannels(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) > 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	return completeChannelIndices(func(ch dspi.ChannelInfo) bool { return ch.Index <= 1 })
+}
+
+// completeEQMasterChannelsAndBands returns master channels for arg 0, bands 0-9 for arg 1.
+func completeEQMasterChannelsAndBands(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	switch len(args) {
+	case 0:
+		return completeChannelIndices(func(ch dspi.ChannelInfo) bool { return ch.Index <= 1 })
+	case 1:
+		var bands []string
+		for i := range 10 {
+			bands = append(bands, fmt.Sprintf("%d", i))
+		}
+		return bands, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	return nil, cobra.ShellCompDirectiveNoFileComp
+}
+
+// completeEQOutputChannelsAndBands returns output channels for arg 0, bands 0-9 for arg 1.
+func completeEQOutputChannelsAndBands(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	switch len(args) {
+	case 0:
+		return completeOutputChannels(cmd, args, toComplete)
+	case 1:
+		var bands []string
+		for i := range 10 {
+			bands = append(bands, fmt.Sprintf("%d", i))
+		}
+		return bands, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	return nil, cobra.ShellCompDirectiveNoFileComp
 }
 
 // completeOutputChannels returns output channel indices with names for shell completion.

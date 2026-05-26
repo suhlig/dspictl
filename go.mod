@@ -9,6 +9,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.29.0
 	github.com/onsi/gomega v1.41.0
 	github.com/spf13/cobra v1.10.2
+	github.com/spf13/pflag v1.0.9
 )
 
 require (
@@ -30,7 +31,6 @@ require (
 	github.com/mattn/go-runewidth v0.0.23 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
-	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/exp v0.0.0-20250819193227-8b4c13bb791b // indirect

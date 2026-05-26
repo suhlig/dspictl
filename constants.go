@@ -41,6 +41,11 @@ const (
 	ReqSetMatrixRoute = 0x70
 	ReqGetMatrixRoute = 0x71
 
+	ReqSetEQParam = 0x42
+	ReqGetEQParam = 0x43
+	ReqSetBypass  = 0x46
+	ReqGetBypass  = 0x47
+
 	ReqFactoryReset    = 0x53
 	ReqEnterBootloader = 0xF0
 
