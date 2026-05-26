@@ -1,33 +1,21 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
-  ],
+  "extends": ["config:recommended"],
   "internalChecksFilter": "strict",
-  "postUpdateOptions": [
-    "gomodTidy"
-  ],
+  "postUpdateOptions": ["gomodTidy"],
   "rebaseWhen": "behind-base-branch",
   "packageRules": [
     {
-      "matchDatasources": [
-        "go"
-      ],
-      "matchUpdateTypes": [
-        "patch",
-        "minor"
-      ],
+      "matchDatasources": ["go"],
+      "matchUpdateTypes": ["patch", "minor"],
       "minimumReleaseAge": "3 days",
       "automerge": true,
-      "automergeType": "pr"
+      "automergeType": "pr",
+      "platformAutomerge": true
     },
     {
-      "matchDatasources": [
-        "go"
-      ],
-      "matchUpdateTypes": [
-        "major"
-      ],
+      "matchDatasources": ["go"],
+      "matchUpdateTypes": ["major"],
       "minimumReleaseAge": "7 days",
       "automerge": false
     }
