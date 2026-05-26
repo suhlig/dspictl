@@ -54,6 +54,12 @@ jobs:
           go mod tidy
           git diff --exit-code
 
+      - name: Vulnerability Scan Passes
+        uses: golang/govulncheck-action@v1
+        with:
+          go-version-file: go.mod
+          cache: false
+
       - name: golangci-lint Passes
         uses: golangci/golangci-lint-action@v7
         with:
