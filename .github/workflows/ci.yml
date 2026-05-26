@@ -149,7 +149,7 @@ jobs:
         run: go build -trimpath -ldflags="-s -w -X main.version=${{ steps.version.outputs.version }}" -o ${{ matrix.binary }} ./cmd/dspictl
 
       - name: Upload Binary
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.binary }}
           path: ${{ matrix.binary }}
