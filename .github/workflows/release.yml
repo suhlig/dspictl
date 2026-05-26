@@ -145,7 +145,7 @@ jobs:
           body_path: release_notes.md
 
       - name: Bump Homebrew Formula
-        uses: mislav/bump-homebrew-formula-action@v4
+        uses: mislav/bump-homebrew-formula-action@v4.1
         with:
           formula-name: dspictl
           homebrew-tap: suhlig/homebrew-tap
