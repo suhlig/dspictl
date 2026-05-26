@@ -7,7 +7,7 @@
   "rebaseWhen": "behind-base-branch",
   "packageRules": [
     {
-      "matchDatasources": ["go"],
+      "matchManagers": ["gomod"],
       "matchUpdateTypes": ["patch", "minor"],
       "minimumReleaseAge": "3 days",
       "automerge": true,
@@ -15,7 +15,21 @@
       "platformAutomerge": true
     },
     {
-      "matchDatasources": ["go"],
+      "matchManagers": ["gomod"],
+      "matchUpdateTypes": ["major"],
+      "minimumReleaseAge": "7 days",
+      "automerge": false
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "minimumReleaseAge": "3 days",
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "matchManagers": ["github-actions"],
       "matchUpdateTypes": ["major"],
       "minimumReleaseAge": "7 days",
       "automerge": false
