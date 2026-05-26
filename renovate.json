@@ -2,7 +2,6 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
   "mode": "full",
-  "platformCommit": false,
   "internalChecksFilter": "strict",
   "postUpdateOptions": ["gomodTidy"],
   "rebaseWhen": "behind-base-branch",
