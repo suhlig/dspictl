@@ -104,6 +104,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newChannelNameCmd())
 	rootCmd.AddCommand(newConfigCmd())
 	rootCmd.AddCommand(newEQCmd())
+	rootCmd.AddCommand(newLoudnessCmd())
 	rootCmd.AddCommand(newTargetsCmd())
 	rootCmd.AddCommand(mixer.NewCmd())
 

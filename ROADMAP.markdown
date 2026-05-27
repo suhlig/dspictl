@@ -5,7 +5,6 @@ High-level design for the `dspictl` CLI, derived from the
 
 # TODO
 
-- Loudness
 - Crossfeed
 - Volume leveller
 

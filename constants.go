@@ -75,4 +75,11 @@ const (
 
 	ReqGetAllParams = 0xA0
 	ReqSetAllParams = 0xA1
+
+	ReqSetLoudness          = 0x58
+	ReqGetLoudness          = 0x59
+	ReqSetLoudnessReference = 0x5A
+	ReqGetLoudnessReference = 0x5B
+	ReqSetLoudnessIntensity = 0x5C
+	ReqGetLoudnessIntensity = 0x5D
 )
