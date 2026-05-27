@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/gousb"
 )
@@ -44,12 +45,15 @@ func (d *Device) FactoryReset() error {
 // reboot into UF2 mode for firmware updates.
 //
 // The device acknowledges the command and then disconnects to reboot into the
-// ROM bootloader. A libusb I/O error (ErrorIO) is expected and treated as
-// success; other errors indicate a genuine failure.
+// ROM bootloader. A 5-second control transfer timeout prevents hanging on
+// macOS when the device disconnects mid-transfer. Any libusb error (including
+// timeout) is treated as success — the device rebooting is expected.
 func (d *Device) EnterBootloader() error {
 	if d.closed {
 		return fmt.Errorf("device is closed")
 	}
+
+	d.setControlTimeout(5 * time.Second)
 
 	buf := make([]byte, 1)
 	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqEnterBootloader, 0, vendorInterface, buf)
@@ -57,7 +61,7 @@ func (d *Device) EnterBootloader() error {
 	if err != nil {
 		var usbErr gousb.Error
 
-		if errors.As(err, &usbErr) && usbErr == gousb.ErrorIO {
+		if errors.As(err, &usbErr) {
 			return nil
 		}
 

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"time"
 
 	"github.com/google/gousb"
 )
@@ -152,6 +153,14 @@ func (d *Device) Close() {
 		_ = d.ctx.Close()
 	}
 	d.closed = true
+}
+
+// setControlTimeout sets the USB control transfer timeout on the underlying
+// gousb device. It is a no-op when running against a mock.
+func (d *Device) setControlTimeout(dur time.Duration) {
+	if gt, ok := d.usb.(*gousbControlTransfer); ok {
+		gt.device.ControlTimeout = dur
+	}
 }
 
 // Platform returns the detected hardware platform.

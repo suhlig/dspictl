@@ -8,6 +8,7 @@ import (
 
 type mockControlTransfer struct {
 	ReturnData       map[[3]uint16][]byte
+	ReturnErrors     map[[3]uint16]error
 	CapturedRequests []capturedControl
 }
 
@@ -27,11 +28,19 @@ func (m *mockControlTransfer) ControlTransfer(bmRequestType, bRequest uint8, wVa
 		WIndex:        wIndex,
 		Data:          append([]byte{}, data...),
 	})
+
 	key := [3]uint16{uint16(bRequest), wValue, wIndex}
+
+	if err, ok := m.ReturnErrors[key]; ok {
+		return 0, err
+	}
+
 	if ret, ok := m.ReturnData[key]; ok {
 		copy(data, ret)
+
 		return len(ret), nil
 	}
+
 	return 0, fmt.Errorf("no mock data for request 0x%02x", bRequest)
 }
 
