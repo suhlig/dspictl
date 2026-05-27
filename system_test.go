@@ -1,6 +1,7 @@
 package dspi_test
 
 import (
+	"github.com/google/gousb"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/suhlig/dspi"
@@ -55,6 +56,23 @@ var _ = Describe("System", func() {
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqEnterBootloader)))
 			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0)))
 			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
+		})
+
+		It("returns nil when the device disconnects (any gousb.Error)", func() {
+			mock.ReturnErrors = map[[3]uint16]error{
+				{uint16(dspi.ReqEnterBootloader), 0, 0}: gousb.ErrorNoDevice,
+			}
+
+			err := dev.EnterBootloader()
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("returns an error for non-libusb errors", func() {
+			delete(mock.ReturnData, [3]uint16{uint16(dspi.ReqEnterBootloader), 0, 0})
+
+			err := dev.EnterBootloader()
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("REQ_ENTER_BOOTLOADER"))
 		})
 
 		It("returns an error when the device is closed", func() {

@@ -94,7 +94,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newBufferStatsCmd())
 	rootCmd.AddCommand(newUSBErrorsCmd())
 	rootCmd.AddCommand(newCore1Cmd())
-	rootCmd.AddCommand(newBootloaderCmd())
+	rootCmd.AddCommand(newFirmwareCmd())
 	rootCmd.AddCommand(newFactoryResetCmd())
 	rootCmd.AddCommand(newVolumeCmd())
 	rootCmd.AddCommand(newPreampCmd())
