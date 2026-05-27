@@ -63,6 +63,9 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  Firmware: %s\n", fwVersion)
 		fmt.Printf("  Volume: %s\n", volume)
 		fmt.Printf("  Preset: %d\n", preset)
+
+		printLoudnessCompact(d)
+
 		fmt.Printf("  CPU: %d%% / %d%%\n", meter.CPU0, meter.CPU1)
 	}
 
