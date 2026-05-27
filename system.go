@@ -2,7 +2,10 @@ package dspi
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
+
+	"github.com/google/gousb"
 )
 
 // USBErrorStats holds USB PHY error counters.
@@ -39,6 +42,10 @@ func (d *Device) FactoryReset() error {
 
 // EnterBootloader sends the enter-bootloader command, causing the device to
 // reboot into UF2 mode for firmware updates.
+//
+// The device acknowledges the command and then disconnects to reboot into the
+// ROM bootloader. A libusb I/O error (ErrorIO) is expected and treated as
+// success; other errors indicate a genuine failure.
 func (d *Device) EnterBootloader() error {
 	if d.closed {
 		return fmt.Errorf("device is closed")
@@ -48,6 +55,12 @@ func (d *Device) EnterBootloader() error {
 	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqEnterBootloader, 0, vendorInterface, buf)
 
 	if err != nil {
+		var usbErr gousb.Error
+
+		if errors.As(err, &usbErr) && usbErr == gousb.ErrorIO {
+			return nil
+		}
+
 		return fmt.Errorf("REQ_ENTER_BOOTLOADER: %w", err)
 	}
 
