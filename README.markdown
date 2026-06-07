@@ -122,15 +122,27 @@ echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="2e8b", ATTR{idProduct}=="feaa", GROUP="
 
 ```
 Package libusb-1.0 was not found in the pkg-config search path.
-Perhaps you should add the directory containing `libusb-1.0.pc'
-to the PKG_CONFIG_PATH environment variable
+Perhaps you should add the directory containing `libusb-1.0.pc' to the PKG_CONFIG_PATH environment variable
 Package 'libusb-1.0', required by 'virtual:world', not found
 ```
 
-You are missing `libusb-1.0-0-dev`:
+You are missing `libusb-1.0-0-dev`. Install it with:
 
 ```sh
 sudo apt-get install -y libusb-1.0-0-dev
+```
+
+### mpg123 not starting
+
+```
+[src/libout123/modules/alsa.c:open_alsa():181] error: cannot open device default
+```
+
+You have no or the wrong card set as default device in your ALSA configuration. Edit `/etc/asound.conf` or `~/.asoundrc` to set the correct card as default, e.g.:
+
+```
+defaults.pcm.card 2
+defaults.pcm.device 0
 ```
 
 ### GitHub Actions
