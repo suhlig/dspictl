@@ -6,13 +6,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [1.6.0] - 2026-06-09
 
-### Added
-
-- Add loudness support
-- Print firmware version
-- Add firmware upgrade command
-- Add asound.conf example for multi-channel output
-
 ### Changed
 
 - Update USB protocol to DSPi@bbfd91a1642c3eed47e2833a88343de797457972
