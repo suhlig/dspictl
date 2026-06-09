@@ -169,6 +169,27 @@ func (d *Device) Platform() Platform { return d.platform }
 // Serial returns the unique serial number of the device.
 func (d *Device) Serial() string { return d.serial }
 
+// GetSerial reads the 16-byte firmware serial via REQ_GET_SERIAL (0x7E).
+func (d *Device) GetSerial() (string, error) {
+	if d.closed {
+		return "", fmt.Errorf("device is closed")
+	}
+
+	buf := make([]byte, 16)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetSerial, 0, vendorInterface, buf)
+
+	if err != nil {
+		return "", fmt.Errorf("REQ_GET_SERIAL: %w", err)
+	}
+
+	end := bytes.IndexByte(buf, 0)
+	if end == -1 {
+		end = len(buf)
+	}
+
+	return string(bytes.TrimSpace(buf[:end])), nil
+}
+
 // Bus returns the USB bus number of the device.
 func (d *Device) Bus() int { return d.bus }
 

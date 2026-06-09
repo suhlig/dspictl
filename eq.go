@@ -228,3 +228,41 @@ func (d *Device) MaxEQChannel() int {
 
 	return 6
 }
+
+// SetBandBypass enables or disables bypass for a single EQ band.
+func (d *Device) SetBandBypass(channel, band int, bypass bool) error {
+	if d.closed {
+		return fmt.Errorf("device is closed")
+	}
+
+	var val byte
+	if bypass {
+		val = 1
+	}
+
+	wValue := uint16(channel)<<8 | uint16(band)
+	_, err := d.usb.ControlTransfer(vendorInterfaceOutRequest, ReqSetBandBypass, wValue, vendorInterface, []byte{val})
+
+	if err != nil {
+		return fmt.Errorf("REQ_SET_BAND_BYPASS: %w", err)
+	}
+
+	return nil
+}
+
+// GetBandBypass reads the bypass state of a single EQ band.
+func (d *Device) GetBandBypass(channel, band int) (bool, error) {
+	if d.closed {
+		return false, fmt.Errorf("device is closed")
+	}
+
+	wValue := uint16(channel)<<8 | uint16(band)
+	buf := make([]byte, 1)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetBandBypass, wValue, vendorInterface, buf)
+
+	if err != nil {
+		return false, fmt.Errorf("REQ_GET_BAND_BYPASS: %w", err)
+	}
+
+	return buf[0] != 0, nil
+}

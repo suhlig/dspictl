@@ -26,17 +26,17 @@ const (
 	ReqSetOutputEnable = 0x72
 	ReqGetOutputEnable = 0x73
 
-	ReqPresetSave           = 0x90
-	ReqPresetLoad           = 0x91
-	ReqPresetDelete         = 0x92
-	ReqPresetGetName        = 0x93
-	ReqPresetSetName        = 0x94
-	ReqPresetGetDir         = 0x95
-	ReqPresetSetStartup     = 0x96
-	ReqPresetGetStartup     = 0x97
-	ReqPresetSetIncludePins = 0x98
-	ReqPresetGetIncludePins = 0x99
-	ReqPresetGetActive      = 0x9A
+	ReqPresetSave          = 0x90
+	ReqPresetLoad          = 0x91
+	ReqPresetDelete        = 0x92
+	ReqPresetGetName       = 0x93
+	ReqPresetSetName       = 0x94
+	ReqPresetGetDir        = 0x95
+	ReqPresetSetStartup    = 0x96
+	ReqPresetGetStartup    = 0x97
+	ReqSetOutputConfigMode = 0x98
+	ReqGetOutputConfigMode = 0x99
+	ReqPresetGetActive     = 0x9A
 
 	ReqSetMatrixRoute = 0x70
 	ReqGetMatrixRoute = 0x71
@@ -82,4 +82,9 @@ const (
 	ReqGetLoudnessReference = 0x5B
 	ReqSetLoudnessIntensity = 0x5C
 	ReqGetLoudnessIntensity = 0x5D
+
+	ReqSetBandBypass = 0xD8
+	ReqGetBandBypass = 0xD9
+
+	ReqGetSerial = 0x7E
 )

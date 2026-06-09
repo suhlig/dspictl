@@ -52,6 +52,16 @@ Volume: -20 dB
 Preset: 3
 ```
 
+### `dspictl serial`
+
+Queries the firmware serial number from each connected device. No arguments.
+
+```
+$ dspictl serial
+E6614103E32C3B2D
+D3615A4863503A79
+```
+
 ### `dspictl targets`
 
 Lists all connected devices by their serial number.
@@ -162,7 +172,7 @@ Preset slot management (slots 0-9) and startup configuration.
 | `active` | — | Show the currently active preset slot |
 | `startup-mode` | `[specified\|last]` | Get or set startup mode |
 | `default-slot` | `[<slot>]` | Get or set the default boot slot |
-| `include-pins` | `[true\|false]` | Get or set pin-config inclusion |
+| `output-config-mode` | `[independent\|preset]` | Get or set output configuration persistence |
 
 ```
 dspictl preset list
@@ -171,7 +181,7 @@ dspictl preset load 1
 dspictl preset name 2 "2-Way + Sub"
 dspictl preset startup-mode last
 dspictl preset default-slot 0
-dspictl preset include-pins false
+dspictl preset output-config-mode preset
 ```
 
 ### `dspictl matrix`

@@ -72,6 +72,14 @@ func newEQMasterCmd() *cobra.Command {
 		ValidArgsFunction: completeChoices([]string{"true", "false"}),
 	})
 
+	cmd.AddCommand(&cobra.Command{
+		Use:               "band-bypass <channel> <band> [true|false]",
+		Short:             "Get or set bypass for a single EQ band",
+		Args:              cobra.RangeArgs(2, 3),
+		RunE:              runEQMasterBandBypass,
+		ValidArgsFunction: completeEQMasterChannelsAndBands,
+	})
+
 	return cmd
 }
 
@@ -117,6 +125,14 @@ func newEQOutputCmd() *cobra.Command {
 		Args:              cobra.ExactArgs(1),
 		RunE:              runEQOutputClear,
 		ValidArgsFunction: completeOutputChannels,
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:               "band-bypass <channel> <band> [true|false]",
+		Short:             "Get or set bypass for a single EQ band",
+		Args:              cobra.RangeArgs(2, 3),
+		RunE:              runEQOutputBandBypass,
+		ValidArgsFunction: completeEQOutputChannelsAndBands,
 	})
 
 	return cmd
@@ -451,6 +467,89 @@ func runEQMasterBypass(cmd *cobra.Command, args []string) error {
 		}
 
 		fmt.Printf("%s: bypass=%s\n", d.Serial(), state)
+	}
+
+	return nil
+}
+
+func runEQMasterBandBypass(cmd *cobra.Command, args []string) error {
+	ch, band, err := parseEQChannelAndBand(args)
+
+	if err != nil {
+		return err
+	}
+
+	return bandBypassForDevices(ch, band, args[2:])
+}
+
+func runEQOutputBandBypass(cmd *cobra.Command, args []string) error {
+	ch, band, err := parseEQChannelAndBand(args)
+
+	if err != nil {
+		return err
+	}
+
+	return bandBypassForDevices(ch+2, band, args[2:])
+}
+
+func bandBypassForDevices(channel, band int, args []string) error {
+	devices, err := openDevices()
+
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+
+	defer closeDevices(devices)
+
+	if len(args) == 0 {
+		for _, d := range devices {
+			bypass, err := d.GetBandBypass(channel, band)
+
+			if err != nil {
+				slog.Error("getting band bypass failed", "serial", d.Serial(), "channel", channel, "band", band, "error", err)
+
+				continue
+			}
+
+			state := "off"
+
+			if bypass {
+				state = "on"
+			}
+
+			fmt.Printf("%s: ch %d band %d: bypass=%s\n", d.Serial(), channel, band, state)
+		}
+
+		return nil
+	}
+
+	var bypass bool
+
+	switch args[0] {
+	case "true":
+		bypass = true
+	case "false":
+		bypass = false
+	default:
+		return fmt.Errorf("invalid value: %s (expected true or false)", args[0])
+	}
+
+	for _, d := range devices {
+		err := d.SetBandBypass(channel, band, bypass)
+
+		if err != nil {
+			slog.Error("setting band bypass failed", "serial", d.Serial(), "channel", channel, "band", band, "error", err)
+
+			continue
+		}
+
+		state := "off"
+
+		if bypass {
+			state = "on"
+		}
+
+		fmt.Printf("%s: ch %d band %d: bypass=%s\n", d.Serial(), channel, band, state)
 	}
 
 	return nil

@@ -77,11 +77,11 @@ func newPresetCmd() *cobra.Command {
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:               "include-pins [true|false]",
-		Short:             "Get or set pin-config inclusion",
+		Use:               "output-config-mode [independent|preset]",
+		Short:             "Get or set output configuration persistence mode",
 		Args:              cobra.MaximumNArgs(1),
-		RunE:              runPresetIncludePins,
-		ValidArgsFunction: completeChoices([]string{"true", "false"}),
+		RunE:              runPresetOutputConfigMode,
+		ValidArgsFunction: completeChoices([]string{"independent", "preset"}),
 	})
 
 	return cmd
@@ -206,7 +206,7 @@ func runPresetDefaultSlot(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runPresetIncludePins(cmd *cobra.Command, args []string) error {
+func runPresetOutputConfigMode(cmd *cobra.Command, args []string) error {
 	devices, err := openDevices()
 
 	if err != nil {
@@ -217,41 +217,47 @@ func runPresetIncludePins(cmd *cobra.Command, args []string) error {
 
 	if len(args) == 0 {
 		for _, d := range devices {
-			include, err := d.GetPresetIncludePins()
+			mode, err := d.GetOutputConfigMode()
 
 			if err != nil {
-				slog.Error("getting include-pins failed", "serial", d.Serial(), "error", err)
+				slog.Error("getting output config mode failed", "serial", d.Serial(), "error", err)
 
 				continue
 			}
 
-			fmt.Printf("%s: %v\n", d.Serial(), include)
+			name := "independent"
+
+			if mode == 1 {
+				name = "preset"
+			}
+
+			fmt.Printf("%s: %s\n", d.Serial(), name)
 		}
 
 		return nil
 	}
 
-	var include bool
+	var mode int
 
 	switch args[0] {
-	case "true":
-		include = true
-	case "false":
-		include = false
+	case "independent":
+		mode = 0
+	case "preset":
+		mode = 1
 	default:
-		return fmt.Errorf("invalid value: %s (expected true or false)", args[0])
+		return fmt.Errorf("invalid mode: %s (expected independent or preset)", args[0])
 	}
 
 	for _, d := range devices {
-		err := d.SetPresetIncludePins(include)
+		err := d.SetOutputConfigMode(mode)
 
 		if err != nil {
-			slog.Error("setting include-pins failed", "serial", d.Serial(), "error", err)
+			slog.Error("setting output config mode failed", "serial", d.Serial(), "error", err)
 
 			continue
 		}
 
-		fmt.Printf("%s: include-pins=%v\n", d.Serial(), include)
+		fmt.Printf("%s: output-config-mode=%s\n", d.Serial(), args[0])
 	}
 
 	return nil

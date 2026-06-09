@@ -26,6 +26,9 @@ var _ = Describe("System", func() {
 					0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
 					0x04, 0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00,
 				},
+				{uint16(dspi.ReqGetSerial), 0, 0}: {
+					'E', '6', '6', '1', '4', '1', '0', '3', 'E', '3', '2', 'C', '3', 'B', '2', 'D',
+				},
 			},
 		}
 		dev = newTestDevice(mock, dspi.PlatformRP2350)
@@ -171,6 +174,28 @@ var _ = Describe("System", func() {
 		It("returns an error when the device is closed", func() {
 			dev.Close()
 			_, err := dev.GetUSBErrorStats()
+			Expect(err).To(MatchError(ContainSubstring("device is closed")))
+		})
+	})
+
+	Describe("GetSerial", func() {
+		It("returns the 16-byte serial string", func() {
+			serial, err := dev.GetSerial()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(serial).To(Equal("E6614103E32C3B2D"))
+		})
+
+		It("sends the correct bRequest and wValue", func() {
+			_, _ = dev.GetSerial()
+			Expect(mock.CapturedRequests).To(HaveLen(1))
+			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetSerial)))
+			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0)))
+			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
+		})
+
+		It("returns an error when the device is closed", func() {
+			dev.Close()
+			_, err := dev.GetSerial()
 			Expect(err).To(MatchError(ContainSubstring("device is closed")))
 		})
 	})

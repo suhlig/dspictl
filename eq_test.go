@@ -39,8 +39,10 @@ var _ = Describe("EQBand", func() {
 					binary.LittleEndian.PutUint32(b, math.Float32bits(-3.5))
 					return b
 				}(),
-				{uint16(dspi.ReqSetBypass), 0, 0}: {},
-				{uint16(dspi.ReqGetBypass), 0, 0}: {1},
+				{uint16(dspi.ReqSetBypass), 0, 0}:          {},
+				{uint16(dspi.ReqGetBypass), 0, 0}:          {1},
+				{uint16(dspi.ReqSetBandBypass), 0x0203, 0}: {},
+				{uint16(dspi.ReqGetBandBypass), 0x0203, 0}: {1},
 			},
 		}
 		dev = newTestDevice(mock, dspi.PlatformRP2040)
@@ -181,6 +183,49 @@ var _ = Describe("EQBand", func() {
 			bypass, err := dev.GetMasterEQBypass()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(bypass).To(BeTrue())
+		})
+	})
+
+	Describe("SetBandBypass", func() {
+		It("sends the correct wValue for channel 2, band 3", func() {
+			err := dev.SetBandBypass(2, 3, true)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(mock.CapturedRequests).To(HaveLen(1))
+			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqSetBandBypass)))
+			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0x0203)))
+			Expect(mock.CapturedRequests[0].Data).To(Equal([]byte{1}))
+		})
+
+		It("sends 0 for bypass disabled", func() {
+			err := dev.SetBandBypass(2, 3, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(mock.CapturedRequests[0].Data).To(Equal([]byte{0}))
+		})
+
+		It("returns an error when the device is closed", func() {
+			dev.Close()
+			err := dev.SetBandBypass(2, 3, true)
+			Expect(err).To(MatchError(ContainSubstring("device is closed")))
+		})
+	})
+
+	Describe("GetBandBypass", func() {
+		It("returns true when bypass is on", func() {
+			bypass, err := dev.GetBandBypass(2, 3)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(bypass).To(BeTrue())
+		})
+
+		It("sends the correct wValue", func() {
+			_, _ = dev.GetBandBypass(2, 3)
+			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetBandBypass)))
+			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0x0203)))
+		})
+
+		It("returns an error when the device is closed", func() {
+			dev.Close()
+			_, err := dev.GetBandBypass(2, 3)
+			Expect(err).To(MatchError(ContainSubstring("device is closed")))
 		})
 	})
 

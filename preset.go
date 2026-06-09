@@ -8,12 +8,12 @@ import (
 
 // PresetDirectory contains the metadata for all preset slots.
 type PresetDirectory struct {
-	SlotOccupied  uint16
-	StartupMode   int
-	DefaultSlot   int
-	LastActive    int
-	IncludePins   bool
-	MasterVolMode int
+	SlotOccupied     uint16
+	StartupMode      int
+	DefaultSlot      int
+	LastActive       int
+	OutputConfigMode int // 0=independent, 1=per-preset
+	MasterVolMode    int
 }
 
 func (d *Device) PresetSave(slot int) error {
@@ -123,12 +123,12 @@ func (d *Device) GetPresetDirectory() (*PresetDirectory, error) {
 	}
 
 	dir := &PresetDirectory{
-		SlotOccupied:  binary.LittleEndian.Uint16(buf[0:2]),
-		StartupMode:   int(buf[2]),
-		DefaultSlot:   int(buf[3]),
-		LastActive:    int(buf[4]),
-		IncludePins:   buf[5] != 0,
-		MasterVolMode: int(buf[6]),
+		SlotOccupied:     binary.LittleEndian.Uint16(buf[0:2]),
+		StartupMode:      int(buf[2]),
+		DefaultSlot:      int(buf[3]),
+		LastActive:       int(buf[4]),
+		OutputConfigMode: int(buf[5]),
+		MasterVolMode:    int(buf[6]),
 	}
 
 	return dir, nil
@@ -183,40 +183,35 @@ func (d *Device) GetPresetStartup() (mode int, defaultSlot int, err error) {
 	return int(buf[0]), int(buf[1]), nil
 }
 
-// SetPresetIncludePins sets whether pin configuration is included when
-// saving and loading presets.
-func (d *Device) SetPresetIncludePins(include bool) error {
+// SetOutputConfigMode sets whether output configuration is stored per-preset or independently.
+// mode: 0=independent, 1=per-preset.
+func (d *Device) SetOutputConfigMode(mode int) error {
 	if d.closed {
 		return fmt.Errorf("device is closed")
 	}
 
-	val := byte(0)
-	if include {
-		val = 1
-	}
-
-	_, err := d.usb.ControlTransfer(vendorInterfaceOutRequest, ReqPresetSetIncludePins, 0, vendorInterface, []byte{val})
+	_, err := d.usb.ControlTransfer(vendorInterfaceOutRequest, ReqSetOutputConfigMode, 0, vendorInterface, []byte{byte(mode)})
 
 	if err != nil {
-		return fmt.Errorf("REQ_PRESET_SET_INCLUDE_PINS: %w", err)
+		return fmt.Errorf("REQ_SET_OUTPUT_CONFIG_MODE: %w", err)
 	}
 
 	return nil
 }
 
-// GetPresetIncludePins returns whether pin configuration is included in
-// preset save/load operations.
-func (d *Device) GetPresetIncludePins() (bool, error) {
+// GetOutputConfigMode returns the output configuration persistence mode.
+// 0=independent, 1=per-preset.
+func (d *Device) GetOutputConfigMode() (int, error) {
 	if d.closed {
-		return false, fmt.Errorf("device is closed")
+		return 0, fmt.Errorf("device is closed")
 	}
 
 	buf := make([]byte, 1)
-	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqPresetGetIncludePins, 0, vendorInterface, buf)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetOutputConfigMode, 0, vendorInterface, buf)
 
 	if err != nil {
-		return false, fmt.Errorf("REQ_PRESET_GET_INCLUDE_PINS: %w", err)
+		return 0, fmt.Errorf("REQ_GET_OUTPUT_CONFIG_MODE: %w", err)
 	}
 
-	return buf[0] != 0, nil
+	return int(buf[0]), nil
 }

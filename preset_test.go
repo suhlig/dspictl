@@ -15,17 +15,17 @@ var _ = Describe("Preset", func() {
 	BeforeEach(func() {
 		mock = &mockControlTransfer{
 			ReturnData: map[[3]uint16][]byte{
-				{uint16(dspi.ReqPresetSave), 5, 0}:           {0x00},
-				{uint16(dspi.ReqPresetLoad), 5, 0}:           {0x00},
-				{uint16(dspi.ReqPresetDelete), 5, 0}:         {0x00},
-				{uint16(dspi.ReqPresetGetName), 5, 0}:        append([]byte("Test Preset"), make([]byte, 21)...),
-				{uint16(dspi.ReqPresetSetName), 5, 0}:        {},
-				{uint16(dspi.ReqPresetGetDir), 0, 0}:         {0x1F, 0x00, 0x01, 0x03, 0x05, 0x01, 0x02},
-				{uint16(dspi.ReqPresetGetActive), 0, 0}:      {0x04},
-				{uint16(dspi.ReqPresetSetStartup), 0, 0}:     {},
-				{uint16(dspi.ReqPresetGetStartup), 0, 0}:     {0x01, 0x02},
-				{uint16(dspi.ReqPresetSetIncludePins), 0, 0}: {},
-				{uint16(dspi.ReqPresetGetIncludePins), 0, 0}: {0x01},
+				{uint16(dspi.ReqPresetSave), 5, 0}:          {0x00},
+				{uint16(dspi.ReqPresetLoad), 5, 0}:          {0x00},
+				{uint16(dspi.ReqPresetDelete), 5, 0}:        {0x00},
+				{uint16(dspi.ReqPresetGetName), 5, 0}:       append([]byte("Test Preset"), make([]byte, 21)...),
+				{uint16(dspi.ReqPresetSetName), 5, 0}:       {},
+				{uint16(dspi.ReqPresetGetDir), 0, 0}:        {0x1F, 0x00, 0x01, 0x03, 0x05, 0x01, 0x02},
+				{uint16(dspi.ReqPresetGetActive), 0, 0}:     {0x04},
+				{uint16(dspi.ReqPresetSetStartup), 0, 0}:    {},
+				{uint16(dspi.ReqPresetGetStartup), 0, 0}:    {0x01, 0x02},
+				{uint16(dspi.ReqSetOutputConfigMode), 0, 0}: {},
+				{uint16(dspi.ReqGetOutputConfigMode), 0, 0}: {0x01},
 			},
 		}
 		dev = newTestDevice(mock, dspi.PlatformRP2350)
@@ -185,7 +185,7 @@ var _ = Describe("Preset", func() {
 			Expect(dir.StartupMode).To(Equal(1))
 			Expect(dir.DefaultSlot).To(Equal(3))
 			Expect(dir.LastActive).To(Equal(5))
-			Expect(dir.IncludePins).To(BeTrue())
+			Expect(dir.OutputConfigMode).To(Equal(1))
 			Expect(dir.MasterVolMode).To(Equal(2))
 		})
 
@@ -272,60 +272,60 @@ var _ = Describe("Preset", func() {
 		})
 	})
 
-	Describe("SetPresetIncludePins", func() {
+	Describe("SetOutputConfigMode", func() {
 		It("sends the correct request", func() {
-			err := dev.SetPresetIncludePins(true)
+			err := dev.SetOutputConfigMode(1)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(mock.CapturedRequests).To(HaveLen(1))
-			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqPresetSetIncludePins)))
+			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqSetOutputConfigMode)))
 			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0)))
 			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
 		})
 
-		It("encodes true as 0x01", func() {
-			err := dev.SetPresetIncludePins(true)
+		It("encodes mode 1 as 0x01", func() {
+			err := dev.SetOutputConfigMode(1)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(mock.CapturedRequests[0].Data).To(Equal([]byte{0x01}))
 		})
 
-		It("encodes false as 0x00", func() {
-			err := dev.SetPresetIncludePins(false)
+		It("encodes mode 0 as 0x00", func() {
+			err := dev.SetOutputConfigMode(0)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(mock.CapturedRequests[0].Data).To(Equal([]byte{0x00}))
 		})
 
 		It("returns an error when the device is closed", func() {
 			dev.Close()
-			err := dev.SetPresetIncludePins(true)
+			err := dev.SetOutputConfigMode(1)
 			Expect(err).To(MatchError(ContainSubstring("device is closed")))
 		})
 	})
 
-	Describe("GetPresetIncludePins", func() {
-		It("returns true when the byte is non-zero", func() {
-			include, err := dev.GetPresetIncludePins()
+	Describe("GetOutputConfigMode", func() {
+		It("returns 1 when the byte is non-zero", func() {
+			mode, err := dev.GetOutputConfigMode()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(include).To(BeTrue())
+			Expect(mode).To(Equal(1))
 		})
 
-		It("returns false when the byte is zero", func() {
-			mock.ReturnData[[3]uint16{uint16(dspi.ReqPresetGetIncludePins), 0, 0}] = []byte{0x00}
-			include, err := dev.GetPresetIncludePins()
+		It("returns 0 when the byte is zero", func() {
+			mock.ReturnData[[3]uint16{uint16(dspi.ReqGetOutputConfigMode), 0, 0}] = []byte{0x00}
+			mode, err := dev.GetOutputConfigMode()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(include).To(BeFalse())
+			Expect(mode).To(Equal(0))
 		})
 
 		It("sends the correct request", func() {
-			_, _ = dev.GetPresetIncludePins()
+			_, _ = dev.GetOutputConfigMode()
 			Expect(mock.CapturedRequests).To(HaveLen(1))
-			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqPresetGetIncludePins)))
+			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetOutputConfigMode)))
 			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0)))
 			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
 		})
 
 		It("returns an error when the device is closed", func() {
 			dev.Close()
-			_, err := dev.GetPresetIncludePins()
+			_, err := dev.GetOutputConfigMode()
 			Expect(err).To(MatchError(ContainSubstring("device is closed")))
 		})
 	})
