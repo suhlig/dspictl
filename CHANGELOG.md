@@ -8,11 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Changed
 
-- Update USB protocol to DSPi@bbfd91a1642c3eed47e2833a88343de797457972
+- Update USB protocol to [DSPi@bbfd91a](https://github.com/WeebLabs/DSPi/commit/bbfd91a1642c3eed47e2833a88343de797457972)
 - Fix decoding of firmware patch version
 - Explain how to deal with no default ALSA card defined
-- Update module charm.land/bubbletea/v2 to v2.0.7 (#12)
-- Update module github.com/spf13/pflag to v1.0.10 (#11)
+- Update module `charm.land/bubbletea/v2` to `v2.0.7` (#12)
+- Update module `github.com/spf13/pflag` to `v1.0.10` (#11)
 
 ## [1.5.0] - 2026-05-27
 
