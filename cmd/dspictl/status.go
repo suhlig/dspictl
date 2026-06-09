@@ -46,15 +46,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
-		fwVersion := "unknown"
-
-		bp, err := d.GetAllParams()
-
-		if err != nil {
-			slog.Error("getting firmware version failed", "serial", d.Serial(), "error", err)
-		} else {
-			fwVersion = fmt.Sprintf("%d.%d", bp.Header.FWMajor, bp.Header.FWMinor)
-		}
+		fwVersion := d.FirmwareVersion().String()
 
 		fmt.Printf("Serial: %s\n", d.Serial())
 		fmt.Printf("  USB Bus Number: %d\n", d.Bus())

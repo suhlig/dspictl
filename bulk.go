@@ -22,6 +22,7 @@ type BulkHeader struct {
 	PayloadLength int
 	FWMajor       uint16
 	FWMinor       uint16
+	FWPatch       uint16
 }
 
 // BulkParams holds a complete DSP state snapshot from the device.

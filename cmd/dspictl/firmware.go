@@ -44,15 +44,7 @@ func runFirmwareVersion(cmd *cobra.Command, args []string) error {
 	defer closeDevices(devices)
 
 	for _, d := range devices {
-		bp, err := d.GetAllParams()
-
-		if err != nil {
-			slog.Error("getting firmware version failed", "serial", d.Serial(), "error", err)
-
-			continue
-		}
-
-		fmt.Printf("%s: %d.%d\n", d.Serial(), bp.Header.FWMajor, bp.Header.FWMinor)
+		fmt.Printf("%s: %s\n", d.Serial(), d.FirmwareVersion())
 	}
 
 	return nil
@@ -108,13 +100,7 @@ func runFirmwareUpdate(cmd *cobra.Command, args []string) error {
 	dev := devices[0]
 
 	// Get current firmware version for the summary.
-	oldVersion := "unknown"
-
-	bp, err := dev.GetAllParams()
-
-	if err == nil {
-		oldVersion = fmt.Sprintf("%d.%d", bp.Header.FWMajor, bp.Header.FWMinor)
-	}
+	oldVersion := dev.FirmwareVersion().String()
 
 	// Pre-flight checks.
 	if dev.Platform() != uf2Platform {
@@ -195,13 +181,7 @@ func runFirmwareUpdate(cmd *cobra.Command, args []string) error {
 	fmt.Println(" connected")
 
 	// Report the new firmware version.
-	newVersion := "unknown"
-
-	bp, err = d.GetAllParams()
-
-	if err == nil {
-		newVersion = fmt.Sprintf("%d.%d", bp.Header.FWMajor, bp.Header.FWMinor)
-	}
+	newVersion := d.FirmwareVersion().String()
 
 	fmt.Printf("\nUpdate complete: firmware %s → %s\n", oldVersion, newVersion)
 

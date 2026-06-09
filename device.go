@@ -35,13 +35,14 @@ func (c *gousbControlTransfer) Close() error {
 
 // Device wraps a USB connection to a DSPi.
 type Device struct {
-	usb      USBControlTransfer
-	ctx      *gousb.Context
-	platform Platform
-	serial   string
-	bus      int
-	address  int
-	closed   bool
+	usb       USBControlTransfer
+	ctx       *gousb.Context
+	platform  Platform
+	fwVersion FirmwareVersion
+	serial    string
+	bus       int
+	address   int
+	closed    bool
 }
 
 // Open opens a specific DSPi device identified by info.
@@ -90,7 +91,7 @@ func Open(info DeviceInfo) (*Device, error) {
 		address: info.Address,
 	}
 
-	plat, err := d.detectPlatform()
+	plat, fw, err := d.detectPlatform()
 
 	if err != nil {
 		d.Close()
@@ -99,6 +100,7 @@ func Open(info DeviceInfo) (*Device, error) {
 	}
 
 	d.platform = plat
+	d.fwVersion = fw
 
 	return d, nil
 }
@@ -166,6 +168,9 @@ func (d *Device) setControlTimeout(dur time.Duration) {
 // Platform returns the detected hardware platform.
 func (d *Device) Platform() Platform { return d.platform }
 
+// FirmwareVersion returns the decoded firmware version from REQ_GET_PLATFORM.
+func (d *Device) FirmwareVersion() FirmwareVersion { return d.fwVersion }
+
 // Serial returns the unique serial number of the device.
 func (d *Device) Serial() string { return d.serial }
 
@@ -196,18 +201,25 @@ func (d *Device) Bus() int { return d.bus }
 // Address returns the USB device address on the bus.
 func (d *Device) Address() int { return d.address }
 
-func (d *Device) detectPlatform() (Platform, error) {
+func (d *Device) detectPlatform() (Platform, FirmwareVersion, error) {
 	buf := make([]byte, 4)
 	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetPlatform, 0, vendorInterface, buf)
 
 	if err != nil {
-		return 0, fmt.Errorf("REQ_GET_PLATFORM: %w", err)
+		return 0, FirmwareVersion{}, fmt.Errorf("REQ_GET_PLATFORM: %w", err)
 	}
-	if len(buf) < 1 {
-		return 0, fmt.Errorf("REQ_GET_PLATFORM: empty response")
+	if len(buf) < 4 {
+		return 0, FirmwareVersion{}, fmt.Errorf("REQ_GET_PLATFORM: response too short (%d bytes)", len(buf))
 	}
 
-	return Platform(buf[0]), nil
+	platform := Platform(buf[0])
+	fw := FirmwareVersion{
+		Major: buf[1],
+		Minor: buf[2] >> 4,
+		Patch: buf[2] & 0x0F,
+	}
+
+	return platform, fw, nil
 }
 
 // ReadMeter polls the device for combined status (wValue=9).

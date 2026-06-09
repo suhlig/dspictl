@@ -1,5 +1,7 @@
 package dspi
 
+import "fmt"
+
 // Platform identifies the DSPi hardware platform.
 type Platform int
 
@@ -17,4 +19,20 @@ func (p Platform) String() string {
 	default:
 		return "Unknown"
 	}
+}
+
+// FirmwareVersion holds the decoded firmware version from REQ_GET_PLATFORM.
+type FirmwareVersion struct {
+	Major uint8
+	Minor uint8
+	Patch uint8
+}
+
+// String formats the version as "v1.2.3".
+func (v FirmwareVersion) String() string {
+	if v.Major == 0 && v.Minor == 0 && v.Patch == 0 {
+		return "unknown"
+	}
+
+	return fmt.Sprintf("v%d.%d.%d", v.Major, v.Minor, v.Patch)
 }
