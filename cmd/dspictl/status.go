@@ -79,10 +79,41 @@ func runStatus(cmd *cobra.Command, args []string) error {
 
 		fmt.Printf("\n")
 
+		printMCKStatus(d)
+
 		printLoudnessCompact(d)
 
 		fmt.Printf("  CPU: %d%% / %d%%\n", meter.CPU0, meter.CPU1)
 	}
 
 	return nil
+}
+
+// printMCKStatus prints a one-line MCK summary for use in status output.
+func printMCKStatus(d *dspi.Device) {
+	enabled, err := d.GetMCKEnable()
+
+	if err != nil {
+		return // silently skip if firmware doesn't support it
+	}
+
+	pin, err := d.GetMCKPin()
+
+	if err != nil {
+		return
+	}
+
+	multiplier, err := d.GetMCKMultiplier()
+
+	if err != nil {
+		return
+	}
+
+	label := "128"
+
+	if multiplier == 1 {
+		label = "256"
+	}
+
+	fmt.Printf("  MCK: %v (GPIO %d, %s×)\n", enabled, pin, label)
 }

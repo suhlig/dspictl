@@ -67,12 +67,6 @@ func newConfigCmd() *cobra.Command {
 		ValidArgsFunction: completeChoices([]string{"128", "256"}),
 	})
 
-	mckCmd.AddCommand(&cobra.Command{
-		Use:   "status",
-		Short: "Show complete MCK configuration",
-		RunE:  runConfigMCKStatus,
-	})
-
 	cmd.AddCommand(mckCmd)
 
 	cmd.AddCommand(&cobra.Command{
@@ -462,52 +456,6 @@ func runConfigMCKMultiplier(cmd *cobra.Command, args []string) error {
 		}
 
 		fmt.Printf("%s: MCK multiplier=%s\n", d.Serial(), args[0])
-	}
-
-	return nil
-}
-
-func runConfigMCKStatus(cmd *cobra.Command, args []string) error {
-	devices, err := openDevices()
-
-	if err != nil {
-		return fmt.Errorf("opening DSPi devices: %w", err)
-	}
-
-	defer closeDevices(devices)
-
-	for _, d := range devices {
-		enabled, err := d.GetMCKEnable()
-
-		if err != nil {
-			slog.Error("getting MCK enable failed", "serial", d.Serial(), "error", err)
-
-			continue
-		}
-
-		pin, err := d.GetMCKPin()
-
-		if err != nil {
-			slog.Error("getting MCK pin failed", "serial", d.Serial(), "error", err)
-
-			continue
-		}
-
-		multiplier, err := d.GetMCKMultiplier()
-
-		if err != nil {
-			slog.Error("getting MCK multiplier failed", "serial", d.Serial(), "error", err)
-
-			continue
-		}
-
-		label := "128"
-
-		if multiplier == 1 {
-			label = "256"
-		}
-
-		fmt.Printf("%s: MCK=%v pin=%d multiplier=%s\n", d.Serial(), enabled, pin, label)
 	}
 
 	return nil
