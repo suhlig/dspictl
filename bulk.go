@@ -11,6 +11,8 @@ const (
 	// Linux usbfs limits control transfers to 4096 bytes, so we stay within
 	// that bound to avoid libusb: invalid param [code -2] on Linux hosts.
 	safeMaxPayload = 4096
+
+	wireInputConfigOffset = 2896
 )
 
 // BulkHeader is the 16-byte header parsed from a WireBulkParams payload.
@@ -86,5 +88,55 @@ func ParseBulkHeader(raw []byte) BulkHeader {
 		PayloadLength: int(binary.LittleEndian.Uint16(raw[6:8])),
 		FWMajor:       binary.LittleEndian.Uint16(raw[8:10]),
 		FWMinor:       binary.LittleEndian.Uint16(raw[10:12]),
+	}
+}
+
+// InputSource returns the active input source from the bulk parameters.
+// Valid for WireFormatVersion >= 12.
+func (bp *BulkParams) InputSource() (int, bool) {
+	if len(bp.Raw) <= wireInputConfigOffset {
+		return 0, false
+	}
+
+	return int(bp.Raw[wireInputConfigOffset]), true
+}
+
+// SetInputSource updates the input source in the bulk parameters.
+func (bp *BulkParams) SetInputSource(v int) {
+	if len(bp.Raw) > wireInputConfigOffset {
+		bp.Raw[wireInputConfigOffset] = byte(v)
+	}
+}
+
+// I2SRxPin returns the I2S RX data pin from the bulk parameters.
+func (bp *BulkParams) I2SRxPin() (int, bool) {
+	if len(bp.Raw) <= wireInputConfigOffset+2 {
+		return 0, false
+	}
+
+	return int(bp.Raw[wireInputConfigOffset+2]), true
+}
+
+// SetI2SRxPin updates the I2S RX data pin in the bulk parameters.
+func (bp *BulkParams) SetI2SRxPin(v int) {
+	if len(bp.Raw) > wireInputConfigOffset+2 {
+		bp.Raw[wireInputConfigOffset+2] = byte(v)
+	}
+}
+
+// I2SInputRate returns the I2S input rate enum from the bulk parameters.
+// 0=44100, 1=48000, 2=96000.
+func (bp *BulkParams) I2SInputRate() (int, bool) {
+	if len(bp.Raw) <= wireInputConfigOffset+3 {
+		return 0, false
+	}
+
+	return int(bp.Raw[wireInputConfigOffset+3]), true
+}
+
+// SetI2SInputRate updates the I2S input rate enum in the bulk parameters.
+func (bp *BulkParams) SetI2SInputRate(v int) {
+	if len(bp.Raw) > wireInputConfigOffset+3 {
+		bp.Raw[wireInputConfigOffset+3] = byte(v)
 	}
 }

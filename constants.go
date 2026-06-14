@@ -87,4 +87,20 @@ const (
 	ReqGetBandBypass = 0xD9
 
 	ReqGetSerial = 0x7E
+
+	ReqSetInputSource = 0xE0
+	ReqGetInputSource = 0xE1
+	ReqSetInputRate   = 0xED
+	ReqGetInputRate   = 0xEE
+	ReqSetI2SRxPin    = 0xF1
+	ReqGetI2SRxPin    = 0xF2
+
+	InputSourceUSB   = 0
+	InputSourceSPDIF = 1
+	InputSourceI2S   = 2
+
+	PinConfigSuccess      = 0x00
+	PinConfigInvalidPin   = 0x01
+	PinConfigPinInUse     = 0x02
+	PinConfigOutputActive = 0x04
 )

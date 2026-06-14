@@ -137,4 +137,47 @@ var _ = Describe("Bulk", func() {
 			Expect(err).To(MatchError(ContainSubstring("no params")))
 		})
 	})
+
+	Describe("WireInputConfig accessors", func() {
+		It("reads input source, RX pin, and rate", func() {
+			raw := make([]byte, 2900)
+			raw[2896] = 2 // I2S
+			raw[2898] = 4 // RX pin
+			raw[2899] = 1 // 48000
+
+			bp := &dspi.BulkParams{Raw: raw}
+
+			src, ok := bp.InputSource()
+			Expect(ok).To(BeTrue())
+			Expect(src).To(Equal(2))
+
+			pin, ok := bp.I2SRxPin()
+			Expect(ok).To(BeTrue())
+			Expect(pin).To(Equal(4))
+
+			rate, ok := bp.I2SInputRate()
+			Expect(ok).To(BeTrue())
+			Expect(rate).To(Equal(1))
+		})
+
+		It("returns false for short payloads", func() {
+			bp := &dspi.BulkParams{Raw: make([]byte, 100)}
+			_, ok := bp.InputSource()
+			Expect(ok).To(BeFalse())
+		})
+
+		It("writes values into raw", func() {
+			raw := make([]byte, 2900)
+			bp := &dspi.BulkParams{Raw: raw}
+
+			bp.SetInputSource(2)
+			Expect(raw[2896]).To(Equal(byte(2)))
+
+			bp.SetI2SRxPin(5)
+			Expect(raw[2898]).To(Equal(byte(5)))
+
+			bp.SetI2SInputRate(1)
+			Expect(raw[2899]).To(Equal(byte(1)))
+		})
+	})
 })
