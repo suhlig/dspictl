@@ -36,7 +36,7 @@ func (d *Device) GetOutputType(slot int) (int, error) {
 }
 
 // SetOutputPin changes the GPIO pin assignment for an output.
-// The protocol returns a status byte.
+// The protocol returns a status byte; non-zero statuses are returned as errors.
 func (d *Device) SetOutputPin(output int, pin int) error {
 	if d.closed {
 		return fmt.Errorf("device is closed")
@@ -48,6 +48,10 @@ func (d *Device) SetOutputPin(output int, pin int) error {
 
 	if err != nil {
 		return fmt.Errorf("REQ_SET_OUTPUT_PIN: %w", err)
+	}
+
+	if buf[0] != PinConfigSuccess {
+		return fmt.Errorf("REQ_SET_OUTPUT_PIN: status 0x%02X", buf[0])
 	}
 
 	return nil
@@ -70,15 +74,21 @@ func (d *Device) GetOutputPin(output int) (int, error) {
 }
 
 // SetI2SBckPin sets the shared I2S BCK GPIO.
+// The value is sent in wValue and the firmware returns a 1-byte status.
 func (d *Device) SetI2SBckPin(pin int) error {
 	if d.closed {
 		return fmt.Errorf("device is closed")
 	}
 
-	_, err := d.usb.ControlTransfer(vendorInterfaceOutRequest, ReqSetI2SBckPin, 0, vendorInterface, []byte{byte(pin)})
+	buf := make([]byte, 1)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqSetI2SBckPin, uint16(pin), vendorInterface, buf)
 
 	if err != nil {
 		return fmt.Errorf("REQ_SET_I2S_BCK_PIN: %w", err)
+	}
+
+	if buf[0] != PinConfigSuccess {
+		return fmt.Errorf("REQ_SET_I2S_BCK_PIN: status 0x%02X", buf[0])
 	}
 
 	return nil

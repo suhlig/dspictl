@@ -20,7 +20,7 @@ var _ = Describe("Config", func() {
 				{uint16(dspi.ReqGetOutputPin), 3, 0}:      {0x05},
 				{uint16(dspi.ReqSetOutputPin), 0x0503, 0}: {0x00},
 				{uint16(dspi.ReqGetI2SBckPin), 0, 0}:      {0x07},
-				{uint16(dspi.ReqSetI2SBckPin), 0, 0}:      {},
+				{uint16(dspi.ReqSetI2SBckPin), 7, 0}:      {0x00},
 				{uint16(dspi.ReqGetMCKEnable), 0, 0}:      {0x01},
 				{uint16(dspi.ReqSetMCKEnable), 0, 0}:      {},
 				{uint16(dspi.ReqGetMCKPin), 0, 0}:         {0x09},
@@ -89,6 +89,13 @@ var _ = Describe("Config", func() {
 			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
 		})
 
+		It("returns an error on non-zero status", func() {
+			mock.ReturnData[[3]uint16{uint16(dspi.ReqSetOutputPin), 0x0503, 0}] = []byte{0x02}
+			err := dev.SetOutputPin(3, 5)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("status 0x02"))
+		})
+
 		It("returns an error when the device is closed", func() {
 			dev.Close()
 			err := dev.SetOutputPin(3, 5)
@@ -119,14 +126,20 @@ var _ = Describe("Config", func() {
 	})
 
 	Describe("SetI2SBckPin", func() {
-		It("sends the correct bRequest and payload", func() {
+		It("sends the correct bRequest and wValue", func() {
 			err := dev.SetI2SBckPin(7)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(mock.CapturedRequests).To(HaveLen(1))
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqSetI2SBckPin)))
-			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0)))
+			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(7)))
 			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
-			Expect(mock.CapturedRequests[0].Data).To(Equal([]byte{0x07}))
+		})
+
+		It("returns an error on non-zero status", func() {
+			mock.ReturnData[[3]uint16{uint16(dspi.ReqSetI2SBckPin), 7, 0}] = []byte{0x04}
+			err := dev.SetI2SBckPin(7)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("status 0x04"))
 		})
 
 		It("returns an error when the device is closed", func() {

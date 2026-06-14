@@ -103,6 +103,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newMatrixCmd())
 	rootCmd.AddCommand(newChannelNameCmd())
 	rootCmd.AddCommand(newConfigCmd())
+	rootCmd.AddCommand(newInputCmd())
 	rootCmd.AddCommand(newEQCmd())
 	rootCmd.AddCommand(newLoudnessCmd())
 	rootCmd.AddCommand(newSerialCmd())

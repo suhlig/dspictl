@@ -10,6 +10,8 @@ type GroupEntry struct {
 func BuildGroups(channels []dspi.ChannelInfo, snap dspi.MeterSnapshot) (groups map[string][]GroupEntry, groupOrder []string, channelTotal int) {
 	groupDisplay := map[string]string{
 		"USB Input":     "Input",
+		"S/PDIF Input":  "Input",
+		"I2S Input":     "Input",
 		"S/PDIF Output": "Output",
 		"PDM Sub":       "Subwoofer",
 	}

@@ -28,6 +28,7 @@ var _ = Describe("Channel", func() {
 				{uint16(dspi.ReqGetChannelName), 10, 0}: {'C', 'h', '1', '0', 0},
 				{uint16(dspi.ReqSetChannelName), 0, 0}:  {},
 				{uint16(dspi.ReqSetChannelName), 3, 0}:  {},
+				{uint16(dspi.ReqGetInputSource), 0, 0}:  {0x00},
 			},
 		}
 		dev = newTestDevice(mock, dspi.PlatformRP2350)

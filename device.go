@@ -365,6 +365,8 @@ func (d *Device) Channels() ([]ChannelInfo, error) {
 		channelCount = 11
 	}
 
+	inputSource, _ := d.GetInputSource()
+
 	channels := make([]ChannelInfo, 0, channelCount)
 
 	for i := 0; i < channelCount; i++ {
@@ -376,15 +378,15 @@ func (d *Device) Channels() ([]ChannelInfo, error) {
 		channels = append(channels, ChannelInfo{
 			Index: i,
 			Name:  name,
-			Group: channelGroup(i, d.platform),
+			Group: channelGroup(i, d.platform, inputSource),
 		})
 	}
 
 	return channels, nil
 }
 
-// channelGroup returns the group name for a channel based on its index and platform.
-func channelGroup(index int, platform Platform) string {
+// channelGroup returns the group name for a channel based on its index, platform, and active input source.
+func channelGroup(index int, platform Platform, inputSource int) string {
 	maxIndex := 6
 	if platform == PlatformRP2350 {
 		maxIndex = 10
@@ -392,7 +394,14 @@ func channelGroup(index int, platform Platform) string {
 
 	switch {
 	case index <= 1:
-		return "USB Input"
+		switch inputSource {
+		case InputSourceSPDIF:
+			return "S/PDIF Input"
+		case InputSourceI2S:
+			return "I2S Input"
+		default:
+			return "USB Input"
+		}
 	case index < maxIndex:
 		return "S/PDIF Output"
 	default:

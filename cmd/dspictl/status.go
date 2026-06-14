@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/spf13/cobra"
+	"github.com/suhlig/dspi"
 )
 
 func newStatusCmd() *cobra.Command {
@@ -46,6 +47,20 @@ func runStatus(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
+		inputSource, err := d.GetInputSource()
+
+		if err != nil {
+			slog.Error("getting input source failed", "serial", d.Serial(), "error", err)
+			continue
+		}
+
+		inputRate, err := d.GetInputRate()
+
+		if err != nil {
+			slog.Error("getting input rate failed", "serial", d.Serial(), "error", err)
+			continue
+		}
+
 		fwVersion := d.FirmwareVersion().String()
 
 		fmt.Printf("Serial: %s\n", d.Serial())
@@ -55,6 +70,14 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  Firmware: %s\n", fwVersion)
 		fmt.Printf("  Volume: %s\n", volume)
 		fmt.Printf("  Preset: %d\n", preset)
+		fmt.Printf("  Input: %s\n", dspi.InputSourceName(inputSource))
+		fmt.Printf("  Rate: %d Hz", inputRate.PipelineHz)
+
+		if inputSource == dspi.InputSourceI2S {
+			fmt.Printf(" (I2S %d Hz)", inputRate.SelectedHz)
+		}
+
+		fmt.Printf("\n")
 
 		printLoudnessCompact(d)
 
