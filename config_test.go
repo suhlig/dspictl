@@ -22,8 +22,8 @@ var _ = Describe("Config", func() {
 				{uint16(dspi.ReqGetI2SBckPin), 0, 0}:      {0x07},
 				{uint16(dspi.ReqSetI2SBckPin), 7, 0}:      {0x00},
 				{uint16(dspi.ReqGetMCKEnable), 0, 0}:      {0x01},
-				{uint16(dspi.ReqSetMCKEnable), 1, 0}:      {0x00},
 				{uint16(dspi.ReqSetMCKEnable), 0, 0}:      {0x00},
+				{uint16(dspi.ReqSetMCKEnable), 1, 0}:      {0x00},
 				{uint16(dspi.ReqGetMCKPin), 0, 0}:         {0x09},
 				{uint16(dspi.ReqSetMCKPin), 9, 0}:         {0x00},
 				{uint16(dspi.ReqGetMCKMultiplier), 0, 0}:  {0x01},
@@ -176,19 +176,25 @@ var _ = Describe("Config", func() {
 		It("encodes true as wValue 0x01", func() {
 			err := dev.SetMCKEnable(true)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(1)))
+			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0x01)))
 		})
 
 		It("encodes false as wValue 0x00", func() {
 			err := dev.SetMCKEnable(false)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0)))
+			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0x00)))
 		})
 
 		It("sends the correct bRequest", func() {
 			_ = dev.SetMCKEnable(true)
 			Expect(mock.CapturedRequests).To(HaveLen(1))
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqSetMCKEnable)))
+		})
+
+		It("returns an error when the firmware reports a non-success status", func() {
+			mock.ReturnData[[3]uint16{uint16(dspi.ReqSetMCKEnable), 0x01, 0}] = []byte{dspi.PinConfigPinInUse}
+			err := dev.SetMCKEnable(true)
+			Expect(err).To(MatchError(ContainSubstring("status 0x02")))
 		})
 
 		It("returns an error when the device is closed", func() {
@@ -235,6 +241,12 @@ var _ = Describe("Config", func() {
 			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(9)))
 		})
 
+		It("returns an error when the firmware reports a non-success status", func() {
+			mock.ReturnData[[3]uint16{uint16(dspi.ReqSetMCKPin), 9, 0}] = []byte{dspi.PinConfigInvalidPin}
+			err := dev.SetMCKPin(9)
+			Expect(err).To(MatchError(ContainSubstring("status 0x01")))
+		})
+
 		It("returns an error when the device is closed", func() {
 			dev.Close()
 			err := dev.SetMCKPin(9)
@@ -270,6 +282,12 @@ var _ = Describe("Config", func() {
 			Expect(mock.CapturedRequests).To(HaveLen(1))
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqSetMCKMultiplier)))
 			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(1)))
+		})
+
+		It("returns an error when the firmware reports a non-success status", func() {
+			mock.ReturnData[[3]uint16{uint16(dspi.ReqSetMCKMultiplier), 1, 0}] = []byte{dspi.PinConfigInvalidPin}
+			err := dev.SetMCKMultiplier(1)
+			Expect(err).To(MatchError(ContainSubstring("status 0x01")))
 		})
 
 		It("returns an error when the device is closed", func() {

@@ -111,21 +111,26 @@ func (d *Device) GetI2SBckPin() (int, error) {
 }
 
 // SetMCKEnable enables or disables the I2S master clock output.
+// The enable flag is carried in wValue and the firmware returns a 1-byte status.
 func (d *Device) SetMCKEnable(enabled bool) error {
 	if d.closed {
 		return fmt.Errorf("device is closed")
 	}
 
-	val := byte(0)
+	wValue := uint16(0)
 	if enabled {
-		val = 1
+		wValue = 1
 	}
 
 	buf := make([]byte, 1)
-	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqSetMCKEnable, uint16(val), vendorInterface, buf)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqSetMCKEnable, wValue, vendorInterface, buf)
 
 	if err != nil {
 		return fmt.Errorf("REQ_SET_MCK_ENABLE: %w", err)
+	}
+
+	if buf[0] != PinConfigSuccess {
+		return fmt.Errorf("REQ_SET_MCK_ENABLE: status 0x%02X", buf[0])
 	}
 
 	return nil
@@ -148,6 +153,7 @@ func (d *Device) GetMCKEnable() (bool, error) {
 }
 
 // SetMCKPin sets the MCK GPIO pin.
+// The pin is carried in wValue and the firmware returns a 1-byte status.
 func (d *Device) SetMCKPin(pin int) error {
 	if d.closed {
 		return fmt.Errorf("device is closed")
@@ -158,6 +164,10 @@ func (d *Device) SetMCKPin(pin int) error {
 
 	if err != nil {
 		return fmt.Errorf("REQ_SET_MCK_PIN: %w", err)
+	}
+
+	if buf[0] != PinConfigSuccess {
+		return fmt.Errorf("REQ_SET_MCK_PIN: status 0x%02X", buf[0])
 	}
 
 	return nil
@@ -181,6 +191,7 @@ func (d *Device) GetMCKPin() (int, error) {
 
 // SetMCKMultiplier sets the MCK multiplier.
 // multiplier: 0=128x, 1=256x.
+// The multiplier is carried in wValue and the firmware returns a 1-byte status.
 func (d *Device) SetMCKMultiplier(multiplier int) error {
 	if d.closed {
 		return fmt.Errorf("device is closed")
@@ -191,6 +202,10 @@ func (d *Device) SetMCKMultiplier(multiplier int) error {
 
 	if err != nil {
 		return fmt.Errorf("REQ_SET_MCK_MULTIPLIER: %w", err)
+	}
+
+	if buf[0] != PinConfigSuccess {
+		return fmt.Errorf("REQ_SET_MCK_MULTIPLIER: status 0x%02X", buf[0])
 	}
 
 	return nil
