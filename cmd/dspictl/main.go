@@ -36,6 +36,10 @@ func mainE(ctx context.Context) error {
 
 var knownValueTakingFlags = map[string]bool{
 	"--target": true,
+	"--freq":   true,
+	"--q":      true,
+	"--gain":   true,
+	"--type":   true,
 }
 
 var negativeNumberRe = regexp.MustCompile(`^-\d+(\.\d+)?$`)
