@@ -183,7 +183,7 @@ Hardware configuration: output type, GPIO pins, I2S clocks.
 | `output-type` | `<slot> [spdif\|i2s]` | Get or set slot output type |
 | `output-pin` | `<output> [<gpio>]` | Get or set output GPIO pin |
 | `i2s-rx-pin` | `[<gpio>]` | Get or set I2S RX data GPIO pin |
-| `bck-pin` | `[<gpio>]` | Get or set shared I2S BCK pin |
+| `bck-pin` | `[<gpio>]` | Get or set shared I2S BCK pin (LRCLK = BCK + 1) |
 | `output-config-mode` | `[independent\|preset]` | Get or set output configuration persistence |
 | `mck` | *(see below)* | I2S master clock configuration |
 
@@ -199,7 +199,7 @@ Hardware configuration: output type, GPIO pins, I2S clocks.
 dspictl config output-type 0 i2s
 dspictl config output-pin 3 8
 dspictl config i2s-rx-pin 15
-dspictl config bck-pin 14
+dspictl config bck-pin 14        # BCK on GPIO 14, LRCLK on GPIO 15
 dspictl config output-config-mode preset
 dspictl config mck enable true
 dspictl config mck pin 13

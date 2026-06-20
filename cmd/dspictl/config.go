@@ -35,8 +35,12 @@ func newConfigCmd() *cobra.Command {
 	cmd.AddCommand(&cobra.Command{
 		Use:   "bck-pin [<gpio>]",
 		Short: "Get or set shared I2S BCK pin",
-		Args:  cobra.MaximumNArgs(1),
-		RunE:  runConfigBckPin,
+		Long: `Get or set the shared I2S BCK (bit clock) GPIO pin.
+
+LRCLK (word select) is always BCK + 1 — this is a PIO hardware constraint.
+When you set the BCK pin, LRCLK is automatically placed on the next GPIO.`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: runConfigBckPin,
 	})
 
 	mckCmd := &cobra.Command{
