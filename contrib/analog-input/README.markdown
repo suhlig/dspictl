@@ -10,6 +10,8 @@ The PCM1808 module commonly found on AliExpress and Amazon provides stereo analo
 
 Connect the PCM1808 to the DSPi using the default pins:
 
+![DSPi Analog Chain consisting of PCM1808, Tenstar RP2350 Zero, PCM5102A](pcm1808_RP2350_pcm5102A.svg)
+
 | Signal | DSPi GPIO | PCM1808 Pin |
 |---|---|---|
 | BCK (Bit Clock) | GP14 | BCK |
