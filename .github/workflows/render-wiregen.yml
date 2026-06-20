@@ -1,4 +1,5 @@
 name: Render wiregen diagrams
+
 on:
   pull_request:
     paths: &filter-paths
@@ -7,6 +8,7 @@ on:
   push:
     paths: *filter-paths
   workflow_dispatch:
+
 jobs:
   render:
     runs-on: ubuntu-latest
@@ -15,13 +17,15 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.RENDER_WIREGEN_PAT }}
       - name: Install uv
         uses: astral-sh/setup-uv@v5
       - name: Render all example YAMLs to SVG
         run: uv run --with git+https://github.com/WeebLabs/wiregen python contrib/wiregen/render.py
       - name: Commit and push rendered SVGs
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RENDER_WIREGEN_PAT }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
