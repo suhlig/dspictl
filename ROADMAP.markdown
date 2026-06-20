@@ -5,6 +5,7 @@ High-level design for the `dspictl` CLI, derived from the
 
 # TODO
 
+- `REQ_SAVE_PARAMS` (0x51) and `REQ_LOAD_PARAMS` (0x52)
 - Crossfeed
 - Volume leveller
 
