@@ -23,23 +23,6 @@ High-level design for the `dspictl` CLI, derived from the
 
 ## Flat Commands
 
-### `dspictl mute`
-
-Sets master volume to the mute sentinel (-128 dB) on all targets. No arguments.
-
-```
-dspictl mute
-dspictl --target E6614103E32C3B2D mute
-```
-
-### `dspictl unmute`
-
-Resets master volume to the firmware default (-20 dB). No arguments.
-
-```
-dspictl unmute
-```
-
 ### `dspictl status`
 
 Queries and prints a summary of every connected device.
@@ -52,49 +35,6 @@ Volume: -20 dB
 Preset: 3
 ```
 
-### `dspictl serial`
-
-Queries the firmware serial number from each connected device. No arguments.
-
-```
-$ dspictl serial
-E6614103E32C3B2D
-D3615A4863503A79
-```
-
-### `dspictl targets`
-
-Lists all connected devices by their serial number.
-
-```
-$ dspictl targets
-E6614103E32C3B2D
-D3615A4863503A79
-```
-
-### `dspictl clear-clips`
-
-Clears the clip detection latches on all target devices. No arguments.
-
-### `dspictl buffer-stats`
-
-Reads and prints buffer fill statistics from each target.
-
-### `dspictl usb-errors`
-
-Reads and prints USB PHY error counters (CRC, bit-stuff, timeout, overflow,
-sequence errors) from each target.
-
-### `dspictl core1`
-
-Queries and prints the Core 1 operating mode and any PDM/EQ-worker conflict
-status for each target.
-
-### `dspictl bootloader`
-
-Sends the enter-bootloader command to each target, causing the device to
-reboot into UF2 mode for firmware updates. No arguments.
-
 ### `dspictl factory-reset`
 
 Resets the live DSP state to factory defaults on each target. Does NOT erase
@@ -104,18 +44,22 @@ any preset slots. No arguments.
 
 ### `dspictl volume`
 
-Master volume get/set, persistence mode, and save.
+Master volume get/set, mute, persistence mode, and save.
 
 | Subcommand | Args | Description |
 |---|---|---|
 | `get` | — | Print current master volume |
 | `set` | `<db>` | Set master volume (-128 to 0 dB) |
+| `mute` | — | Mute master volume (-128 dB) |
+| `unmute` | — | Unmute to firmware default (-20 dB) |
 | `mode` | `[independent\|preset]` | Get or set persistence mode |
 | `save` | — | Save current volume as boot default (mode 0) |
 
 ```
 dspictl volume get
 dspictl volume set -30
+dspictl volume mute
+dspictl volume unmute
 dspictl volume mode
 dspictl volume mode preset
 dspictl volume save
@@ -172,7 +116,6 @@ Preset slot management (slots 0-9) and startup configuration.
 | `active` | — | Show the currently active preset slot |
 | `startup-mode` | `[specified\|last]` | Get or set startup mode |
 | `default-slot` | `[<slot>]` | Get or set the default boot slot |
-| `output-config-mode` | `[independent\|preset]` | Get or set output configuration persistence |
 
 ```
 dspictl preset list
@@ -181,7 +124,6 @@ dspictl preset load 1
 dspictl preset name 2 "2-Way + Sub"
 dspictl preset startup-mode last
 dspictl preset default-slot 0
-dspictl preset output-config-mode preset
 ```
 
 ### `dspictl matrix`
@@ -221,6 +163,17 @@ dspictl channel-name get 0
 dspictl channel-name set 2 "Front Left"
 ```
 
+### `dspictl diagnostics`
+
+Device diagnostics and monitoring.
+
+| Subcommand | Args | Description |
+|---|---|---|
+| `buffer-stats` | — | Read buffer fill statistics |
+| `usb-errors` | — | Read USB PHY error counters |
+| `core1` | — | Query Core 1 operating mode |
+| `clear-clips` | — | Clear clip detection latches |
+
 ### `dspictl config`
 
 Hardware configuration: output type, GPIO pins, I2S clocks.
@@ -228,8 +181,10 @@ Hardware configuration: output type, GPIO pins, I2S clocks.
 | Subcommand | Args | Description |
 |---|---|---|
 | `output-type` | `<slot> [spdif\|i2s]` | Get or set slot output type |
-| `pin` | `<output> [<gpio>]` | Get or set output GPIO pin |
-| `bck` | `[<gpio>]` | Get or set shared I2S BCK pin |
+| `output-pin` | `<output> [<gpio>]` | Get or set output GPIO pin |
+| `i2s-rx-pin` | `[<gpio>]` | Get or set I2S RX data GPIO pin |
+| `bck-pin` | `[<gpio>]` | Get or set shared I2S BCK pin |
+| `output-config-mode` | `[independent\|preset]` | Get or set output configuration persistence |
 | `mck` | *(see below)* | I2S master clock configuration |
 
 `dspictl config mck` sub-subcommands:
@@ -242,8 +197,10 @@ Hardware configuration: output type, GPIO pins, I2S clocks.
 
 ```
 dspictl config output-type 0 i2s
-dspictl config pin 3 8
-dspictl config bck 14
+dspictl config output-pin 3 8
+dspictl config i2s-rx-pin 15
+dspictl config bck-pin 14
+dspictl config output-config-mode preset
 dspictl config mck enable true
 dspictl config mck pin 13
 dspictl config mck multiplier 256

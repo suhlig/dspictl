@@ -26,17 +26,17 @@ func newConfigCmd() *cobra.Command {
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "pin <output> [<gpio>]",
+		Use:   "output-pin <output> [<gpio>]",
 		Short: "Get or set output GPIO pin",
 		Args:  cobra.RangeArgs(1, 2),
-		RunE:  runConfigPin,
+		RunE:  runConfigOutputPin,
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "bck [<gpio>]",
+		Use:   "bck-pin [<gpio>]",
 		Short: "Get or set shared I2S BCK pin",
 		Args:  cobra.MaximumNArgs(1),
-		RunE:  runConfigBck,
+		RunE:  runConfigBckPin,
 	})
 
 	mckCmd := &cobra.Command{
@@ -68,6 +68,21 @@ func newConfigCmd() *cobra.Command {
 	})
 
 	cmd.AddCommand(mckCmd)
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "i2s-rx-pin [<gpio>]",
+		Short: "Get or set the I2S RX data GPIO pin",
+		Args:  cobra.MaximumNArgs(1),
+		RunE:  runConfigI2SRxPin,
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:               "output-config-mode [independent|preset]",
+		Short:             "Get or set output configuration persistence mode",
+		Args:              cobra.MaximumNArgs(1),
+		RunE:              runConfigOutputConfigMode,
+		ValidArgsFunction: completeChoices([]string{"independent", "preset"}),
+	})
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "export",
@@ -209,7 +224,7 @@ func runConfigOutputType(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runConfigPin(cmd *cobra.Command, args []string) error {
+func runConfigOutputPin(cmd *cobra.Command, args []string) error {
 	output, err := strconv.Atoi(args[0])
 
 	if err != nil {
@@ -261,7 +276,7 @@ func runConfigPin(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runConfigBck(cmd *cobra.Command, args []string) error {
+func runConfigBckPin(cmd *cobra.Command, args []string) error {
 	devices, err := openDevices()
 
 	if err != nil {
@@ -456,6 +471,107 @@ func runConfigMCKMultiplier(cmd *cobra.Command, args []string) error {
 		}
 
 		fmt.Printf("%s: MCK multiplier=%s\n", d.Serial(), args[0])
+	}
+
+	return nil
+}
+
+func runConfigOutputConfigMode(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+
+	defer closeDevices(devices)
+
+	if len(args) == 0 {
+		for _, d := range devices {
+			mode, err := d.GetOutputConfigMode()
+
+			if err != nil {
+				slog.Error("getting output config mode failed", "serial", d.Serial(), "error", err)
+
+				continue
+			}
+
+			name := "independent"
+
+			if mode == 1 {
+				name = "preset"
+			}
+
+			fmt.Printf("%s: %s\n", d.Serial(), name)
+		}
+
+		return nil
+	}
+
+	var mode int
+
+	switch args[0] {
+	case "independent":
+		mode = 0
+	case "preset":
+		mode = 1
+	default:
+		return fmt.Errorf("invalid mode: %s (expected independent or preset)", args[0])
+	}
+
+	for _, d := range devices {
+		err := d.SetOutputConfigMode(mode)
+
+		if err != nil {
+			slog.Error("setting output config mode failed", "serial", d.Serial(), "error", err)
+
+			continue
+		}
+
+		fmt.Printf("%s: output-config-mode=%s\n", d.Serial(), args[0])
+	}
+
+	return nil
+}
+
+func runConfigI2SRxPin(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+
+	defer closeDevices(devices)
+
+	if len(args) == 0 {
+		for _, d := range devices {
+			pin, err := d.GetI2SRxPin()
+
+			if err != nil {
+				slog.Error("getting I2S RX pin failed", "serial", d.Serial(), "error", err)
+
+				continue
+			}
+
+			fmt.Printf("%s: I2S RX pin=GPIO %d\n", d.Serial(), pin)
+		}
+
+		return nil
+	}
+
+	pin, err := strconv.Atoi(args[0])
+
+	if err != nil {
+		return fmt.Errorf("invalid GPIO: %w", err)
+	}
+
+	for _, d := range devices {
+		if err := d.SetI2SRxPin(pin); err != nil {
+			slog.Error("setting I2S RX pin failed", "serial", d.Serial(), "error", err)
+
+			continue
+		}
+
+		fmt.Printf("%s: I2S RX pin=GPIO %d\n", d.Serial(), pin)
 	}
 
 	return nil

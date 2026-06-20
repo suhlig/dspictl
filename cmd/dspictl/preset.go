@@ -76,14 +76,6 @@ func newPresetCmd() *cobra.Command {
 		ValidArgsFunction: completeChoices(slotChoices),
 	})
 
-	cmd.AddCommand(&cobra.Command{
-		Use:               "output-config-mode [independent|preset]",
-		Short:             "Get or set output configuration persistence mode",
-		Args:              cobra.MaximumNArgs(1),
-		RunE:              runPresetOutputConfigMode,
-		ValidArgsFunction: completeChoices([]string{"independent", "preset"}),
-	})
-
 	return cmd
 }
 
@@ -201,63 +193,6 @@ func runPresetDefaultSlot(cmd *cobra.Command, args []string) error {
 		}
 
 		fmt.Printf("%s: default-slot=%d\n", d.Serial(), slot)
-	}
-
-	return nil
-}
-
-func runPresetOutputConfigMode(cmd *cobra.Command, args []string) error {
-	devices, err := openDevices()
-
-	if err != nil {
-		return fmt.Errorf("opening DSPi devices: %w", err)
-	}
-
-	defer closeDevices(devices)
-
-	if len(args) == 0 {
-		for _, d := range devices {
-			mode, err := d.GetOutputConfigMode()
-
-			if err != nil {
-				slog.Error("getting output config mode failed", "serial", d.Serial(), "error", err)
-
-				continue
-			}
-
-			name := "independent"
-
-			if mode == 1 {
-				name = "preset"
-			}
-
-			fmt.Printf("%s: %s\n", d.Serial(), name)
-		}
-
-		return nil
-	}
-
-	var mode int
-
-	switch args[0] {
-	case "independent":
-		mode = 0
-	case "preset":
-		mode = 1
-	default:
-		return fmt.Errorf("invalid mode: %s (expected independent or preset)", args[0])
-	}
-
-	for _, d := range devices {
-		err := d.SetOutputConfigMode(mode)
-
-		if err != nil {
-			slog.Error("setting output config mode failed", "serial", d.Serial(), "error", err)
-
-			continue
-		}
-
-		fmt.Printf("%s: output-config-mode=%s\n", d.Serial(), args[0])
 	}
 
 	return nil

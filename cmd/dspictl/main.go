@@ -87,13 +87,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.PersistentFlags().StringVar(&targetSerial, "target", "", "Operate on a specific device by serial number")
 	_ = rootCmd.RegisterFlagCompletionFunc("target", completeSerialNumbers)
 
-	rootCmd.AddCommand(newMuteCmd())
-	rootCmd.AddCommand(newUnmuteCmd())
 	rootCmd.AddCommand(newStatusCmd())
-	rootCmd.AddCommand(newClearClipsCmd())
-	rootCmd.AddCommand(newBufferStatsCmd())
-	rootCmd.AddCommand(newUSBErrorsCmd())
-	rootCmd.AddCommand(newCore1Cmd())
 	rootCmd.AddCommand(newFirmwareCmd())
 	rootCmd.AddCommand(newFactoryResetCmd())
 	rootCmd.AddCommand(newVolumeCmd())
@@ -106,8 +100,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newInputCmd())
 	rootCmd.AddCommand(newEQCmd())
 	rootCmd.AddCommand(newLoudnessCmd())
-	rootCmd.AddCommand(newSerialCmd())
-	rootCmd.AddCommand(newTargetsCmd())
+	rootCmd.AddCommand(newDiagnosticsCmd())
 	rootCmd.AddCommand(mixer.NewCmd())
 
 	return rootCmd

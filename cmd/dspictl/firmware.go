@@ -21,7 +21,7 @@ func newFirmwareCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(newFirmwareVersionCmd())
-	cmd.AddCommand(newFirmwareUpdateCmd())
+	cmd.AddCommand(newFirmwareUpgradeCmd())
 
 	return cmd
 }
@@ -50,21 +50,21 @@ func runFirmwareVersion(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func newFirmwareUpdateCmd() *cobra.Command {
+func newFirmwareUpgradeCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "update <uf2-file>",
-		Short: "Update device firmware from a UF2 file",
+		Use:   "upgrade <uf2-file>",
+		Short: "Upgrade device firmware from a UF2 file",
 		Long: `Reboots a DSPi into its UF2 bootloader and flashes new firmware.
 
 A --target is required when more than one device is connected.
 The command validates the UF2 file's target platform against the device
 before proceeding.`,
 		Args: cobra.ExactArgs(1),
-		RunE: runFirmwareUpdate,
+		RunE: runFirmwareUpgrade,
 	}
 }
 
-func runFirmwareUpdate(cmd *cobra.Command, args []string) error {
+func runFirmwareUpgrade(cmd *cobra.Command, args []string) error {
 	uf2Path := args[0]
 
 	// Validate the UF2 file before touching any hardware.
@@ -183,7 +183,7 @@ func runFirmwareUpdate(cmd *cobra.Command, args []string) error {
 	// Report the new firmware version.
 	newVersion := d.FirmwareVersion().String()
 
-	fmt.Printf("\nUpdate complete: firmware %s → %s\n", oldVersion, newVersion)
+	fmt.Printf("\nUpgrade complete: firmware %s → %s\n", oldVersion, newVersion)
 
 	return nil
 }
