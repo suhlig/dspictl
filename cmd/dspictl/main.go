@@ -162,36 +162,54 @@ func completeEQMasterChannels(cmd *cobra.Command, args []string, toComplete stri
 	return completeChannelIndices(func(ch dspi.ChannelInfo) bool { return ch.Index <= 1 })
 }
 
-// completeEQMasterChannelsAndBands returns master channels for arg 0, bands 0-9 for arg 1.
+// completeEQMasterChannelsAndBands returns master channels for arg 0, bands for arg 1.
 func completeEQMasterChannelsAndBands(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	switch len(args) {
 	case 0:
 		return completeChannelIndices(func(ch dspi.ChannelInfo) bool { return ch.Index <= 1 })
 	case 1:
-		var bands []string
-		for i := range 10 {
-			bands = append(bands, fmt.Sprintf("%d", i))
-		}
-		return bands, cobra.ShellCompDirectiveNoFileComp
+		return completeEQBands()
 	}
 
 	return nil, cobra.ShellCompDirectiveNoFileComp
 }
 
-// completeEQOutputChannelsAndBands returns output channels for arg 0, bands 0-9 for arg 1.
+// completeEQOutputChannelsAndBands returns output channels for arg 0, bands for arg 1.
 func completeEQOutputChannelsAndBands(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	switch len(args) {
 	case 0:
 		return completeOutputChannels(cmd, args, toComplete)
 	case 1:
-		var bands []string
-		for i := range 10 {
-			bands = append(bands, fmt.Sprintf("%d", i))
-		}
-		return bands, cobra.ShellCompDirectiveNoFileComp
+		return completeEQBands()
 	}
 
 	return nil, cobra.ShellCompDirectiveNoFileComp
+}
+
+// completeEQBands returns band indices by querying the first available device.
+// Falls back to 0-11 if no device responds.
+func completeEQBands() ([]string, cobra.ShellCompDirective) {
+	devices, err := openDevices()
+	if err != nil || len(devices) == 0 {
+		return defaultBandCompletions(12), cobra.ShellCompDirectiveNoFileComp
+	}
+
+	defer closeDevices(devices)
+
+	maxBand, err := devices[0].MaxBands()
+	if err != nil || maxBand <= 0 {
+		return defaultBandCompletions(12), cobra.ShellCompDirectiveNoFileComp
+	}
+
+	return defaultBandCompletions(maxBand), cobra.ShellCompDirectiveNoFileComp
+}
+
+func defaultBandCompletions(maxBand int) []string {
+	bands := make([]string, 0, maxBand)
+	for i := range maxBand {
+		bands = append(bands, fmt.Sprintf("%d", i))
+	}
+	return bands
 }
 
 // completeOutputChannels returns output channel indices with names for shell completion.

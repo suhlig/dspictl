@@ -7,6 +7,17 @@ import (
 	"strings"
 )
 
+const (
+	xoverBandBase    = 20
+	maxXoverBands    = 4
+	totalBandIndices = xoverBandBase + maxXoverBands // 24
+
+	// peqActiveBands is the number of PEQ bands the current firmware accepts
+	// via REQ_SET_EQ_PARAM. The bulk header reports MAX_BANDS (12), which is
+	// storage depth; the firmware vendor handlers only allow 0..9 today.
+	peqActiveBands = 10
+)
+
 // FilterType identifies the shape of an EQ band.
 type FilterType int
 
@@ -70,13 +81,14 @@ type EQBand struct {
 }
 
 // Validate checks that the band parameters are within acceptable ranges.
-func (b *EQBand) Validate(maxChannel int) error {
+func (b *EQBand) Validate(maxChannel, maxBand int) error {
 	if b.Channel < 0 || b.Channel > maxChannel {
 		return fmt.Errorf("channel %d out of range (0-%d)", b.Channel, maxChannel)
 	}
 
-	if b.Band < 0 || b.Band > 9 {
-		return fmt.Errorf("band %d out of range (0-9)", b.Band)
+	err := validateBandIndex(b.Band, maxBand)
+	if err != nil {
+		return err
 	}
 
 	if b.Type != FilterTypeFlat && b.Freq <= 0 {
@@ -90,6 +102,28 @@ func (b *EQBand) Validate(maxChannel int) error {
 	return nil
 }
 
+// validateBandIndex checks a band index against the firmware band map:
+//
+//	0..maxBand-1              = PEQ (valid)
+//	maxBand..xoverBandBase-1  = out of range for PEQ
+//	20..23                    = crossover (rejected — not yet supported)
+//	24+                       = out of range overall
+func validateBandIndex(band, maxBand int) error {
+	if band < 0 || band >= totalBandIndices {
+		return fmt.Errorf("band %d out of range (0-%d)", band, totalBandIndices-1)
+	}
+
+	if band < maxBand {
+		return nil
+	}
+
+	if band >= xoverBandBase && band < xoverBandBase+maxXoverBands {
+		return fmt.Errorf("band %d is a crossover band (%d-%d); crossover is not yet supported", band, xoverBandBase, xoverBandBase+maxXoverBands-1)
+	}
+
+	return fmt.Errorf("band %d out of range (0-%d)", band, maxBand-1)
+}
+
 // SetEQBand uploads a single EQ filter band to the device.
 func (d *Device) SetEQBand(band *EQBand) error {
 	if d.closed {
@@ -101,7 +135,12 @@ func (d *Device) SetEQBand(band *EQBand) error {
 		maxChannel = 10
 	}
 
-	err := band.Validate(maxChannel)
+	maxBand, err := d.MaxBands()
+	if err != nil {
+		return fmt.Errorf("getting max bands: %w", err)
+	}
+
+	err = band.Validate(maxChannel, maxBand)
 
 	if err != nil {
 		return fmt.Errorf("validating EQ band: %w", err)
@@ -132,11 +171,21 @@ func (d *Device) GetEQBand(channel, band int) (*EQBand, error) {
 		return nil, fmt.Errorf("device is closed")
 	}
 
+	maxBand, err := d.MaxBands()
+	if err != nil {
+		return nil, fmt.Errorf("getting max bands: %w", err)
+	}
+
+	err = validateBandIndex(band, maxBand)
+	if err != nil {
+		return nil, err
+	}
+
 	base := uint16(channel)<<8 | uint16(band)<<4
 
 	// param 0: type (uint32)
 	buf := make([]byte, 4)
-	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetEQParam, base, vendorInterface, buf)
+	_, err = d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetEQParam, base, vendorInterface, buf)
 
 	if err != nil {
 		return nil, fmt.Errorf("REQ_GET_EQ_PARAM type: %w", err)
@@ -229,10 +278,49 @@ func (d *Device) MaxEQChannel() int {
 	return 6
 }
 
+// MaxBands returns the number of active PEQ bands the device accepts.
+// It reads the raw storage depth from the bulk header and caps it at the
+// known firmware active count (10), since the firmware only allows bands
+// 0..9 via REQ_SET_EQ_PARAM today.
+func (d *Device) MaxBands() (int, error) {
+	if d.closed {
+		return 0, fmt.Errorf("device is closed")
+	}
+
+	if d.maxBands > 0 {
+		return d.maxBands, nil
+	}
+
+	bp, err := d.GetAllParams()
+	if err != nil {
+		return 0, fmt.Errorf("getting all params: %w", err)
+	}
+
+	raw := bp.Header.MaxBands
+
+	if raw <= 0 {
+		return 0, fmt.Errorf("invalid max bands reported by device: %d", raw)
+	}
+
+	d.maxBands = min(raw, peqActiveBands)
+
+	return d.maxBands, nil
+}
+
 // SetBandBypass enables or disables bypass for a single EQ band.
 func (d *Device) SetBandBypass(channel, band int, bypass bool) error {
 	if d.closed {
 		return fmt.Errorf("device is closed")
+	}
+
+	maxBand, err := d.MaxBands()
+	if err != nil {
+		return fmt.Errorf("getting max bands: %w", err)
+	}
+
+	err = validateBandIndex(band, maxBand)
+	if err != nil {
+		return err
 	}
 
 	var val byte
@@ -241,7 +329,7 @@ func (d *Device) SetBandBypass(channel, band int, bypass bool) error {
 	}
 
 	wValue := uint16(channel)<<8 | uint16(band)
-	_, err := d.usb.ControlTransfer(vendorInterfaceOutRequest, ReqSetBandBypass, wValue, vendorInterface, []byte{val})
+	_, err = d.usb.ControlTransfer(vendorInterfaceOutRequest, ReqSetBandBypass, wValue, vendorInterface, []byte{val})
 
 	if err != nil {
 		return fmt.Errorf("REQ_SET_BAND_BYPASS: %w", err)
@@ -256,9 +344,19 @@ func (d *Device) GetBandBypass(channel, band int) (bool, error) {
 		return false, fmt.Errorf("device is closed")
 	}
 
+	maxBand, err := d.MaxBands()
+	if err != nil {
+		return false, fmt.Errorf("getting max bands: %w", err)
+	}
+
+	err = validateBandIndex(band, maxBand)
+	if err != nil {
+		return false, err
+	}
+
 	wValue := uint16(channel)<<8 | uint16(band)
 	buf := make([]byte, 1)
-	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetBandBypass, wValue, vendorInterface, buf)
+	_, err = d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetBandBypass, wValue, vendorInterface, buf)
 
 	if err != nil {
 		return false, fmt.Errorf("REQ_GET_BAND_BYPASS: %w", err)

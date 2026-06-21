@@ -36,6 +36,7 @@ var _ = Describe("Bulk", func() {
 			Expect(bp.Header.Platform).To(Equal(dspi.PlatformRP2350))
 			Expect(bp.Header.NumChannels).To(Equal(11))
 			Expect(bp.Header.NumOutputs).To(Equal(9))
+			Expect(bp.Header.MaxBands).To(Equal(12))
 			Expect(bp.Header.PayloadLength).To(Equal(2832))
 			Expect(bp.Header.FWMajor).To(Equal(uint16(2)))
 			Expect(bp.Header.FWMinor).To(Equal(uint16(5)))

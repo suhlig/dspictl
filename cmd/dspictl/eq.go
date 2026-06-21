@@ -58,7 +58,7 @@ func newEQMasterCmd() *cobra.Command {
 
 	cmd.AddCommand(&cobra.Command{
 		Use:               "clear <channel>",
-		Short:             "Reset all 10 bands to flat",
+		Short:             "Reset all bands to flat",
 		Args:              cobra.ExactArgs(1),
 		RunE:              runEQMasterClear,
 		ValidArgsFunction: completeEQMasterChannels,
@@ -121,7 +121,7 @@ func newEQOutputCmd() *cobra.Command {
 
 	cmd.AddCommand(&cobra.Command{
 		Use:               "clear <channel>",
-		Short:             "Reset all 10 bands to flat",
+		Short:             "Reset all bands to flat",
 		Args:              cobra.ExactArgs(1),
 		RunE:              runEQOutputClear,
 		ValidArgsFunction: completeOutputChannels,
@@ -216,6 +216,13 @@ func listEQForChannels(minCh, maxCh int) error {
 			continue
 		}
 
+		maxBand, err := d.MaxBands()
+		if err != nil {
+			slog.Error("getting max bands failed", "serial", d.Serial(), "error", err)
+
+			continue
+		}
+
 		fmt.Printf("%s:\n", d.Serial())
 
 		for ch := minCh; ch <= maxCh; ch++ {
@@ -224,7 +231,7 @@ func listEQForChannels(minCh, maxCh int) error {
 
 			hasActive := false
 
-			for band := range 10 {
+			for band := range maxBand {
 				b, err := d.GetEQBand(ch, band)
 
 				if err != nil {
@@ -391,7 +398,14 @@ func clearEQChannel(channel int) error {
 	defer closeDevices(devices)
 
 	for _, d := range devices {
-		for band := range 10 {
+		maxBand, err := d.MaxBands()
+		if err != nil {
+			slog.Error("getting max bands failed", "serial", d.Serial(), "error", err)
+
+			continue
+		}
+
+		for band := range maxBand {
 			err := d.SetEQBand(&dspi.EQBand{
 				Channel: channel,
 				Band:    band,
@@ -566,10 +580,6 @@ func parseEQChannelAndBand(args []string) (int, int, error) {
 
 	if err != nil {
 		return 0, 0, fmt.Errorf("invalid band: %w", err)
-	}
-
-	if band < 0 || band > 9 {
-		return 0, 0, fmt.Errorf("band %d out of range (0-9)", band)
 	}
 
 	return ch, band, nil

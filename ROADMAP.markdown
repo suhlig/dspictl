@@ -5,6 +5,7 @@ High-level design for the `dspictl` CLI, derived from the
 
 # TODO
 
+- Implement crossover filters
 - `REQ_SAVE_PARAMS` (0x51) and `REQ_LOAD_PARAMS` (0x52)
 - Crossfeed
 - Volume leveller
@@ -18,8 +19,6 @@ High-level design for the `dspictl` CLI, derived from the
 - **Numbering:** Channel and output indices are **0-based** (faithful to the protocol).
 - **Flat vs. grouped:** Commands with 1-2 operations are flat subcommands of the
   root. Topics with 3+ operations get their own subcommand group.
-- **EQ management** is deferred.
-- **Loudness, crossfeed, and volume leveller** are deferred.
 - **Master mute** uses the `-128 dB` sentinel.
 
 ## Flat Commands
@@ -31,9 +30,17 @@ Queries and prints a summary of every connected device.
 ```
 $ dspictl status
 Serial: E6614103E32C3B2D
-Type: RP2350
-Volume: -20 dB
-Preset: 3
+  USB Bus Number: 1
+  USB Device Address: 42
+  Type: RP2350
+  Firmware: 2.1.0
+  Volume: -20 dB
+  Preset: 3
+  Input: USB
+  Rate: 48000 Hz
+  MCK: true (GPIO 13, 128×)
+  Loudness: disabled
+  CPU: 12% / 8%
 ```
 
 ### `dspictl factory-reset`
@@ -177,7 +184,8 @@ Device diagnostics and monitoring.
 
 ### `dspictl config`
 
-Hardware configuration: output type, GPIO pins, I2S clocks.
+Hardware configuration: output type, GPIO pins, I2S clocks, and bulk state
+export/import.
 
 | Subcommand | Args | Description |
 |---|---|---|
@@ -186,6 +194,8 @@ Hardware configuration: output type, GPIO pins, I2S clocks.
 | `i2s-rx-pin` | `[<gpio>]` | Get or set I2S RX data GPIO pin |
 | `bck-pin` | `[<gpio>]` | Get or set shared I2S BCK pin (LRCLK = BCK + 1) |
 | `output-config-mode` | `[independent\|preset]` | Get or set output configuration persistence |
+| `export` | — | Export complete DSP state to stdout |
+| `import` | — | Import complete DSP state from stdin |
 | `mck` | *(see below)* | I2S master clock configuration |
 
 `dspictl config mck` sub-subcommands:
@@ -205,9 +215,118 @@ dspictl config output-config-mode preset
 dspictl config mck enable true
 dspictl config mck pin 13
 dspictl config mck multiplier 256
+dspictl config export > backup.bin
+cat backup.bin | dspictl config import
+```
+
+### `dspictl input`
+
+Input source selection and I2S sample rate configuration.
+
+| Subcommand | Args | Description |
+|---|---|---|
+| `source` | `[usb\|spdif\|i2s]` | Get or set the active input source |
+| `rate` | `[44100\|48000\|96000]` | Get or set the I2S input sample rate |
+
+```
+dspictl input source
+dspictl input source i2s
+dspictl input rate 48000
+```
+
+### `dspictl eq`
+
+Parametric equalizer for master channels and per-output channels.
+
+| Subcommand | Args | Description |
+|---|---|---|
+| `master list` | — | Show all active master EQ bands |
+| `master get` | `<channel> <band>` | Show a single master EQ band |
+| `master set` | `<channel> <band>` | Configure a master EQ band (requires `--type`) |
+| `master clear` | `<channel>` | Reset all master bands to flat |
+| `master bypass` | `[true\|false]` | Get or set master EQ bypass |
+| `master band-bypass` | `<channel> <band> [true\|false]` | Get or set bypass for a single master band |
+| `output list` | `<channel>` | Show all active EQ bands for an output |
+| `output get` | `<channel> <band>` | Show a single output EQ band |
+| `output set` | `<channel> <band>` | Configure an output EQ band (requires `--type`) |
+| `output clear` | `<channel>` | Reset all output bands to flat |
+| `output band-bypass` | `<channel> <band> [true\|false]` | Get or set bypass for a single output band |
+
+Band set flags: `--type <flat|peak|lowshelf|highshelf|lowpass|highpass>`, `--freq <Hz>`, `--q <factor>`, `--gain <dB>`.
+
+```
+dspictl eq master list
+dspictl eq master set 0 0 --type peak --freq 1000 --q 1.0 --gain -3.0
+dspictl eq output clear 2
+dspictl eq master bypass true
+```
+
+### `dspictl loudness`
+
+Loudness compensation (ISO 226:2003 equal-loudness contours).
+
+| Subcommand | Args | Description |
+|---|---|---|
+| *(none)* | — | Show loudness status |
+| `on` | — | Enable loudness compensation |
+| `off` | — | Disable loudness compensation |
+| `reference` | `[spl]` | Get or set reference SPL (40–100 dB) |
+| `intensity` | `[pct]` | Get or set intensity (0–200%) |
+
+```
+dspictl loudness
+dspictl loudness on
+dspictl loudness reference 80
+dspictl loudness intensity 100
+```
+
+### `dspictl firmware`
+
+Firmware management.
+
+| Subcommand | Args | Description |
+|---|---|---|
+| `version` | — | Show firmware version of connected devices |
+| `upgrade` | `<uf2-file>` | Upgrade firmware from a UF2 file |
+
+```
+dspictl firmware version
+dspictl firmware upgrade dspictl.uf2
+```
+
+### `dspictl mixer`
+
+Interactive mixer TUI.
+
+```
+dspictl mixer
 ```
 
 ## Global Flag
 
 - `--target <serial>` — Operate on a specific device by serial number.
   Without it, every command addresses all connected DSPi devices.
+
+# Coding Conventions
+
+## Currency
+
+* Do not assume you know about the latest Go version. Always check the [release history](https://go.dev/doc/devel/release) and the release notes of all releases since the version you thought was current, e.g. for [Go 1.25](https://go.dev/doc/go1.25) and [1.26](https://go.dev/doc/go1.26).
+* Use the latest stable Go version that's available
+
+## Test
+
+* Implement tests for Ginkgo and Gomega.
+* Run tests with
+
+  ```command
+  $ go tool ginkgo -tags=hwtest ./...
+  ```
+
+  Fall back to
+
+  ```command
+  $ go tool ginkgo ./...
+  ```
+
+  if there is no hardware available locally.

@@ -43,6 +43,7 @@ type Device struct {
 	bus       int
 	address   int
 	closed    bool
+	maxBands  int // cached from bulk header; 0 means uninitialised
 }
 
 // Open opens a specific DSPi device identified by info.

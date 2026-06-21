@@ -21,6 +21,7 @@ type BulkHeader struct {
 	Platform      Platform
 	NumChannels   int
 	NumOutputs    int
+	MaxBands      int
 	PayloadLength int
 	FWMajor       uint16
 	FWMinor       uint16
@@ -85,6 +86,7 @@ func ParseBulkHeader(raw []byte) BulkHeader {
 		Platform:      Platform(raw[1]),
 		NumChannels:   int(raw[2]),
 		NumOutputs:    int(raw[3]),
+		MaxBands:      int(raw[5]),
 		PayloadLength: int(binary.LittleEndian.Uint16(raw[6:8])),
 		FWMajor:       binary.LittleEndian.Uint16(raw[8:10]),
 		FWMinor:       binary.LittleEndian.Uint16(raw[10:12]),

@@ -19,6 +19,14 @@ var _ = Describe("EQBand", func() {
 		mock = &mockControlTransfer{
 			ReturnData: map[[3]uint16][]byte{
 				{uint16(dspi.ReqSetEQParam), 0, 0}: {},
+				{uint16(dspi.ReqGetAllParams), 0, 0}: func() []byte {
+					b := make([]byte, 16)
+					b[0] = 1 // format version
+					b[1] = byte(dspi.PlatformRP2040)
+					b[5] = 12                                 // max bands
+					binary.LittleEndian.PutUint16(b[6:8], 16) // payload length
+					return b
+				}(),
 				{uint16(dspi.ReqGetEQParam), 0x0250, 0}: func() []byte {
 					b := make([]byte, 4)
 					binary.LittleEndian.PutUint32(b, uint32(dspi.FilterTypePeaking))
@@ -61,10 +69,11 @@ var _ = Describe("EQBand", func() {
 
 			err := dev.SetEQBand(band)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(mock.CapturedRequests).To(HaveLen(1))
-			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqSetEQParam)))
+			Expect(mock.CapturedRequests).To(HaveLen(2))
+			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetAllParams)))
+			Expect(mock.CapturedRequests[1].BRequest).To(Equal(uint8(dspi.ReqSetEQParam)))
 
-			data := mock.CapturedRequests[0].Data
+			data := mock.CapturedRequests[1].Data
 			Expect(data).To(HaveLen(16))
 			Expect(data[0]).To(Equal(byte(2)))
 			Expect(data[1]).To(Equal(byte(3)))
@@ -88,7 +97,7 @@ var _ = Describe("EQBand", func() {
 			Expect(err).To(MatchError(ContainSubstring("channel 99 out of range")))
 		})
 
-		It("rejects an invalid band", func() {
+		It("rejects a band above the active range", func() {
 			band := &dspi.EQBand{
 				Channel:       0,
 				Band:          10,
@@ -99,7 +108,7 @@ var _ = Describe("EQBand", func() {
 			}
 
 			err := dev.SetEQBand(band)
-			Expect(err).To(MatchError(ContainSubstring("band 10 out of range")))
+			Expect(err).To(MatchError(ContainSubstring("band 10 out of range (0-9)")))
 		})
 
 		It("rejects non-positive frequency", func() {
@@ -159,12 +168,13 @@ var _ = Describe("EQBand", func() {
 
 		It("sends the correct requests", func() {
 			_, _ = dev.GetEQBand(2, 5)
-			Expect(mock.CapturedRequests).To(HaveLen(4))
-			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetEQParam)))
-			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0x0250)))
-			Expect(mock.CapturedRequests[1].WValue).To(Equal(uint16(0x0251)))
-			Expect(mock.CapturedRequests[2].WValue).To(Equal(uint16(0x0252)))
-			Expect(mock.CapturedRequests[3].WValue).To(Equal(uint16(0x0253)))
+			Expect(mock.CapturedRequests).To(HaveLen(5))
+			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetAllParams)))
+			Expect(mock.CapturedRequests[1].BRequest).To(Equal(uint8(dspi.ReqGetEQParam)))
+			Expect(mock.CapturedRequests[1].WValue).To(Equal(uint16(0x0250)))
+			Expect(mock.CapturedRequests[2].WValue).To(Equal(uint16(0x0251)))
+			Expect(mock.CapturedRequests[3].WValue).To(Equal(uint16(0x0252)))
+			Expect(mock.CapturedRequests[4].WValue).To(Equal(uint16(0x0253)))
 		})
 	})
 
@@ -190,16 +200,18 @@ var _ = Describe("EQBand", func() {
 		It("sends the correct wValue for channel 2, band 3", func() {
 			err := dev.SetBandBypass(2, 3, true)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(mock.CapturedRequests).To(HaveLen(1))
-			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqSetBandBypass)))
-			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0x0203)))
-			Expect(mock.CapturedRequests[0].Data).To(Equal([]byte{1}))
+			Expect(mock.CapturedRequests).To(HaveLen(2))
+			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetAllParams)))
+			Expect(mock.CapturedRequests[1].BRequest).To(Equal(uint8(dspi.ReqSetBandBypass)))
+			Expect(mock.CapturedRequests[1].WValue).To(Equal(uint16(0x0203)))
+			Expect(mock.CapturedRequests[1].Data).To(Equal([]byte{1}))
 		})
 
 		It("sends 0 for bypass disabled", func() {
 			err := dev.SetBandBypass(2, 3, false)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(mock.CapturedRequests[0].Data).To(Equal([]byte{0}))
+			Expect(mock.CapturedRequests).To(HaveLen(2))
+			Expect(mock.CapturedRequests[1].Data).To(Equal([]byte{0}))
 		})
 
 		It("returns an error when the device is closed", func() {
@@ -218,8 +230,10 @@ var _ = Describe("EQBand", func() {
 
 		It("sends the correct wValue", func() {
 			_, _ = dev.GetBandBypass(2, 3)
-			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetBandBypass)))
-			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0x0203)))
+			Expect(mock.CapturedRequests).To(HaveLen(2))
+			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetAllParams)))
+			Expect(mock.CapturedRequests[1].BRequest).To(Equal(uint8(dspi.ReqGetBandBypass)))
+			Expect(mock.CapturedRequests[1].WValue).To(Equal(uint16(0x0203)))
 		})
 
 		It("returns an error when the device is closed", func() {
