@@ -18,6 +18,7 @@ func newEQCmd() *cobra.Command {
 
 	cmd.AddCommand(newEQMasterCmd())
 	cmd.AddCommand(newEQOutputCmd())
+	cmd.AddCommand(newCrossoverCmd())
 
 	return cmd
 }

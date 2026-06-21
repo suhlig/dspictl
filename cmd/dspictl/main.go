@@ -204,9 +204,34 @@ func completeEQBands() ([]string, cobra.ShellCompDirective) {
 	return defaultBandCompletions(maxBand), cobra.ShellCompDirectiveNoFileComp
 }
 
+// completeCrossoverBands returns crossover band indices (20-23).
+func completeCrossoverBands() ([]string, cobra.ShellCompDirective) {
+	return defaultBandRangeCompletions(20, 23), cobra.ShellCompDirectiveNoFileComp
+}
+
+// completeCrossoverChannelsAndBands returns output channels for arg 0, crossover bands (20-23) for arg 1.
+func completeCrossoverChannelsAndBands(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	switch len(args) {
+	case 0:
+		return completeOutputChannels(cmd, args, toComplete)
+	case 1:
+		return completeCrossoverBands()
+	}
+
+	return nil, cobra.ShellCompDirectiveNoFileComp
+}
+
 func defaultBandCompletions(maxBand int) []string {
 	bands := make([]string, 0, maxBand)
 	for i := range maxBand {
+		bands = append(bands, fmt.Sprintf("%d", i))
+	}
+	return bands
+}
+
+func defaultBandRangeCompletions(minBand, maxBand int) []string {
+	bands := make([]string, 0, maxBand-minBand+1)
+	for i := minBand; i <= maxBand; i++ {
 		bands = append(bands, fmt.Sprintf("%d", i))
 	}
 	return bands

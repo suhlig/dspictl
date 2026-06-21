@@ -5,7 +5,6 @@ High-level design for the `dspictl` CLI, derived from the
 
 # TODO
 
-- Implement crossover filters
 - `REQ_SAVE_PARAMS` (0x51) and `REQ_LOAD_PARAMS` (0x52)
 - Crossfeed
 - Volume leveller
@@ -259,6 +258,20 @@ dspictl eq master list
 dspictl eq master set 0 0 --type peak --freq 1000 --q 1.0 --gain -3.0
 dspictl eq output clear 2
 dspictl eq master bypass true
+```
+
+| `crossover list` | `<channel>` | Show all crossover bands for an output (bands 20-23) |
+| `crossover get` | `<channel> <band>` | Show a single crossover band |
+| `crossover set` | `<channel> <band>` | Configure a crossover band (requires `--type`, `--freq`) |
+| `crossover clear` | `<channel>` | Reset all crossover bands to flat |
+| `crossover bypass` | `<channel> <band> [true\|false]` | Get or set bypass for a crossover band |
+
+Crossover set flags: `--type <lr2-lp|lr2-hp|lr4-lp|lr4-hp|…|bes8-lp|bes8-hp>`, `--freq <Hz>`, `--bypass`.
+
+```
+dspictl eq crossover list 0
+dspictl eq crossover set 0 20 --type lr4-lp --freq 800
+dspictl eq crossover bypass 0 20 true
 ```
 
 ### `dspictl loudness`

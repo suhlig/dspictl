@@ -155,4 +155,25 @@ var _ = Describe("Hardware Round-trip", Ordered, func() {
 		})
 		AfterEach(restoreSnapshot)
 	})
+
+	Describe("CrossoverBand", func() {
+		It("sets and reads back on output channel 2, band 20", func() {
+			for _, d := range devices {
+				Expect(d.SetCrossoverBand(&dspi.CrossoverBand{
+					Channel: 2,
+					Band:    20,
+					Type:    dspi.CrossoverTypeLR4LP,
+					Freq:    800,
+					Bypass:  false,
+				})).To(Succeed())
+
+				b, err := d.GetCrossoverBand(2, 20)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(b.Type).To(Equal(dspi.CrossoverTypeLR4LP))
+				Expect(b.Freq).To(BeNumerically("~", 800, 1))
+				Expect(b.Bypass).To(BeFalse())
+			}
+		})
+		AfterEach(restoreSnapshot)
+	})
 })

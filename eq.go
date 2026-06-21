@@ -105,8 +105,8 @@ func (b *EQBand) Validate(maxChannel, maxBand int) error {
 // validateBandIndex checks a band index against the firmware band map:
 //
 //	0..maxBand-1              = PEQ (valid)
-//	maxBand..xoverBandBase-1  = out of range for PEQ
-//	20..23                    = crossover (rejected — not yet supported)
+//	maxBand..xoverBandBase-1  = reserved gap (rejected)
+//	20..23                    = crossover (valid for bypass, rejected for PEQ)
 //	24+                       = out of range overall
 func validateBandIndex(band, maxBand int) error {
 	if band < 0 || band >= totalBandIndices {
@@ -118,7 +118,7 @@ func validateBandIndex(band, maxBand int) error {
 	}
 
 	if band >= xoverBandBase && band < xoverBandBase+maxXoverBands {
-		return fmt.Errorf("band %d is a crossover band (%d-%d); crossover is not yet supported", band, xoverBandBase, xoverBandBase+maxXoverBands-1)
+		return nil
 	}
 
 	return fmt.Errorf("band %d out of range (0-%d)", band, maxBand-1)
@@ -141,9 +141,12 @@ func (d *Device) SetEQBand(band *EQBand) error {
 	}
 
 	err = band.Validate(maxChannel, maxBand)
-
 	if err != nil {
 		return fmt.Errorf("validating EQ band: %w", err)
+	}
+
+	if band.Band >= xoverBandBase {
+		return fmt.Errorf("band %d is a crossover band; use SetCrossoverBand instead", band.Band)
 	}
 
 	buf := make([]byte, 16)
@@ -179,6 +182,10 @@ func (d *Device) GetEQBand(channel, band int) (*EQBand, error) {
 	err = validateBandIndex(band, maxBand)
 	if err != nil {
 		return nil, err
+	}
+
+	if band >= xoverBandBase {
+		return nil, fmt.Errorf("band %d is a crossover band; use GetCrossoverBand instead", band)
 	}
 
 	// Firmware packs wValue as: bits[15:8]=channel, bits[7:3]=band (5 bits),
