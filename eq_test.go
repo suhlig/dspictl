@@ -27,22 +27,22 @@ var _ = Describe("EQBand", func() {
 					binary.LittleEndian.PutUint16(b[6:8], 16) // payload length
 					return b
 				}(),
-				{uint16(dspi.ReqGetEQParam), 0x0250, 0}: func() []byte {
+				{uint16(dspi.ReqGetEQParam), 0x0228, 0}: func() []byte {
 					b := make([]byte, 4)
 					binary.LittleEndian.PutUint32(b, uint32(dspi.FilterTypePeaking))
 					return b
 				}(),
-				{uint16(dspi.ReqGetEQParam), 0x0251, 0}: func() []byte {
+				{uint16(dspi.ReqGetEQParam), 0x0229, 0}: func() []byte {
 					b := make([]byte, 4)
 					binary.LittleEndian.PutUint32(b, math.Float32bits(1000.0))
 					return b
 				}(),
-				{uint16(dspi.ReqGetEQParam), 0x0252, 0}: func() []byte {
+				{uint16(dspi.ReqGetEQParam), 0x022A, 0}: func() []byte {
 					b := make([]byte, 4)
 					binary.LittleEndian.PutUint32(b, math.Float32bits(1.5))
 					return b
 				}(),
-				{uint16(dspi.ReqGetEQParam), 0x0253, 0}: func() []byte {
+				{uint16(dspi.ReqGetEQParam), 0x022B, 0}: func() []byte {
 					b := make([]byte, 4)
 					binary.LittleEndian.PutUint32(b, math.Float32bits(-3.5))
 					return b
@@ -171,10 +171,10 @@ var _ = Describe("EQBand", func() {
 			Expect(mock.CapturedRequests).To(HaveLen(5))
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetAllParams)))
 			Expect(mock.CapturedRequests[1].BRequest).To(Equal(uint8(dspi.ReqGetEQParam)))
-			Expect(mock.CapturedRequests[1].WValue).To(Equal(uint16(0x0250)))
-			Expect(mock.CapturedRequests[2].WValue).To(Equal(uint16(0x0251)))
-			Expect(mock.CapturedRequests[3].WValue).To(Equal(uint16(0x0252)))
-			Expect(mock.CapturedRequests[4].WValue).To(Equal(uint16(0x0253)))
+			Expect(mock.CapturedRequests[1].WValue).To(Equal(uint16(0x0228))) // band 5 << 3
+			Expect(mock.CapturedRequests[2].WValue).To(Equal(uint16(0x0229)))
+			Expect(mock.CapturedRequests[3].WValue).To(Equal(uint16(0x022A)))
+			Expect(mock.CapturedRequests[4].WValue).To(Equal(uint16(0x022B)))
 		})
 	})
 

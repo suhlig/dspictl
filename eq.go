@@ -181,7 +181,9 @@ func (d *Device) GetEQBand(channel, band int) (*EQBand, error) {
 		return nil, err
 	}
 
-	base := uint16(channel)<<8 | uint16(band)<<4
+	// Firmware packs wValue as: bits[15:8]=channel, bits[7:3]=band (5 bits),
+	// bits[2:0]=param (0=type, 1=freq, 2=Q, 3=gain, 4=bypass).
+	base := uint16(channel)<<8 | uint16(band)<<3
 
 	// param 0: type (uint32)
 	buf := make([]byte, 4)
