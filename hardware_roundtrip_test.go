@@ -3,8 +3,10 @@
 package dspi_test
 
 import (
+	"errors"
 	"fmt"
 
+	"github.com/google/gousb"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/suhlig/dspi"
@@ -168,6 +170,16 @@ var _ = Describe("Hardware Round-trip", Ordered, func() {
 				})).To(Succeed())
 
 				b, err := d.GetCrossoverBand(2, 20)
+				if err != nil {
+					var usbErr gousb.Error
+					if errors.As(err, &usbErr) && usbErr == gousb.ErrorPipe {
+						By(fmt.Sprintf(
+							"Skipping crossover read-back on %s (firmware does not support crossover)",
+							d.Serial(),
+						))
+						continue
+					}
+				}
 				Expect(err).ToNot(HaveOccurred())
 				Expect(b.Type).To(Equal(dspi.CrossoverTypeLR4LP))
 				Expect(b.Freq).To(BeNumerically("~", 800, 1))

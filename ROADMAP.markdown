@@ -326,6 +326,10 @@ dspictl mixer
 * Do not assume you know about the latest Go version. Always check the [release history](https://go.dev/doc/devel/release) and the release notes of all releases since the version you thought was current, e.g. for [Go 1.25](https://go.dev/doc/go1.25) and [1.26](https://go.dev/doc/go1.26).
 * Use the latest stable Go version that's available
 
+## Firmware Source
+
+* Do not assume about any features the DSPi firmware might or might not have; always [check the source code](https://github.com/WeebLabs/DSPi/blob/crossover-refactor/Documentation/codebase_map.md#64-dsp-feature-modules). Ask me if you are unsure which branch is current.
+
 ## Test
 
 * Implement tests for Ginkgo and Gomega.
