@@ -11,19 +11,21 @@ import (
 
 func newVolumeCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "volume",
-		Short: "Master volume get/set",
+		Use:   "volume [db]",
+		Short: "Master volume get/set, mute, persistence mode, and save",
+		Args:  cobra.MaximumNArgs(1),
+		RunE:  runVolume,
 	}
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "get",
-		Short: "Print current master volume",
+		Short: "Print current master volume (alias for `volume` with no args)",
 		RunE:  runVolumeGet,
 	})
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "set <db>",
-		Short: "Set master volume (-128 to 0 dB)",
+		Short: "Set master volume (-128 to 0 dB) (alias for `volume <db>`)",
 		Args:  cobra.ExactArgs(1),
 		RunE:  runVolumeSet,
 	})
@@ -136,6 +138,14 @@ func runVolumeSave(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+func runVolume(cmd *cobra.Command, args []string) error {
+	if len(args) == 0 {
+		return runVolumeGet(cmd, args)
+	}
+
+	return runVolumeSet(cmd, args)
 }
 
 func runVolumeGet(cmd *cobra.Command, args []string) error {

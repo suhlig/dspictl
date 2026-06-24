@@ -18,6 +18,7 @@ High-level design for the `dspictl` CLI, derived from the
 - **Flat vs. grouped:** Commands with 1-2 operations are flat subcommands of the
   root. Topics with 3+ operations get their own subcommand group.
 - **Master mute** uses the `-128 dB` sentinel.
+- **Get / Set Overloading:** Whenever a command's setter takes only positional arguments (no flags), the command itself is overloaded: called with no arguments it acts as a getter; called with the positional arguments it acts as a setter.  Explicit `get` and `set` subcommands are kept as discoverable aliases.  Commands whose setter requires flags (e.g. `eq master set` with `--type`, `--freq`, etc.) keep the explicit `get`/`set` subcommands as the only path.  This convention makes the CLI concise and predictable.
 
 ## Flat Commands
 
@@ -52,18 +53,20 @@ any preset slots. No arguments.
 
 Master volume get/set, mute, persistence mode, and save.
 
-| Subcommand | Args | Description |
-|---|---|---|
-| `get` | — | Print current master volume |
-| `set` | `<db>` | Set master volume (-128 to 0 dB) |
-| `mute` | — | Mute master volume (-128 dB) |
-| `unmute` | — | Unmute to firmware default (-20 dB) |
-| `mode` | `[independent\|preset]` | Get or set persistence mode |
-| `save` | — | Save current volume as boot default (mode 0) |
+| Usage | Description |
+|---|---|
+| `volume [db]` | Print current volume, or set it to `<db>` |
+| `volume get` | Alias for `volume` (getter) |
+| `volume set <db>` | Alias for `volume <db>` |
+| `volume mute` | Mute master volume (-128 dB) |
+| `volume unmute` | Unmute to firmware default (-20 dB) |
+| `volume mode [independent\|preset]` | Get or set persistence mode |
+| `volume save` | Save current volume as boot default (mode 0) |
 
 ```
-dspictl volume get
-dspictl volume set -30
+dspictl volume           # get
+dspictl volume -30       # set
+dspictl volume set -30   # same as above
 dspictl volume mute
 dspictl volume unmute
 dspictl volume mode
@@ -75,15 +78,18 @@ dspictl volume save
 
 Per-channel input preamp get/set.
 
-| Subcommand | Args | Description |
-|---|---|---|
-| `get` | `[<channel>]` | Show all channels, or one channel's preamp |
-| `set` | `<channel> <db>` | Set preamp gain for a channel |
+| Usage | Description |
+|---|---|
+| `preamp [<channel> [<db>]]` | Show all channels, one channel, or set a channel's preamp |
+| `preamp get [channel]` | Alias for `preamp [channel]` |
+| `preamp set <channel> <db>` | Alias for `preamp <channel> <db>` |
 
 ```
-dspictl preamp get          # show all channels
-dspictl preamp get 0        # show USB L only
-dspictl preamp set 0 -3.5   # USB L to -3.5 dB
+dspictl preamp              # show all channels
+dspictl preamp 0            # show USB L only
+dspictl preamp 0 -3.5       # USB L to -3.5 dB
+dspictl preamp get 0        # same as above
+dspictl preamp set 0 -3.5   # same as above
 ```
 
 ### `dspictl output`
@@ -158,15 +164,18 @@ dspictl matrix invert 0 1
 Read or write user-configurable names for audio channels. Names live in RAM
 and are persisted via `preset save`.
 
-| Subcommand | Args | Description |
-|---|---|---|
-| `get` | `[<channel>]` | Show all channel names, or one channel |
-| `set` | `<channel> <name>` | Set a channel name (max 31 chars) |
+| Usage | Description |
+|---|---|
+| `channel-name [<channel> [<name>]]` | Show all names, one name, or set a name |
+| `channel-name get [channel]` | Alias for `channel-name [channel]` |
+| `channel-name set <channel> <name>` | Alias for `channel-name <channel> <name>` |
 
 ```
-dspictl channel-name get
-dspictl channel-name get 0
-dspictl channel-name set 2 "Front Left"
+dspictl channel-name              # show all names
+dspictl channel-name 0            # show channel 0 name
+dspictl channel-name 2 "Front Left"  # set name
+dspictl channel-name get 0        # same as above
+dspictl channel-name set 2 "Front Left"  # same as above
 ```
 
 ### `dspictl diagnostics`
@@ -277,19 +286,29 @@ dspictl eq crossover bypass 0 20 true
 
 Loudness compensation (ISO 226:2003 equal-loudness contours).
 
-| Subcommand | Args | Description |
-|---|---|---|
-| *(none)* | — | Show loudness status |
-| `on` | — | Enable loudness compensation |
-| `off` | — | Disable loudness compensation |
-| `reference` | `[spl]` | Get or set reference SPL (40–100 dB) |
-| `intensity` | `[pct]` | Get or set intensity (0–200%) |
+| Usage | Description |
+|---|---|
+| `loudness` | Show loudness status |
+| `loudness on` | Enable loudness compensation |
+| `loudness off` | Disable loudness compensation |
+| `loudness reference [spl]` | Get or set reference SPL (40–100 dB) |
+| `loudness reference get` | Alias for `loudness reference` |
+| `loudness reference set <spl>` | Alias for `loudness reference <spl>` |
+| `loudness intensity [pct]` | Get or set intensity (0–200%) |
+| `loudness intensity get` | Alias for `loudness intensity` |
+| `loudness intensity set <pct>` | Alias for `loudness intensity <pct>` |
 
 ```
 dspictl loudness
 dspictl loudness on
-dspictl loudness reference 80
-dspictl loudness intensity 100
+dspictl loudness reference        # get
+dspictl loudness reference 80     # set
+dspictl loudness reference get    # same as above
+dspictl loudness reference set 80 # same as above
+dspictl loudness intensity        # get
+dspictl loudness intensity 100    # set
+dspictl loudness intensity get    # same as above
+dspictl loudness intensity set 100 # same as above
 ```
 
 ### `dspictl firmware`

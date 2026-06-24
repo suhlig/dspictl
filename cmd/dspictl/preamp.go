@@ -11,13 +11,16 @@ import (
 
 func newPreampCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "preamp",
-		Short: "Per-channel input preamp get/set",
+		Use:               "preamp [<channel> [<db>]]",
+		Short:             "Per-channel input preamp get/set",
+		Args:              cobra.RangeArgs(0, 2),
+		RunE:              runPreamp,
+		ValidArgsFunction: completeInputChannels,
 	}
 
 	cmd.AddCommand(&cobra.Command{
 		Use:               "get [channel]",
-		Short:             "Show preamp for all channels, or one channel",
+		Short:             "Show all channels, or one channel's preamp (alias for `preamp [channel]`)",
 		Args:              cobra.MaximumNArgs(1),
 		RunE:              runPreampGet,
 		ValidArgsFunction: completeInputChannels,
@@ -25,13 +28,24 @@ func newPreampCmd() *cobra.Command {
 
 	cmd.AddCommand(&cobra.Command{
 		Use:               "set <channel> <db>",
-		Short:             "Set preamp gain for a channel",
+		Short:             "Set preamp gain for a channel (alias for `preamp <channel> <db>`)",
 		Args:              cobra.ExactArgs(2),
 		RunE:              runPreampSet,
 		ValidArgsFunction: completeInputChannels,
 	})
 
 	return cmd
+}
+
+func runPreamp(cmd *cobra.Command, args []string) error {
+	switch len(args) {
+	case 0, 1:
+		return runPreampGet(cmd, args)
+	case 2:
+		return runPreampSet(cmd, args)
+	default:
+		return fmt.Errorf("expected 0–2 arguments, got %d", len(args))
+	}
 }
 
 func runPreampGet(cmd *cobra.Command, args []string) error {

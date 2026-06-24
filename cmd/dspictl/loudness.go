@@ -28,19 +28,43 @@ func newLoudnessCmd() *cobra.Command {
 		RunE:  runLoudnessOff,
 	})
 
-	cmd.AddCommand(&cobra.Command{
+	refCmd := &cobra.Command{
 		Use:   "reference [spl]",
 		Short: "Get or set reference SPL (40–100 dB)",
 		Args:  cobra.MaximumNArgs(1),
 		RunE:  runLoudnessReference,
+	}
+	refCmd.AddCommand(&cobra.Command{
+		Use:   "get",
+		Short: "Show current reference SPL (alias for `reference` with no args)",
+		RunE:  runLoudnessReferenceGet,
 	})
+	refCmd.AddCommand(&cobra.Command{
+		Use:   "set <spl>",
+		Short: "Set reference SPL (alias for `reference <spl>`)",
+		Args:  cobra.ExactArgs(1),
+		RunE:  runLoudnessReferenceSet,
+	})
+	cmd.AddCommand(refCmd)
 
-	cmd.AddCommand(&cobra.Command{
+	intCmd := &cobra.Command{
 		Use:   "intensity [pct]",
 		Short: "Get or set intensity (0–200%)",
 		Args:  cobra.MaximumNArgs(1),
 		RunE:  runLoudnessIntensity,
+	}
+	intCmd.AddCommand(&cobra.Command{
+		Use:   "get",
+		Short: "Show current intensity (alias for `intensity` with no args)",
+		RunE:  runLoudnessIntensityGet,
 	})
+	intCmd.AddCommand(&cobra.Command{
+		Use:   "set <pct>",
+		Short: "Set intensity (alias for `intensity <pct>`)",
+		Args:  cobra.ExactArgs(1),
+		RunE:  runLoudnessIntensitySet,
+	})
+	cmd.AddCommand(intCmd)
 
 	return cmd
 }
@@ -151,28 +175,43 @@ func runLoudnessOff(cmd *cobra.Command, args []string) error {
 }
 
 func runLoudnessReference(cmd *cobra.Command, args []string) error {
+	if len(args) == 0 {
+		return runLoudnessReferenceGet(cmd, args)
+	}
+
+	return runLoudnessReferenceSet(cmd, args)
+}
+
+func runLoudnessReferenceGet(cmd *cobra.Command, args []string) error {
 	devices, err := openDevices()
 	if err != nil {
 		return fmt.Errorf("opening DSPi devices: %w", err)
 	}
 	defer closeDevices(devices)
 
-	if len(args) == 0 {
-		for _, d := range devices {
-			ref, err := d.GetLoudnessReference()
-			if err != nil {
-				slog.Error("getting loudness reference failed", "serial", d.Serial(), "error", err)
-				continue
-			}
-			fmt.Printf("%s: reference SPL = %.0f dB\n", d.Serial(), ref)
+	for _, d := range devices {
+		ref, err := d.GetLoudnessReference()
+		if err != nil {
+			slog.Error("getting loudness reference failed", "serial", d.Serial(), "error", err)
+			continue
 		}
-		return nil
+		fmt.Printf("%s: reference SPL = %.0f dB\n", d.Serial(), ref)
 	}
 
+	return nil
+}
+
+func runLoudnessReferenceSet(cmd *cobra.Command, args []string) error {
 	spl, err := strconv.ParseFloat(args[0], 64)
 	if err != nil {
 		return fmt.Errorf("invalid SPL value: %w", err)
 	}
+
+	devices, err := openDevices()
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+	defer closeDevices(devices)
 
 	for _, d := range devices {
 		if err := d.SetLoudnessReference(spl); err != nil {
@@ -186,28 +225,43 @@ func runLoudnessReference(cmd *cobra.Command, args []string) error {
 }
 
 func runLoudnessIntensity(cmd *cobra.Command, args []string) error {
+	if len(args) == 0 {
+		return runLoudnessIntensityGet(cmd, args)
+	}
+
+	return runLoudnessIntensitySet(cmd, args)
+}
+
+func runLoudnessIntensityGet(cmd *cobra.Command, args []string) error {
 	devices, err := openDevices()
 	if err != nil {
 		return fmt.Errorf("opening DSPi devices: %w", err)
 	}
 	defer closeDevices(devices)
 
-	if len(args) == 0 {
-		for _, d := range devices {
-			intensity, err := d.GetLoudnessIntensity()
-			if err != nil {
-				slog.Error("getting loudness intensity failed", "serial", d.Serial(), "error", err)
-				continue
-			}
-			fmt.Printf("%s: intensity = %.0f%%\n", d.Serial(), intensity)
+	for _, d := range devices {
+		intensity, err := d.GetLoudnessIntensity()
+		if err != nil {
+			slog.Error("getting loudness intensity failed", "serial", d.Serial(), "error", err)
+			continue
 		}
-		return nil
+		fmt.Printf("%s: intensity = %.0f%%\n", d.Serial(), intensity)
 	}
 
+	return nil
+}
+
+func runLoudnessIntensitySet(cmd *cobra.Command, args []string) error {
 	pct, err := strconv.ParseFloat(args[0], 64)
 	if err != nil {
 		return fmt.Errorf("invalid intensity value: %w", err)
 	}
+
+	devices, err := openDevices()
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+	defer closeDevices(devices)
 
 	for _, d := range devices {
 		if err := d.SetLoudnessIntensity(pct); err != nil {

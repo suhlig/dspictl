@@ -58,12 +58,24 @@ var _ = Describe("protectNegativeArgs", func() {
 	})
 
 	Context("with a negative number not preceded by a known flag", func() {
-		BeforeEach(func() {
-			input = []string{"volume", "set", "-20"}
+		Context("via explicit set subcommand", func() {
+			BeforeEach(func() {
+				input = []string{"volume", "set", "-20"}
+			})
+
+			It("inserts -- before the negative number", func() {
+				Expect(result).To(Equal([]string{"volume", "set", "--", "-20"}))
+			})
 		})
 
-		It("inserts -- before the negative number", func() {
-			Expect(result).To(Equal([]string{"volume", "set", "--", "-20"}))
+		Context("via overloaded parent command", func() {
+			BeforeEach(func() {
+				input = []string{"volume", "-20"}
+			})
+
+			It("inserts -- before the negative number", func() {
+				Expect(result).To(Equal([]string{"volume", "--", "-20"}))
+			})
 		})
 	})
 

@@ -10,13 +10,16 @@ import (
 
 func newChannelNameCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "channel-name",
-		Short: "Read or write user-configurable channel names",
+		Use:               "channel-name [<channel> [<name>]]",
+		Short:             "Read or write user-configurable channel names",
+		Args:              cobra.RangeArgs(0, 2),
+		RunE:              runChannelName,
+		ValidArgsFunction: completeChannels,
 	}
 
 	cmd.AddCommand(&cobra.Command{
 		Use:               "get [<channel>]",
-		Short:             "Show all channel names, or one channel",
+		Short:             "Show all channel names, or one channel (alias for `channel-name [channel]`)",
 		Args:              cobra.MaximumNArgs(1),
 		RunE:              runChannelNameGet,
 		ValidArgsFunction: completeChannels,
@@ -24,7 +27,7 @@ func newChannelNameCmd() *cobra.Command {
 
 	cmd.AddCommand(&cobra.Command{
 		Use:               "set <channel> <name>",
-		Short:             "Set a channel name (max 31 chars)",
+		Short:             "Set a channel name (max 31 chars) (alias for `channel-name <channel> <name>`)",
 		Args:              cobra.ExactArgs(2),
 		RunE:              runChannelNameSet,
 		ValidArgsFunction: completeChannels,
@@ -68,6 +71,17 @@ func completeChannels(cmd *cobra.Command, args []string, toComplete string) ([]s
 	}
 
 	return completions, cobra.ShellCompDirectiveNoFileComp
+}
+
+func runChannelName(cmd *cobra.Command, args []string) error {
+	switch len(args) {
+	case 0, 1:
+		return runChannelNameGet(cmd, args)
+	case 2:
+		return runChannelNameSet(cmd, args)
+	default:
+		return fmt.Errorf("expected 0–2 arguments, got %d", len(args))
+	}
 }
 
 func runChannelNameGet(cmd *cobra.Command, args []string) error {
