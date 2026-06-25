@@ -40,6 +40,18 @@ Then run it with
 watchexec --restart --wrap-process=none go run ./cmd/dspictl mixer
 ```
 
+## Man Page
+
+The man page is written in Markdown (`man/dspictl.md`), embedded into the binary at build time, and converted to troff format at runtime by `dspictl man [dir]`.
+
+To preview the embedded man page (proving the content the user gets):
+
+```sh
+mkdir -p /tmp/dspictl-man/man1
+go run ./cmd/dspictl man /tmp/dspictl-man/man1
+MANPATH=/tmp/dspictl-man man dspictl
+```
+
 ## Tests
 
 The library includes two test suites:

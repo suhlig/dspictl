@@ -1,0 +1,872 @@
+% DSPICTL 1 "June 2026" "dspictl" "User Commands"
+
+# NAME
+
+**dspictl** - Control DSPi audio devices
+
+# SYNOPSIS
+
+**dspictl** [*--target* *serial*] *command* [*args*]
+
+**dspictl mixer**
+
+# DESCRIPTION
+
+**dspictl** is a command-line tool to control one or more DSPi audio devices over USB.
+It can query and modify every aspect of a DSPi device: volume, EQ, matrix routing,
+presets, input source, crossover filters, and more.
+
+A full-screen terminal UI is also available as **dspictl mixer**.
+
+Device communication uses a USB control protocol implemented on the DSPi's
+Pico SDK firmware. All commands communicate over control transfers, so no
+kernel driver is needed beyond a udev rule for regular-user USB access.
+
+## Multi-device
+
+When multiple DSPi devices are connected, commands apply to **all** devices
+simultaneously. Use *--target* to operate on a single device by serial number.
+
+# GLOBAL OPTIONS
+
+*--target* *serial*
+: Operate on a specific device by serial number instead of all connected devices.
+
+*--help*
+: Show help for any command. Use `dspictl *command* --help` for command-specific help.
+
+*--version*
+: Print the dspictl version and exit.
+
+# COMMANDS
+
+## status
+
+Show a summary of all connected DSPi devices. The output includes serial number, USB
+bus address, platform type (e.g. RP2350), firmware version, master volume, active
+preset slot, input source and sample rate, MCK status, loudness compensation status,
+and CPU load.
+
+```
+dspictl status
+```
+
+## firmware
+
+Firmware management.
+
+### firmware version
+
+Display the firmware version of all connected devices.
+
+```
+dspictl firmware version
+```
+
+### firmware upgrade *uf2-file*
+
+Reboot a DSPi into its UF2 bootloader and flash new firmware.
+
+Validation is performed before flashing: the UF2 file's target platform is checked
+against the device. A *--target* is required when more than one device is connected.
+
+```
+dspictl firmware upgrade dspi-firmware.uf2
+```
+
+## factory-reset
+
+Reset the live DSP state to factory defaults. Stored presets are not affected.
+
+```
+dspictl factory-reset
+```
+
+## volume
+
+Master volume get, set, mute, persistence mode, and save.
+
+With no arguments, prints the current master volume in dB. With a single numeric
+argument, sets the volume.
+
+### volume get
+
+Print the current master volume.
+
+```
+dspictl volume get
+```
+
+### volume set *db*
+
+Set the master volume. Range is -128 to 0 dB. 0 dB is maximum output, -128 dB is
+practically silent.
+
+```
+dspictl volume set -20
+```
+
+### volume mode [independent|preset]
+
+Get or set volume persistence mode.
+
+In *independent* mode (default), the volume setting is independent of preset
+load/save operations. In *preset* mode, the volume becomes part of the preset
+state and is saved/loaded along with other DSP parameters.
+
+```
+dspictl volume mode          # show current mode
+dspictl volume mode preset   # switch to preset mode
+```
+
+### volume save
+
+Save the current volume level as the boot default. On next power-up, the device
+will use this volume instead of the firmware default.
+
+```
+dspictl volume save
+```
+
+### volume mute
+
+Mute the master output immediately.
+
+```
+dspictl volume mute
+```
+
+### volume unmute
+
+Unmute the master output. The volume returns to the firmware default of -20 dB.
+
+```
+dspictl volume unmute
+```
+
+## preamp
+
+Per-channel input preamp gain get/set.
+
+With no arguments, shows the preamp gain for both input channels. With only a
+channel argument, shows the gain for that channel. With channel and dB value,
+sets the preamp.
+
+### preamp get
+
+Show preamp gain for all input channels, or for a single channel.
+
+```
+dspictl preamp get           # show both channels
+dspictl preamp get 0         # show channel 0 only
+```
+
+### preamp set *channel* *db*
+
+Set preamp gain for an input channel. Range depends on the device capabilities.
+
+```
+dspictl preamp set 0 -6.0   # set channel 0 to -6 dB
+```
+
+## output
+
+Per-output gain, mute, delay, enable, and disable.
+
+Output channels are indexed starting at 0, corresponding to the physical output
+connectors on the DSPi.
+
+### output list
+
+Show all output channels with their gain, mute state, delay, and enabled status.
+
+```
+dspictl output list
+```
+
+### output gain *channel* *db*
+
+Set the gain for an output channel.
+
+```
+dspictl output gain 2 -3.5
+```
+
+### output mute *channel*
+
+Mute an output channel.
+
+```
+dspictl output mute 3
+```
+
+### output unmute *channel*
+
+Unmute an output channel.
+
+```
+dspictl output unmute 3
+```
+
+### output delay *channel* *ms*
+
+Set a time-alignment delay on an output channel. Range is 0 to 85 ms.
+
+Useful for aligning drivers in a multi-way speaker system.
+
+```
+dspictl output delay 3 2.5
+```
+
+### output enable *channel*
+
+Enable an output channel.
+
+```
+dspictl output enable 4
+```
+
+### output disable *channel*
+
+Disable an output channel. Disabled channels produce no audio.
+
+```
+dspictl output disable 4
+```
+
+## preset
+
+Preset slot management. The DSPi has 10 preset slots (0-9). Each slot stores the
+complete DSP state: volume, EQ, matrix routing, input configuration, crossover
+filters, and channel names.
+
+### preset list
+
+Show all preset slots with their names and occupancy status.
+
+```
+dspictl preset list
+```
+
+### preset save *slot*
+
+Save the current live DSP state into a preset slot.
+
+```
+dspictl preset save 2
+```
+
+### preset load *slot*
+
+Load a preset slot into the live DSP state.
+
+```
+dspictl preset load 2
+```
+
+### preset delete *slot*
+
+Delete (clear) a preset slot.
+
+```
+dspictl preset delete 2
+```
+
+### preset name *slot* *name*
+
+Set a human-readable name for a preset slot.
+
+```
+dspictl preset name 2 "Dinner Party"
+```
+
+### preset active
+
+Show the currently active preset slot number.
+
+```
+dspictl preset active
+```
+
+### preset startup-mode [specified|last]
+
+Get or set the startup mode.
+
+In *specified* mode, the device loads the default-slot on boot. In *last* mode,
+the device loads the slot that was active when it was last powered off.
+
+```
+dspictl preset startup-mode             # show current mode
+dspictl preset startup-mode specified   # use a fixed boot slot
+```
+
+### preset default-slot [*slot*]
+
+Get or set the default boot slot (used when startup-mode is *specified*).
+
+```
+dspictl preset default-slot     # show current default
+dspictl preset default-slot 0   # set to slot 0
+```
+
+## matrix
+
+Matrix mixer crosspoint control. The DSPi has a full matrix mixer with 2 inputs
+and multiple outputs. Each crosspoint has gain, enable, and phase invert settings.
+
+### matrix list
+
+Show all matrix crosspoints with their gain, enable status, and phase.
+
+```
+dspictl matrix list
+```
+
+### matrix get *input* *output*
+
+Show a single matrix crosspoint.
+
+Input is 0 or 1. Output is 0 through the number of available outputs.
+
+```
+dspictl matrix get 0 2
+```
+
+### matrix set *input* *output* *db*
+
+Set the gain of a matrix crosspoint.
+
+```
+dspictl matrix set 0 2 -6.0
+```
+
+### matrix enable *input* *output*
+
+Enable a matrix crosspoint, allowing audio to pass from the input to the output.
+
+```
+dspictl matrix enable 0 2
+```
+
+### matrix disable *input* *output*
+
+Disable a matrix crosspoint, silencing that path.
+
+```
+dspictl matrix disable 0 2
+```
+
+### matrix invert *input* *output*
+
+Toggle the phase invert setting for a matrix crosspoint.
+
+```
+dspictl matrix invert 0 2
+```
+
+## channel-name
+
+Read or write user-configurable channel names. Each channel can be assigned a
+name of up to 31 characters.
+
+With no arguments, shows all channel names. With a channel argument, shows the
+name for that channel. With channel and name, sets the name.
+
+### channel-name get
+
+Show all channel names, or the name of a single channel.
+
+```
+dspictl channel-name get       # show all channels
+dspictl channel-name get 2     # show channel 2 name
+```
+
+### channel-name set *channel* *name*
+
+Set the name for a channel (max 31 characters).
+
+```
+dspictl channel-name set 0 "Left In"
+dspictl channel-name set 3 "Surround Right"
+```
+
+## config
+
+Hardware configuration commands for GPIO pins, I2S settings, and DSP state
+export/import.
+
+### config output-type *slot* [spdif|i2s]
+
+Get or set the output type for a slot. Each slot can be configured as *spdif*
+(S/PDIF digital output) or *i2s* (I2S digital audio).
+
+```
+dspictl config output-type 0         # show current type
+dspictl config output-type 0 spdif   # set to S/PDIF
+```
+
+### config output-pin *output* [*gpio*]
+
+Get or set the GPIO pin used for a specific audio output.
+
+```
+dspictl config output-pin 2         # show current pin
+dspictl config output-pin 2 12      # set to GPIO 12
+```
+
+### config bck-pin [*gpio*]
+
+Get or set the shared I2S BCK (bit clock) GPIO pin. The LRCLK (word select) pin
+is always BCK + 1, as this is a PIO hardware constraint.
+
+```
+dspictl config bck-pin         # show current pin
+dspictl config bck-pin 10      # set BCK to GPIO 10 (LRCLK will be GPIO 11)
+```
+
+### config mck
+
+I2S master clock sub-commands.
+
+#### config mck enable [true|false]
+
+Get or set the MCK (master clock) output state.
+
+```
+dspictl config mck enable          # show current state
+dspictl config mck enable true     # enable MCK output
+```
+
+#### config mck pin [*gpio*]
+
+Get or set the GPIO pin used for MCK output.
+
+```
+dspictl config mck pin         # show current pin
+dspictl config mck pin 14      # set MCK to GPIO 14
+```
+
+#### config mck multiplier [128|256]
+
+Get or set the MCK multiplier. The multiplier determines the master clock
+frequency relative to the sample rate.
+
+```
+dspictl config mck multiplier         # show current multiplier
+dspictl config mck multiplier 256     # set to 256x
+```
+
+### config i2s-rx-pin [*gpio*]
+
+Get or set the I2S RX (receive) data GPIO pin.
+
+```
+dspictl config i2s-rx-pin         # show current pin
+dspictl config i2s-rx-pin 8       # set to GPIO 8
+```
+
+### config output-config-mode [independent|preset]
+
+Get or set the output configuration persistence mode.
+
+In *independent* mode, output settings (gain, mute, delay) are independent of
+presets. In *preset* mode, they are part of the preset state.
+
+```
+dspictl config output-config-mode          # show current mode
+dspictl config output-config-mode preset   # switch to preset mode
+```
+
+### config export
+
+Export the complete DSP state to stdout as a JSON object. This includes all
+parameters: volume, EQ, matrix, presets, channel names, etc.
+
+```
+dspictl config export
+```
+
+### config import
+
+Import a complete DSP state from stdin. The input must be a JSON object in the
+same format as produced by `config export`.
+
+```
+dspictl config export > backup.json
+dspictl config import < backup.json
+```
+
+## input
+
+Input source selection and I2S configuration.
+
+### input source [usb|spdif|i2s]
+
+Get or set the active input source. The DSPi can receive audio from USB,
+S/PDIF, or I2S.
+
+```
+dspictl input source         # show current source
+dspictl input source spdif   # switch to S/PDIF input
+```
+
+### input rate [44100|48000|96000]
+
+Get or set the I2S input sample rate (in Hz). This only applies when the input
+source is set to *i2s*.
+
+```
+dspictl input rate          # show current rate
+dspictl input rate 48000    # set to 48 kHz
+```
+
+## eq
+
+Parametric equalizer control. Three separate EQ groups are available: master EQ
+for the input channels, per-output EQ, and crossover filters.
+
+### eq master
+
+Master EQ control for channels 0 and 1 (inputs).
+
+#### eq master list
+
+Show all active master EQ bands.
+
+```
+dspictl eq master list
+```
+
+#### eq master get *channel* *band*
+
+Show a single master EQ band's settings.
+
+```
+dspictl eq master get 0 0
+```
+
+#### eq master set *channel* *band*
+
+Configure an EQ band. The following flags are available:
+
+*--type* (required)
+: Filter type. One of: `flat`, `peak`, `lowshelf`, `highshelf`, `lowpass`, `highpass`.
+
+*--freq* *hz*
+: Center or corner frequency in Hz.
+
+*--q* *q*
+: Q-factor (bandwidth).
+
+*--gain* *db*
+: Gain in dB (not applicable for lowpass/highpass).
+
+```
+dspictl eq master set 0 0 --type peak --freq 1000 --q 1.4 --gain 3.0
+dspictl eq master set 0 0 --type lowshelf --freq 200 --gain -2.0
+```
+
+#### eq master clear *channel*
+
+Reset all master EQ bands to flat for a channel.
+
+```
+dspictl eq master clear 0
+```
+
+#### eq master bypass [true|false]
+
+Get or set the global master EQ bypass.
+
+```
+dspictl eq master bypass        # show current state
+dspictl eq master bypass true   # bypass master EQ
+```
+
+#### eq master band-bypass *channel* *band* [true|false]
+
+Get or set bypass for a single master EQ band.
+
+```
+dspictl eq master band-bypass 0 0          # show bypass state
+dspictl eq master band-bypass 0 0 true     # bypass band
+```
+
+### eq output
+
+Per-output EQ control. Each output channel has its own independent EQ.
+
+#### eq output list *channel*
+
+Show all active EQ bands for an output channel.
+
+```
+dspictl eq output list 2
+```
+
+#### eq output get *channel* *band*
+
+Show a single output EQ band's settings.
+
+```
+dspictl eq output get 2 0
+```
+
+#### eq output set *channel* *band*
+
+Configure an output EQ band. Same flags as `eq master set`: *--type*, *--freq*,
+*--q*, *--gain*.
+
+```
+dspictl eq output set 2 0 --type peak --freq 2500 --q 2.0 --gain -4.0
+```
+
+#### eq output clear *channel*
+
+Reset all output EQ bands to flat for a channel.
+
+```
+dspictl eq output clear 2
+```
+
+#### eq output band-bypass *channel* *band* [true|false]
+
+Get or set bypass for a single output EQ band.
+
+```
+dspictl eq output band-bypass 2 0 true
+```
+
+### eq crossover
+
+Crossover filter control for output channels (bands 20-23). The DSPi supports
+a variety of crossover filter types:
+
+*Linkwitz-Riley:* lr2-lp, lr2-hp, lr4-lp, lr4-hp, lr6-lp, lr6-hp, lr8-lp, lr8-hp
+
+*Butterworth:* bw1-lp, bw1-hp, bw2-lp, bw2-hp, bw3-lp, bw3-hp, bw4-lp, bw4-hp,
+bw5-lp, bw5-hp, bw6-lp, bw6-hp, bw7-lp, bw7-hp, bw8-lp, bw8-hp
+
+*Bessel:* bes2-lp, bes2-hp, bes4-lp, bes4-hp, bes6-lp, bes6-hp, bes8-lp, bes8-hp
+
+#### eq crossover list *channel*
+
+Show all crossover bands for an output channel.
+
+```
+dspictl eq crossover list 2
+```
+
+#### eq crossover get *channel* *band*
+
+Show a single crossover band.
+
+```
+dspictl eq crossover get 2 20
+```
+
+#### eq crossover set *channel* *band*
+
+Configure a crossover band. The following flags are available:
+
+*--type* (required)
+: Filter type (see list above), e.g. `lr4-lp`, `bw2-hp`, `bes6-lp`.
+
+*--freq* *hz*
+: Crossover frequency in Hz.
+
+*--bypass*
+: Bypass this band (boolean flag).
+
+```
+dspictl eq crossover set 2 20 --type lr4-lp --freq 800
+dspictl eq crossover set 2 21 --type lr4-hp --freq 800
+```
+
+#### eq crossover clear *channel*
+
+Reset all crossover bands to flat for an output channel.
+
+```
+dspictl eq crossover clear 2
+```
+
+#### eq crossover bypass *channel* *band* [true|false]
+
+Get or set bypass for a crossover band.
+
+```
+dspictl eq crossover bypass 2 20          # show bypass state
+dspictl eq crossover bypass 2 20 true     # bypass this band
+```
+
+## loudness
+
+Loudness compensation based on ISO 226:2003 equal-loudness contours. This
+adjusts the frequency response to compensate for the human ear's reduced
+sensitivity at low volumes.
+
+With no arguments, shows the current loudness status (on/off, reference SPL,
+intensity).
+
+### loudness on
+
+Enable loudness compensation.
+
+```
+dspictl loudness on
+```
+
+### loudness off
+
+Disable loudness compensation.
+
+```
+dspictl loudness off
+```
+
+### loudness reference [spl]
+
+Get or set the reference SPL (40-100 dB). The reference SPL is the listening
+level at which the frequency response should be flat. Lower values produce more
+compensation.
+
+```
+dspictl loudness reference       # show current reference
+dspictl loudness reference 75    # set to 75 dB SPL
+```
+
+### loudness reference get
+
+Show the current reference SPL.
+
+```
+dspictl loudness reference get
+```
+
+### loudness reference set *spl*
+
+Set the reference SPL.
+
+```
+dspictl loudness reference set 80
+```
+
+### loudness intensity [pct]
+
+Get or set the loudness compensation intensity (0-200%). At 0% no compensation
+is applied, at 100% full ISO 226 correction is applied.
+
+```
+dspictl loudness intensity         # show current intensity
+dspictl loudness intensity 80      # set to 80%
+```
+
+### loudness intensity get
+
+Show the current compensation intensity.
+
+```
+dspictl loudness intensity get
+```
+
+### loudness intensity set *pct*
+
+Set the compensation intensity.
+
+```
+dspictl loudness intensity set 100
+```
+
+## diagnostics
+
+Device diagnostics and monitoring. These commands expose internal device metrics
+useful for debugging.
+
+### diagnostics buffer-stats
+
+Read buffer fill statistics from the DSPi firmware.
+
+```
+dspictl diagnostics buffer-stats
+```
+
+### diagnostics usb-errors
+
+Read USB PHY error counters from the device.
+
+```
+dspictl diagnostics usb-errors
+```
+
+### diagnostics core1
+
+Query Core 1 operating mode (on dual-core platforms).
+
+```
+dspictl diagnostics core1
+```
+
+### diagnostics clear-clips
+
+Clear clip detection latches that may have been triggered by signal overload.
+
+```
+dspictl diagnostics clear-clips
+```
+
+## mixer
+
+Launch an interactive full-screen terminal UI mixer.
+
+```
+dspictl mixer
+```
+
+The mixer provides a visual interface for controlling volume levels, mute
+status, and other real-time parameters. Use arrow keys and mouse to interact;
+press *?* or *q* for help and quit.
+
+# FILES
+
+*dspictl* communicates with DSPi devices via USB control transfers. The devices
+appear as USB audio class 2.0 interfaces and require no kernel driver on modern
+Linux or macOS systems.
+
+On Linux, a udev rule may be needed for regular-user USB access (see
+TROUBLESHOOTING below).
+
+# ENVIRONMENT
+
+No environment variables are required. Log output is written to stderr as JSON
+and can be controlled via the usual `slog` environment conventions.
+
+# TROUBLESHOOTING
+
+### libusb: bad access [code -3]
+
+This error indicates the kernel is blocking regular-user USB access. Create a
+udev rule:
+
+    echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="2e8b", ATTR{idProduct}=="feaa", MODE="0666"' \
+      | sudo tee /etc/udev/rules.d/99-dspi.rules
+    sudo udevadm control --reload-rules
+    sudo udevadm trigger
+
+### No devices found
+
+Ensure the DSPi is connected via USB, powered on, and that you have permission
+to access the device (see udev rule above). Use `dspictl status` to confirm
+the device is detected.
+
+# BUGS
+
+Report bugs and feature requests at:
+
+    https://github.com/suhlig/dspi/issues
+
+# SEE ALSO
+
+**DSPi USB Control Protocol**: https://github.com/WeebLabs/DSPi#usb-control-protocol
+
+**DSPi Project Homepage**: https://github.com/WeebLabs/DSPi

@@ -5,6 +5,7 @@ go 1.26.3
 require (
 	charm.land/bubbletea/v2 v2.0.7
 	charm.land/lipgloss/v2 v2.0.5
+	github.com/cpuguy83/go-md2man/v2 v2.0.6
 	github.com/google/gousb v1.1.3
 	github.com/onsi/ginkgo/v2 v2.32.0
 	github.com/onsi/gomega v1.42.1
@@ -22,7 +23,6 @@ require (
 	github.com/charmbracelet/x/windows v0.2.2 // indirect
 	github.com/clipperhouse/displaywidth v0.11.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.6 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
@@ -44,4 +44,7 @@ require (
 	golang.org/x/tools v0.45.0 // indirect
 )
 
-tool github.com/onsi/ginkgo/v2/ginkgo
+tool (
+	github.com/cpuguy83/go-md2man/v2
+	github.com/onsi/ginkgo/v2/ginkgo
+)
