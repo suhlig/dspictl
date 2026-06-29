@@ -309,6 +309,117 @@ dspictl preset default-slot     # show current default
 dspictl preset default-slot 0   # set to slot 0
 ```
 
+### preset eq
+
+Modify filter settings (master EQ, output EQ, crossover) directly in a preset
+slot without permanently changing the live audio state. Each command
+internally loads the slot, applies the change, saves it back, and restores
+the original live state.
+
+#### preset eq master set *slot* *channel* *band*
+
+Configure a master EQ band in a preset slot. Accepts the same flags as
+`eq master set`.
+
+```
+dspictl preset eq master set 2 0 0 --type peak --freq 1000 --q 1.4 --gain 3.0
+```
+
+#### preset eq master clear *slot* *channel*
+
+Reset all master EQ bands to flat in a preset slot.
+
+```
+dspictl preset eq master clear 2 0
+```
+
+#### preset eq master bypass *slot* [*true*|*false*]
+
+Get or set the master EQ bypass state in a preset slot.
+
+```
+dspictl preset eq master bypass 2          # show bypass state
+dspictl preset eq master bypass 2 true     # enable bypass
+```
+
+#### preset eq master band-bypass *slot* *channel* *band* [*true*|*false*]
+
+Get or set bypass for a single master EQ band in a preset slot.
+
+```
+dspictl preset eq master band-bypass 2 0 0       # show bypass state
+dspictl preset eq master band-bypass 2 0 0 true  # enable bypass
+```
+
+#### preset eq output set *slot* *channel* *band*
+
+Configure an output EQ band in a preset slot. Accepts the same flags as
+`eq output set`.
+
+```
+dspictl preset eq output set 2 0 0 --type highpass --freq 80 --q 0.7
+```
+
+#### preset eq output clear *slot* *channel*
+
+Reset all output EQ bands to flat in a preset slot.
+
+```
+dspictl preset eq output clear 2 0
+```
+
+#### preset eq output band-bypass *slot* *channel* *band* [*true*|*false*]
+
+Get or set bypass for a single output EQ band in a preset slot.
+
+```
+dspictl preset eq output band-bypass 2 0 0       # show bypass state
+dspictl preset eq output band-bypass 2 0 0 true  # enable bypass
+```
+
+#### preset eq crossover set *slot* *channel* *band*
+
+Configure a crossover band in a preset slot. Accepts the same flags as
+`eq crossover set`.
+
+```
+dspictl preset eq crossover set 2 0 20 --type lr4-lp --freq 800
+```
+
+#### preset eq crossover clear *slot* *channel*
+
+Reset all crossover bands to flat in a preset slot.
+
+```
+dspictl preset eq crossover clear 2 0
+```
+
+#### preset eq crossover bypass *slot* *channel* *band* [*true*|*false*]
+
+Get or set bypass for a crossover band in a preset slot.
+
+```
+dspictl preset eq crossover bypass 2 0 20       # show bypass state
+dspictl preset eq crossover bypass 2 0 20 true  # enable bypass
+```
+
+### preset copy filter *to-slot*
+
+Copy all filter settings (master EQ, output EQ, crossover, and their bypass
+states) from the current live state into a preset slot.
+
+```
+dspictl preset copy filter 2
+```
+
+### preset copy filter *from-slot* *to-slot*
+
+Copy all filter settings from one preset slot into another.
+
+```
+dspictl preset copy filter 0 2
+```
+
 ## matrix
 
 Matrix mixer crosspoint control. The DSPi has a full matrix mixer with 2 inputs

@@ -215,3 +215,48 @@ func (d *Device) GetOutputConfigMode() (int, error) {
 
 	return int(buf[0]), nil
 }
+
+// WithPresetSlot temporarily loads a preset slot into the live state, runs fn,
+// saves the state back to the slot, and restores the original live state.
+// This allows manipulating a preset slot's parameters without permanently
+// changing the active audio processing.
+func (d *Device) WithPresetSlot(slot int, fn func() error) error {
+	if d.closed {
+		return fmt.Errorf("device is closed")
+	}
+
+	// Snapshot the current live state.
+	snapshot, err := d.GetAllParams()
+	if err != nil {
+		return fmt.Errorf("saving live state snapshot: %w", err)
+	}
+
+	restore := func() {
+		_ = d.SetAllParams(snapshot)
+	}
+
+	// Load the target preset into the live state.
+	if err := d.PresetLoad(slot); err != nil {
+		restore()
+		return fmt.Errorf("loading preset %d: %w", slot, err)
+	}
+
+	// Run the operation on the preset's state.
+	if err := fn(); err != nil {
+		restore()
+		return fmt.Errorf("operating on preset %d: %w", slot, err)
+	}
+
+	// Save the modified state back to the preset slot.
+	if err := d.PresetSave(slot); err != nil {
+		restore()
+		return fmt.Errorf("saving preset %d: %w", slot, err)
+	}
+
+	// Restore the original live state.
+	if err := d.SetAllParams(snapshot); err != nil {
+		return fmt.Errorf("restoring live state: %w", err)
+	}
+
+	return nil
+}

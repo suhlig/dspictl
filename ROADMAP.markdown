@@ -128,6 +128,17 @@ Preset slot management (slots 0-9) and startup configuration.
 | `active` | — | Show the currently active preset slot |
 | `startup-mode` | `[specified\|last]` | Get or set startup mode |
 | `default-slot` | `[<slot>]` | Get or set the default boot slot |
+| `eq master set` | `<slot> <channel> <band>` | Configure a master EQ band in a preset slot |
+| `eq master clear` | `<slot> <channel>` | Reset all master bands to flat in a preset slot |
+| `eq master bypass` | `<slot> [true\|false]` | Get or set master EQ bypass in a preset slot |
+| `eq master band-bypass` | `<slot> <channel> <band> [true\|false]` | Get or set bypass for a single master band in a preset slot |
+| `eq output set` | `<slot> <channel> <band>` | Configure an output EQ band in a preset slot |
+| `eq output clear` | `<slot> <channel>` | Reset all output bands to flat in a preset slot |
+| `eq output band-bypass` | `<slot> <channel> <band> [true\|false]` | Get or set bypass for a single output band in a preset slot |
+| `eq crossover set` | `<slot> <channel> <band>` | Configure a crossover band in a preset slot |
+| `eq crossover clear` | `<slot> <channel>` | Reset all crossover bands to flat in a preset slot |
+| `eq crossover bypass` | `<slot> <channel> <band> [true\|false]` | Get or set bypass for a crossover band in a preset slot |
+| `copy filter` | `<to-slot>` or `<from-slot> <to-slot>` | Copy filters from live state or another slot |
 
 ```
 dspictl preset list
@@ -136,6 +147,12 @@ dspictl preset load 1
 dspictl preset name 2 "2-Way + Sub"
 dspictl preset startup-mode last
 dspictl preset default-slot 0
+dspictl preset eq master set 2 0 0 --type peak --freq 1000 --q 1.4 --gain 3.0
+dspictl preset eq master bypass 2 true
+dspictl preset eq output set 2 0 0 --type highpass --freq 80 --q 0.7
+dspictl preset eq crossover set 2 0 20 --type lr4-lp --freq 800
+dspictl preset copy filter 2
+dspictl preset copy filter 0 2
 ```
 
 ### `dspictl matrix`

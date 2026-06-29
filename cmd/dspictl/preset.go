@@ -76,6 +76,9 @@ func newPresetCmd() *cobra.Command {
 		ValidArgsFunction: completeChoices(slotChoices),
 	})
 
+	cmd.AddCommand(newPresetEQCmd())
+	cmd.AddCommand(newPresetCopyCmd())
+
 	return cmd
 }
 
