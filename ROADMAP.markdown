@@ -5,6 +5,7 @@ High-level design for the `dspictl` CLI, derived from the
 
 # TODO
 
+- Any changes for the upcoming 8-channel USB support?
 - Crossfeed
 - Volume leveller
 
@@ -383,3 +384,22 @@ dspictl mixer
   ```
 
   if there is no hardware available locally.
+
+# Future
+
+## Cross-device copy
+
+The current `preset copy filter` command operates within a single device (or all targeted devices). A natural extension would support sourcing from a different device than the target using `serial:slot` notation:
+
+```
+dspictl preset copy filter 0 1                                    # device-local (today)
+dspictl preset copy filter D3615A4863503A79:0 1                   # from serial to all targets
+dspictl preset copy filter D3615A4863503A79:0 A6353A7489D30615:1  # serial to serial
+```
+
+The `--target` flag narrows which devices you operate on, while `serial:slot`
+identifies a source device that may differ from the target(s). They are
+complementary.
+
+This pattern is not limited to filters — it could extend to matrix, output
+config, or other preset aspects if a need arises.
