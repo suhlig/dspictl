@@ -128,6 +128,7 @@ Preset slot management (slots 0-9) and startup configuration.
 | `active` | — | Show the currently active preset slot |
 | `startup-mode` | `[specified\|last]` | Get or set startup mode |
 | `default-slot` | `[<slot>]` | Get or set the default boot slot |
+| `eq list` | `<slot>` | Show all filters stored in a preset slot |
 | `eq master set` | `<slot> <channel> <band>` | Configure a master EQ band in a preset slot |
 | `eq master clear` | `<slot> <channel>` | Reset all master bands to flat in a preset slot |
 | `eq master bypass` | `<slot> [true\|false]` | Get or set master EQ bypass in a preset slot |

@@ -311,10 +311,20 @@ dspictl preset default-slot 0   # set to slot 0
 
 ### preset eq
 
-Modify filter settings (master EQ, output EQ, crossover) directly in a preset
-slot without permanently changing the live audio state. Each command
-internally loads the slot, applies the change, saves it back, and restores
-the original live state.
+Modify or list filter settings (master EQ, output EQ, crossover) in a preset
+slot without permanently changing the live audio state. Write commands
+internally load the slot, apply the change, save it back, and restore
+the original live state. The `list` command loads the slot, reads the
+filters, and restores — with a brief audio glitch while the preset is active.
+
+#### preset eq list *slot*
+
+Show all master EQ, output EQ, crossover filter bands, and their bypass
+states stored in a preset slot.
+
+```
+dspictl preset eq list 2
+```
 
 #### preset eq master set *slot* *channel* *band*
 

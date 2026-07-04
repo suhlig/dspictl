@@ -12,8 +12,16 @@ import (
 func newPresetEQCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "eq",
-		Short: "Modify filters in a preset slot",
+		Short: "Modify or list filters in a preset slot",
 	}
+
+	cmd.AddCommand(&cobra.Command{
+		Use:               "list <slot>",
+		Short:             "Show all filter bands in a preset slot",
+		Args:              cobra.ExactArgs(1),
+		RunE:              runPresetEQList,
+		ValidArgsFunction: completeChoices(presetEQSlotChoices),
+	})
 
 	cmd.AddCommand(newPresetEQMasterCmd())
 	cmd.AddCommand(newPresetEQOutputCmd())
@@ -616,4 +624,140 @@ func withEachDevice(fn func(*dspi.Device) error) error {
 	}
 
 	return lastErr
+}
+
+// -- Run function for preset eq list --
+
+func runPresetEQList(cmd *cobra.Command, args []string) error {
+	slot, err := strconv.Atoi(args[0])
+	if err != nil {
+		return fmt.Errorf("invalid slot: %w", err)
+	}
+
+	return withEachDevice(func(d *dspi.Device) error {
+		return d.WithPresetSlotReadOnly(slot, func() error {
+			fmt.Printf("%s: slot %d\n", d.Serial(), slot)
+			return listDeviceFilters(d)
+		})
+	})
+}
+
+func listDeviceFilters(d *dspi.Device) error {
+	maxBand, err := d.MaxBands()
+	if err != nil {
+		return fmt.Errorf("getting max bands: %w", err)
+	}
+
+	maxChannel := d.MaxEQChannel()
+
+	channels, err := d.Channels()
+	if err != nil {
+		return fmt.Errorf("getting channels: %w", err)
+	}
+
+	channelName := func(idx int) string {
+		if idx < len(channels) {
+			return channels[idx].Name
+		}
+		return fmt.Sprintf("ch %d", idx)
+	}
+
+	// Master EQ (channels 0-1)
+	fmt.Println("  Master EQ:")
+
+	for ch := 0; ch <= 1; ch++ {
+		hasActive := false
+
+		for band := range maxBand {
+			b, err := d.GetEQBand(ch, band)
+			if err != nil {
+				slog.Debug("skipping master EQ band", "serial", d.Serial(), "channel", ch, "band", band, "error", err)
+				continue
+			}
+
+			if b.Type != dspi.FilterTypeFlat {
+				if !hasActive {
+					fmt.Printf("    ch %d (%s):\n", ch, channelName(ch))
+					hasActive = true
+				}
+
+				printEQBand(b)
+			}
+		}
+
+		if !hasActive {
+			fmt.Printf("    ch %d (%s): (no active bands)\n", ch, channelName(ch))
+		}
+	}
+
+	// Master EQ bypass (best-effort)
+	bypass, err := d.GetMasterEQBypass()
+	if err == nil {
+		state := "off"
+		if bypass {
+			state = "on"
+		}
+		fmt.Printf("    bypass=%s\n", state)
+	}
+
+	// Output EQ and crossover for each output channel
+	for ch := 2; ch <= maxChannel; ch++ {
+		name := channelName(ch)
+		outputIdx := ch - 2
+
+		// Output EQ (best-effort)
+		fmt.Printf("  Output ch %d (%s) EQ:\n", outputIdx, name)
+		hasActive := false
+
+		for band := range maxBand {
+			b, err := d.GetEQBand(ch, band)
+			if err != nil {
+				slog.Debug("skipping output EQ band", "serial", d.Serial(), "channel", ch, "band", band, "error", err)
+				continue
+			}
+
+			if b.Type != dspi.FilterTypeFlat {
+				if !hasActive {
+					hasActive = true
+				}
+
+				printEQBand(b)
+			}
+		}
+
+		if !hasActive {
+			fmt.Println("    (no active bands)")
+		}
+
+		// Crossover (best-effort: skip channels/firmware that don't support it)
+		fmt.Printf("  Output ch %d (%s) crossover:\n", outputIdx, name)
+		hasXover := false
+
+		for band := 20; band < 20+d.MaxCrossoverBands(); band++ {
+			b, err := d.GetCrossoverBand(ch, band)
+			if err != nil {
+				slog.Debug("skipping crossover band", "serial", d.Serial(), "channel", ch, "band", band, "error", err)
+				continue
+			}
+
+			if b.Type >= dspi.CrossoverTypeLR2LP {
+				if !hasXover {
+					hasXover = true
+				}
+
+				xstate := ""
+				if b.Bypass {
+					xstate = " (bypassed)"
+				}
+
+				fmt.Printf("    band %d: %s  %.1f Hz%s\n", b.Band, b.Type, b.Freq, xstate)
+			}
+		}
+
+		if !hasXover {
+			fmt.Println("    (no active crossover bands)")
+		}
+	}
+
+	return nil
 }

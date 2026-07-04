@@ -221,6 +221,17 @@ func (d *Device) GetOutputConfigMode() (int, error) {
 // This allows manipulating a preset slot's parameters without permanently
 // changing the active audio processing.
 func (d *Device) WithPresetSlot(slot int, fn func() error) error {
+	return d.withPresetSlot(slot, fn, true)
+}
+
+// WithPresetSlotReadOnly loads a preset slot into the live state, runs fn,
+// and restores the original live state without saving back.
+// Use this for read-only operations like listing filters.
+func (d *Device) WithPresetSlotReadOnly(slot int, fn func() error) error {
+	return d.withPresetSlot(slot, fn, false)
+}
+
+func (d *Device) withPresetSlot(slot int, fn func() error, save bool) error {
 	if d.closed {
 		return fmt.Errorf("device is closed")
 	}
@@ -247,10 +258,12 @@ func (d *Device) WithPresetSlot(slot int, fn func() error) error {
 		return fmt.Errorf("operating on preset %d: %w", slot, err)
 	}
 
-	// Save the modified state back to the preset slot.
-	if err := d.PresetSave(slot); err != nil {
-		restore()
-		return fmt.Errorf("saving preset %d: %w", slot, err)
+	// Save the modified state back to the preset slot (for write operations).
+	if save {
+		if err := d.PresetSave(slot); err != nil {
+			restore()
+			return fmt.Errorf("saving preset %d: %w", slot, err)
+		}
 	}
 
 	// Restore the original live state.
