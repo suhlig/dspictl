@@ -33,6 +33,20 @@
       "matchUpdateTypes": ["major"],
       "minimumReleaseAge": "7 days",
       "automerge": false
+    },
+    {
+      "matchManagers": ["pre-commit"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "minimumReleaseAge": "3 days",
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
+    },
+    {
+      "matchManagers": ["pre-commit"],
+      "matchUpdateTypes": ["major"],
+      "minimumReleaseAge": "7 days",
+      "automerge": false
     }
   ]
 }
