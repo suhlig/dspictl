@@ -15,11 +15,11 @@ var _ = Describe("MasterVolume", func() {
 	BeforeEach(func() {
 		mock = &mockControlTransfer{
 			ReturnData: map[[3]uint16][]byte{
-				{uint16(dspi.ReqGetMasterVolume), 0, 0}:     {0x00, 0x00, 0x20, 0x41}, // float32 10.0
-				{uint16(dspi.ReqGetMasterVolumeMode), 0, 0}: {0x01},
-				{uint16(dspi.ReqSaveMasterVolume), 0, 0}:    {},
-				{uint16(dspi.ReqSetMasterVolume), 0, 0}:     {},
-				{uint16(dspi.ReqSetMasterVolumeMode), 0, 0}: {},
+				{uint16(dspi.ReqGetMasterVolume), 0, 2}:     {0x00, 0x00, 0x20, 0x41}, // float32 10.0
+				{uint16(dspi.ReqGetMasterVolumeMode), 0, 2}: {0x01},
+				{uint16(dspi.ReqSaveMasterVolume), 0, 2}:    {},
+				{uint16(dspi.ReqSetMasterVolume), 0, 2}:     {},
+				{uint16(dspi.ReqSetMasterVolumeMode), 0, 2}: {},
 			},
 		}
 		dev = newTestDevice(mock, dspi.PlatformRP2350)
@@ -37,7 +37,7 @@ var _ = Describe("MasterVolume", func() {
 			Expect(mock.CapturedRequests).To(HaveLen(1))
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetMasterVolume)))
 			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0)))
-			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
+			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(2)))
 		})
 
 		It("returns an error when the device is closed", func() {

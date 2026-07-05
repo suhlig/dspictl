@@ -15,8 +15,8 @@ var _ = Describe("Matrix", func() {
 	BeforeEach(func() {
 		mock = &mockControlTransfer{
 			ReturnData: map[[3]uint16][]byte{
-				{uint16(dspi.ReqGetMatrixRoute), 0x0203, 0}: {0x02, 0x03, 0x01, 0x01, 0x00, 0x00, 0xC0, 0xC0},
-				{uint16(dspi.ReqSetMatrixRoute), 0, 0}:      {},
+				{uint16(dspi.ReqGetMatrixRoute), 0x0203, 2}: {0x02, 0x03, 0x01, 0x01, 0x00, 0x00, 0xC0, 0xC0},
+				{uint16(dspi.ReqSetMatrixRoute), 0, 2}:      {},
 			},
 		}
 		dev = newTestDevice(mock, dspi.PlatformRP2350)
@@ -51,7 +51,7 @@ var _ = Describe("Matrix", func() {
 			Expect(mock.CapturedRequests).To(HaveLen(1))
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqSetMatrixRoute)))
 			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0)))
-			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
+			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(2)))
 		})
 
 		It("returns an error when the device is closed", func() {
@@ -77,7 +77,7 @@ var _ = Describe("Matrix", func() {
 			Expect(mock.CapturedRequests).To(HaveLen(1))
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetMatrixRoute)))
 			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0x0203)))
-			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
+			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(2)))
 		})
 
 		It("returns an error when the device is closed", func() {

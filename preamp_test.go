@@ -15,8 +15,8 @@ var _ = Describe("Preamp", func() {
 	BeforeEach(func() {
 		mock = &mockControlTransfer{
 			ReturnData: map[[3]uint16][]byte{
-				{uint16(dspi.ReqGetPreampCh), 3, 0}: {0x00, 0x00, 0x20, 0x41}, // float32 10.0
-				{uint16(dspi.ReqSetPreampCh), 3, 0}: {},
+				{uint16(dspi.ReqGetPreampCh), 3, 2}: {0x00, 0x00, 0x20, 0x41}, // float32 10.0
+				{uint16(dspi.ReqSetPreampCh), 3, 2}: {},
 			},
 		}
 		dev = newTestDevice(mock, dspi.PlatformRP2350)
@@ -34,7 +34,7 @@ var _ = Describe("Preamp", func() {
 			Expect(mock.CapturedRequests).To(HaveLen(1))
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetPreampCh)))
 			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(3)))
-			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
+			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(2)))
 		})
 
 		It("returns an error when the device is closed", func() {

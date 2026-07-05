@@ -35,15 +35,16 @@ func (c *gousbControlTransfer) Close() error {
 
 // Device wraps a USB connection to a DSPi.
 type Device struct {
-	usb       USBControlTransfer
-	ctx       *gousb.Context
-	platform  Platform
-	fwVersion FirmwareVersion
-	serial    string
-	bus       int
-	address   int
-	closed    bool
-	maxBands  int // cached from bulk header; 0 means uninitialised
+	usb              USBControlTransfer
+	ctx              *gousb.Context
+	platform         Platform
+	fwVersion        FirmwareVersion
+	serial           string
+	bus              int
+	address          int
+	closed           bool
+	maxBands         int // cached from bulk header; 0 means uninitialised
+	numInputChannels int // cached from bulk header; 0 means uninitialised
 }
 
 // Open opens a specific DSPi device identified by info.
@@ -224,6 +225,8 @@ func (d *Device) detectPlatform() (Platform, FirmwareVersion, error) {
 }
 
 // ReadMeter polls the device for combined status (wValue=9).
+// V16 response format: [peak pairs...] [CPU0(1)] [CPU1(1)] [ClipFlags(4)] [ActiveInputs(1)]
+// That is channels*2 + 7 bytes total.
 func (d *Device) ReadMeter() MeterSnapshot {
 	var snap MeterSnapshot
 
@@ -233,7 +236,7 @@ func (d *Device) ReadMeter() MeterSnapshot {
 		return snap
 	}
 
-	buf := make([]byte, maxChannels*2+5)
+	buf := make([]byte, maxChannels*2+7)
 
 	n, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetStatus, 9, vendorInterface, buf)
 
@@ -244,23 +247,19 @@ func (d *Device) ReadMeter() MeterSnapshot {
 	}
 
 	// Determine channel count from the response length.
-	// Response format (no header): [peak pairs...] [CPU0(1)] [CPU1(1)] [ClipFlags(2)]
-	// That is channels*2 + 4 bytes.
-	// Some firmware versions may include a 1-byte header, making it channels*2 + 5.
-	switch {
-	case n >= 4 && (n-4)%2 == 0:
-		snap.Channels = (n - 4) / 2
-	case n >= 6 && (n-5)%2 == 0:
-		snap.Channels = (n - 5) / 2
-	default:
+	// V16 trailer: CPU0(1) + CPU1(1) + ClipFlags(4) + ActiveInputs(1) = 7 bytes.
+	const v16TrailerLen = 7
+
+	if n < v16TrailerLen || (n-v16TrailerLen)%2 != 0 {
 		snap.err = fmt.Errorf("REQ_GET_STATUS: unexpected response length %d", n)
 
 		return snap
 	}
 
+	snap.Channels = (n - v16TrailerLen) / 2
 	actualCh := min(snap.Channels, maxChannels)
 
-	needed := actualCh*2 + 4
+	needed := actualCh*2 + v16TrailerLen
 
 	if n < needed {
 		snap.err = fmt.Errorf("REQ_GET_STATUS: response too short (got %d, need %d)", n, needed)
@@ -276,18 +275,19 @@ func (d *Device) ReadMeter() MeterSnapshot {
 	offset := actualCh * 2
 	snap.CPU0 = int(buf[offset])
 	snap.CPU1 = int(buf[offset+1])
-	snap.ClipFlags = binary.LittleEndian.Uint16(buf[offset+2:])
+	snap.ClipFlags = binary.LittleEndian.Uint32(buf[offset+2:])
 
 	return snap
 }
 
 // ClearClips sends REQ_CLEAR_CLIPS (0x83) to reset the clip bitmask on the device.
+// V16 returns a 4-byte uint32 (was 2 bytes).
 func (d *Device) ClearClips() error {
 	if d.closed {
 		return fmt.Errorf("device is closed")
 	}
 
-	buf := make([]byte, 2)
+	buf := make([]byte, 4)
 	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqClearClips, 0, vendorInterface, buf)
 
 	if err != nil {
@@ -355,7 +355,7 @@ func (d *Device) ChannelName(channelIndex int) (string, error) {
 }
 
 // Channels queries the device for all channel names and returns a slice of ChannelInfo.
-// The number of channels is determined by the platform (7 for RP2040, 11 for RP2350).
+// The number of channels is determined by the platform (7 for RP2040, 17 for RP2350).
 func (d *Device) Channels() ([]ChannelInfo, error) {
 	if d.closed {
 		return nil, fmt.Errorf("device is closed")
@@ -363,7 +363,12 @@ func (d *Device) Channels() ([]ChannelInfo, error) {
 
 	channelCount := 7
 	if d.platform == PlatformRP2350 {
-		channelCount = 11
+		channelCount = 17
+	}
+
+	numInputCh, err := d.NumInputChannels()
+	if err != nil {
+		numInputCh = 2 // fallback
 	}
 
 	inputSource, _ := d.GetInputSource()
@@ -379,22 +384,23 @@ func (d *Device) Channels() ([]ChannelInfo, error) {
 		channels = append(channels, ChannelInfo{
 			Index: i,
 			Name:  name,
-			Group: channelGroup(i, d.platform, inputSource),
+			Group: channelGroup(i, d.platform, inputSource, numInputCh),
 		})
 	}
 
 	return channels, nil
 }
 
-// channelGroup returns the group name for a channel based on its index, platform, and active input source.
-func channelGroup(index int, platform Platform, inputSource int) string {
-	maxIndex := 6
+// channelGroup returns the group name for a channel based on its index, platform,
+// active input source, and the number of input channels from the bulk header.
+func channelGroup(index int, platform Platform, inputSource int, numInputChannels int) string {
+	totalCh := 7
 	if platform == PlatformRP2350 {
-		maxIndex = 10
+		totalCh = 17
 	}
 
 	switch {
-	case index <= 1:
+	case index < numInputChannels:
 		switch inputSource {
 		case InputSourceSPDIF:
 			return "S/PDIF Input"
@@ -403,11 +409,37 @@ func channelGroup(index int, platform Platform, inputSource int) string {
 		default:
 			return "USB Input"
 		}
-	case index < maxIndex:
+	case index < totalCh-1:
 		return "S/PDIF Output"
 	default:
 		return "PDM Sub"
 	}
+}
+
+// NumInputChannels returns the number of input channels detected from the bulk header.
+// Caches the value after first fetch (similar to MaxBands).
+func (d *Device) NumInputChannels() (int, error) {
+	if d.closed {
+		return 0, fmt.Errorf("device is closed")
+	}
+
+	if d.numInputChannels > 0 {
+		return d.numInputChannels, nil
+	}
+
+	bp, err := d.GetAllParams()
+	if err != nil {
+		return 0, fmt.Errorf("getting all params: %w", err)
+	}
+
+	numInput := bp.Header.NumInputChannels
+	if numInput <= 0 {
+		numInput = 2 // fallback for RP2040
+	}
+
+	d.numInputChannels = numInput
+
+	return d.numInputChannels, nil
 }
 
 func normalize(raw uint16) float64 {

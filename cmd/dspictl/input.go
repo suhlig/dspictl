@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log/slog"
+	"strconv"
 
 	"github.com/spf13/cobra"
 	"github.com/suhlig/dspi"
@@ -28,6 +29,14 @@ func newInputCmd() *cobra.Command {
 		Args:              cobra.MaximumNArgs(1),
 		RunE:              runInputRate,
 		ValidArgsFunction: completeChoices([]string{"44100", "48000", "96000"}),
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:               "channels [<2|4|6|8>]",
+		Short:             "Get or set the number of I2S input channels",
+		Args:              cobra.MaximumNArgs(1),
+		RunE:              runInputChannels,
+		ValidArgsFunction: completeChoices([]string{"2", "4", "6", "8"}),
 	})
 
 	return cmd
@@ -130,6 +139,60 @@ func runInputRate(cmd *cobra.Command, args []string) error {
 		}
 
 		fmt.Printf("%s: I2S rate set to %d Hz\n", d.Serial(), hz)
+	}
+
+	return nil
+}
+
+func runInputChannels(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+
+	defer closeDevices(devices)
+
+	if len(args) == 0 {
+		for _, d := range devices {
+			ch, err := d.GetI2SInputChannels()
+
+			if err != nil {
+				slog.Error("getting I2S input channels failed", "serial", d.Serial(), "error", err)
+
+				continue
+			}
+
+			if ch == 0 {
+				fmt.Printf("%s: I2S input channels not configured\n", d.Serial())
+			} else {
+				fmt.Printf("%s: %d I2S input channels\n", d.Serial(), ch)
+			}
+		}
+
+		return nil
+	}
+
+	n, err := strconv.Atoi(args[0])
+
+	if err != nil {
+		return fmt.Errorf("invalid channel count: %w", err)
+	}
+
+	switch n {
+	case 2, 4, 6, 8:
+	default:
+		return fmt.Errorf("invalid channel count: %d (expected 2, 4, 6, or 8)", n)
+	}
+
+	for _, d := range devices {
+		if err := d.SetI2SInputChannels(n); err != nil {
+			slog.Error("setting I2S input channels failed", "serial", d.Serial(), "error", err)
+
+			continue
+		}
+
+		fmt.Printf("%s: I2S input channels set to %d\n", d.Serial(), n)
 	}
 
 	return nil

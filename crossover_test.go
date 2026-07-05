@@ -18,18 +18,18 @@ var _ = Describe("CrossoverBand", func() {
 	BeforeEach(func() {
 		mock = &mockControlTransfer{
 			ReturnData: map[[3]uint16][]byte{
-				{uint16(dspi.ReqSetEQParam), 0, 0}: {},
-				{uint16(dspi.ReqGetEQParam), 0x02A0, 0}: func() []byte {
+				{uint16(dspi.ReqSetEQParam), 0, 2}: {},
+				{uint16(dspi.ReqGetEQParam), 0x02A0, 2}: func() []byte {
 					b := make([]byte, 4)
 					binary.LittleEndian.PutUint32(b, uint32(dspi.CrossoverTypeLR4LP))
 					return b
 				}(),
-				{uint16(dspi.ReqGetEQParam), 0x02A1, 0}: func() []byte {
+				{uint16(dspi.ReqGetEQParam), 0x02A1, 2}: func() []byte {
 					b := make([]byte, 4)
 					binary.LittleEndian.PutUint32(b, math.Float32bits(800.0))
 					return b
 				}(),
-				{uint16(dspi.ReqGetEQParam), 0x02A4, 0}: func() []byte {
+				{uint16(dspi.ReqGetEQParam), 0x02A4, 2}: func() []byte {
 					b := make([]byte, 4)
 					binary.LittleEndian.PutUint32(b, 1)
 					return b
@@ -219,17 +219,20 @@ var _ = Describe("CrossoverBand", func() {
 
 	Describe("BandBypass for crossover bands", func() {
 		It("allows setting bypass on a crossover band", func() {
-			key1 := [3]uint16{uint16(dspi.ReqSetBandBypass), 0x0214, 0}
+			key1 := [3]uint16{uint16(dspi.ReqSetBandBypass), 0x0214, 2}
 			mock.ReturnData[key1] = []byte{}
-			key2 := [3]uint16{uint16(dspi.ReqGetAllParams), 0, 0}
+			key2 := [3]uint16{uint16(dspi.ReqGetAllParamsChunk), 0, 2}
 			mock.ReturnData[key2] = func() []byte {
 				b := make([]byte, 16)
 				b[0] = 1
 				b[1] = byte(dspi.PlatformRP2040)
+				b[4] = 2
 				b[5] = 12
 				binary.LittleEndian.PutUint16(b[6:8], 16)
 				return b
 			}()
+			key3 := [3]uint16{uint16(dspi.ReqGetAllParamsChunk), 16, 2}
+			mock.ReturnData[key3] = make([]byte, 0)
 
 			err := dev.SetBandBypass(2, 20, true)
 			Expect(err).ToNot(HaveOccurred())

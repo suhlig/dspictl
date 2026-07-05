@@ -3,8 +3,8 @@ package dspi
 const (
 	dspiVID         = 0x2e8b // Raspberry Pi (Pico vendor)
 	dspiPID         = 0xfeaa // DSPi product ID
-	vendorInterface = 0
-	maxChannels     = 11
+	vendorInterface = 2
+	maxChannels     = 17
 
 	ReqGetStatus       = 0x50
 	ReqGetPlatform     = 0x7F
@@ -88,12 +88,17 @@ const (
 
 	ReqGetSerial = 0x7E
 
-	ReqSetInputSource = 0xE0
-	ReqGetInputSource = 0xE1
-	ReqSetInputRate   = 0xED
-	ReqGetInputRate   = 0xEE
-	ReqSetI2SRxPin    = 0xF1
-	ReqGetI2SRxPin    = 0xF2
+	ReqSetInputSource      = 0xE0
+	ReqGetInputSource      = 0xE1
+	ReqSetInputRate        = 0xED
+	ReqGetInputRate        = 0xEE
+	ReqSetI2SRxPin         = 0xF1
+	ReqGetI2SRxPin         = 0xF2
+	ReqSetI2SInputChannels = 0xF3
+	ReqGetI2SInputChannels = 0xF4
+
+	ReqGetAllParamsChunk = 0xA2
+	ReqSetAllParamsChunk = 0xA3
 
 	InputSourceUSB   = 0
 	InputSourceSPDIF = 1

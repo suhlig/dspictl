@@ -577,13 +577,17 @@ dspictl config mck multiplier         # show current multiplier
 dspictl config mck multiplier 256     # set to 256x
 ```
 
-### config i2s-rx-pin [*gpio*]
+### config i2s-rx-pin [*pair* [*gpio*]]
 
-Get or set the I2S RX (receive) data GPIO pin.
+Get or set the I2S RX (receive) data GPIO pin for an I2S data pair.
+With no arguments, shows pair 0. With one argument, sets pair 0
+(backwards-compatible). With two arguments, sets the given pair (0-3)
+to the given GPIO.
 
 ```
-dspictl config i2s-rx-pin         # show current pin
-dspictl config i2s-rx-pin 8       # set to GPIO 8
+dspictl config i2s-rx-pin          # show pair 0 pin
+dspictl config i2s-rx-pin 8        # set pair 0 to GPIO 8
+dspictl config i2s-rx-pin 2 12     # set pair 2 to GPIO 12
 ```
 
 ### config output-config-mode [independent|preset]
@@ -641,6 +645,17 @@ dspictl input rate          # show current rate
 dspictl input rate 48000    # set to 48 kHz
 ```
 
+### input channels [2|4|6|8]
+
+Get or set the number of I2S input channels (2, 4, 6, or 8). This only applies
+when the input source is set to *i2s*. The RP2350 supports up to 8 channels
+over up to 4 I2S data pairs.
+
+```
+dspictl input channels           # show current channel count
+dspictl input channels 8         # set to 8 channels
+```
+
 ## eq
 
 Parametric equalizer control. Three separate EQ groups are available: master EQ
@@ -648,7 +663,7 @@ for the input channels, per-output EQ, and crossover filters.
 
 ### eq master
 
-Master EQ control for channels 0 and 1 (inputs).
+Master EQ control for all input channels (0 and 1 on RP2040, up to 0-7 on RP2350).
 
 #### eq master list
 
@@ -671,7 +686,7 @@ dspictl eq master get 0 0
 Configure an EQ band. The following flags are available:
 
 *--type* (required)
-: Filter type. One of: `flat`, `peak`, `lowshelf`, `highshelf`, `lowpass`, `highpass`.
+: Filter type. One of: `flat`, `peak`, `lowshelf`, `highshelf`, `lowpass`, `highpass`, `notch`, `allpass`, `allpass1`, `lowshelf1`, `highshelf1`.
 
 *--freq* *hz*
 : Center or corner frequency in Hz.

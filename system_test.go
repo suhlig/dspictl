@@ -16,17 +16,17 @@ var _ = Describe("System", func() {
 	BeforeEach(func() {
 		mock = &mockControlTransfer{
 			ReturnData: map[[3]uint16][]byte{
-				{uint16(dspi.ReqFactoryReset), 0, 0}:     {},
-				{uint16(dspi.ReqEnterBootloader), 0, 0}:  {},
-				{uint16(dspi.ReqGetCore1Mode), 0, 0}:     {0x02},
-				{uint16(dspi.ReqGetCore1Conflict), 0, 0}: {0x01},
-				{uint16(dspi.ReqGetBufferStats), 0, 0}:   {0xAB, 0xCD, 0xEF},
-				{uint16(dspi.ReqGetUSBErrorStats), 0, 0}: {
+				{uint16(dspi.ReqFactoryReset), 0, 2}:     {},
+				{uint16(dspi.ReqEnterBootloader), 0, 2}:  {},
+				{uint16(dspi.ReqGetCore1Mode), 0, 2}:     {0x02},
+				{uint16(dspi.ReqGetCore1Conflict), 0, 2}: {0x01},
+				{uint16(dspi.ReqGetBufferStats), 0, 2}:   {0xAB, 0xCD, 0xEF},
+				{uint16(dspi.ReqGetUSBErrorStats), 0, 2}: {
 					// 24 bytes: CRC=1, BitStuff=2, Timeout=3, Overflow=4, Sequence=5, Unknown=6 as LE uint32
 					0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
 					0x04, 0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00,
 				},
-				{uint16(dspi.ReqGetSerial), 0, 0}: {
+				{uint16(dspi.ReqGetSerial), 0, 2}: {
 					'E', '6', '6', '1', '4', '1', '0', '3', 'E', '3', '2', 'C', '3', 'B', '2', 'D',
 				},
 			},
@@ -41,7 +41,7 @@ var _ = Describe("System", func() {
 			Expect(mock.CapturedRequests).To(HaveLen(1))
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqFactoryReset)))
 			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0)))
-			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
+			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(2)))
 		})
 
 		It("returns an error when the device is closed", func() {
@@ -58,12 +58,12 @@ var _ = Describe("System", func() {
 			Expect(mock.CapturedRequests).To(HaveLen(1))
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqEnterBootloader)))
 			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0)))
-			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
+			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(2)))
 		})
 
-		It("returns nil when the device disconnects (any gousb.Error)", func() {
+		It("returns nil when the device disconnects", func() {
 			mock.ReturnErrors = map[[3]uint16]error{
-				{uint16(dspi.ReqEnterBootloader), 0, 0}: gousb.ErrorNoDevice,
+				{uint16(dspi.ReqEnterBootloader), 0, 2}: gousb.ErrorNoDevice,
 			}
 
 			err := dev.EnterBootloader()
@@ -71,7 +71,7 @@ var _ = Describe("System", func() {
 		})
 
 		It("returns an error for non-libusb errors", func() {
-			delete(mock.ReturnData, [3]uint16{uint16(dspi.ReqEnterBootloader), 0, 0})
+			delete(mock.ReturnData, [3]uint16{uint16(dspi.ReqEnterBootloader), 0, 2})
 
 			err := dev.EnterBootloader()
 			Expect(err).To(HaveOccurred())
@@ -97,7 +97,7 @@ var _ = Describe("System", func() {
 			Expect(mock.CapturedRequests).To(HaveLen(1))
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetCore1Mode)))
 			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0)))
-			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
+			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(2)))
 		})
 
 		It("returns an error when the device is closed", func() {
@@ -119,7 +119,7 @@ var _ = Describe("System", func() {
 			Expect(mock.CapturedRequests).To(HaveLen(1))
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetCore1Conflict)))
 			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0)))
-			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
+			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(2)))
 		})
 
 		It("returns an error when the device is closed", func() {
@@ -141,7 +141,7 @@ var _ = Describe("System", func() {
 			Expect(mock.CapturedRequests).To(HaveLen(1))
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetBufferStats)))
 			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0)))
-			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
+			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(2)))
 		})
 
 		It("returns an error when the device is closed", func() {
@@ -168,7 +168,7 @@ var _ = Describe("System", func() {
 			Expect(mock.CapturedRequests).To(HaveLen(1))
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetUSBErrorStats)))
 			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0)))
-			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
+			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(2)))
 		})
 
 		It("returns an error when the device is closed", func() {
@@ -190,7 +190,7 @@ var _ = Describe("System", func() {
 			Expect(mock.CapturedRequests).To(HaveLen(1))
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetSerial)))
 			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0)))
-			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
+			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(2)))
 		})
 
 		It("returns an error when the device is closed", func() {

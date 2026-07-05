@@ -5,7 +5,6 @@ High-level design for the `dspictl` CLI, derived from the
 
 # TODO
 
-- Any changes for the upcoming 8-channel USB support?
 - Crossfeed
 - Volume leveller
 
@@ -217,7 +216,7 @@ export/import.
 |---|---|---|
 | `output-type` | `<slot> [spdif\|i2s]` | Get or set slot output type |
 | `output-pin` | `<output> [<gpio>]` | Get or set output GPIO pin |
-| `i2s-rx-pin` | `[<gpio>]` | Get or set I2S RX data GPIO pin |
+| `i2s-rx-pin` | `[<pair> [<gpio>]]` | Get or set I2S RX data GPIO pin for an I2S pair |
 | `bck-pin` | `[<gpio>]` | Get or set shared I2S BCK pin (LRCLK = BCK + 1) |
 | `output-config-mode` | `[independent\|preset]` | Get or set output configuration persistence |
 | `export` | — | Export complete DSP state to stdout |
@@ -253,6 +252,7 @@ Input source selection and I2S sample rate configuration.
 |---|---|---|
 | `source` | `[usb\|spdif\|i2s]` | Get or set the active input source |
 | `rate` | `[44100\|48000\|96000]` | Get or set the I2S input sample rate |
+| `channels` | `[2\|4\|6\|8]` | Get or set the number of I2S input channels |
 
 ```
 dspictl input source

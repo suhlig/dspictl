@@ -28,6 +28,11 @@ const (
 	FilterTypeHighShelf
 	FilterTypeLowPass
 	FilterTypeHighPass
+	FilterTypeNotch
+	FilterTypeAllPass
+	FilterTypeAllPass1
+	FilterTypeLowShelf1
+	FilterTypeHighShelf1
 )
 
 // String returns the human-readable name of the filter type.
@@ -45,6 +50,16 @@ func (t FilterType) String() string {
 		return "lowpass"
 	case FilterTypeHighPass:
 		return "highpass"
+	case FilterTypeNotch:
+		return "notch"
+	case FilterTypeAllPass:
+		return "allpass"
+	case FilterTypeAllPass1:
+		return "allpass1"
+	case FilterTypeLowShelf1:
+		return "lowshelf1"
+	case FilterTypeHighShelf1:
+		return "highshelf1"
 	default:
 		return fmt.Sprintf("unknown(%d)", t)
 	}
@@ -65,6 +80,16 @@ func ParseFilterType(s string) (FilterType, error) {
 		return FilterTypeLowPass, nil
 	case "highpass":
 		return FilterTypeHighPass, nil
+	case "notch":
+		return FilterTypeNotch, nil
+	case "allpass":
+		return FilterTypeAllPass, nil
+	case "allpass1":
+		return FilterTypeAllPass1, nil
+	case "lowshelf1":
+		return FilterTypeLowShelf1, nil
+	case "highshelf1":
+		return FilterTypeHighShelf1, nil
 	default:
 		return 0, fmt.Errorf("unknown filter type: %s", s)
 	}
@@ -130,10 +155,7 @@ func (d *Device) SetEQBand(band *EQBand) error {
 		return fmt.Errorf("device is closed")
 	}
 
-	maxChannel := 6
-	if d.platform == PlatformRP2350 {
-		maxChannel = 10
-	}
+	maxChannel := d.MaxEQChannel()
 
 	maxBand, err := d.MaxBands()
 	if err != nil {
@@ -177,6 +199,12 @@ func (d *Device) GetEQBand(channel, band int) (*EQBand, error) {
 	maxBand, err := d.MaxBands()
 	if err != nil {
 		return nil, fmt.Errorf("getting max bands: %w", err)
+	}
+
+	// Channel validation uses MaxEQChannel (not hardcoded)
+	maxChannel := d.MaxEQChannel()
+	if channel < 0 || channel > maxChannel {
+		return nil, fmt.Errorf("channel %d out of range (0-%d)", channel, maxChannel)
 	}
 
 	err = validateBandIndex(band, maxBand)
@@ -281,7 +309,7 @@ func (d *Device) GetMasterEQBypass() (bool, error) {
 // MaxEQChannel returns the highest valid EQ channel index for the device's platform.
 func (d *Device) MaxEQChannel() int {
 	if d.platform == PlatformRP2350 {
-		return 10
+		return 16
 	}
 
 	return 6

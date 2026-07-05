@@ -15,7 +15,7 @@ var _ = Describe("Device", func() {
 	BeforeEach(func() {
 		mock = &mockControlTransfer{
 			ReturnData: map[[3]uint16][]byte{
-				{uint16(dspi.ReqClearClips), 0, 0}: {0x00, 0x00},
+				{uint16(dspi.ReqClearClips), 0, 2}: {0x00, 0x00, 0x00, 0x00},
 			},
 		}
 		dev = newTestDevice(mock, dspi.PlatformRP2350)
@@ -67,10 +67,10 @@ var _ = Describe("Device", func() {
 			Expect(mock.CapturedRequests).To(HaveLen(1))
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqClearClips)))
 			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0)))
-			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
+			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(2)))
 		})
 
-		It("accepts a 2-byte response", func() {
+		It("accepts a 4-byte response", func() {
 			err := dev.ClearClips()
 			Expect(err).ToNot(HaveOccurred())
 		})
