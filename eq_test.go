@@ -18,39 +18,41 @@ var _ = Describe("EQBand", func() {
 	BeforeEach(func() {
 		mock = &mockControlTransfer{
 			ReturnData: map[[3]uint16][]byte{
-				{uint16(dspi.ReqSetEQParam), 0, 0}: {},
-				{uint16(dspi.ReqGetAllParams), 0, 0}: func() []byte {
+				{uint16(dspi.ReqSetEQParam), 0, 2}: {},
+				{uint16(dspi.ReqGetAllParamsChunk), 0, 2}: func() []byte {
 					b := make([]byte, 16)
 					b[0] = 1 // format version
 					b[1] = byte(dspi.PlatformRP2040)
+					b[4] = 2                                  // num_input_channels
 					b[5] = 12                                 // max bands
 					binary.LittleEndian.PutUint16(b[6:8], 16) // payload length
 					return b
 				}(),
-				{uint16(dspi.ReqGetEQParam), 0x0228, 0}: func() []byte {
+				{uint16(dspi.ReqGetAllParamsChunk), 16, 2}: make([]byte, 0),
+				{uint16(dspi.ReqGetEQParam), 0x0228, 2}: func() []byte {
 					b := make([]byte, 4)
 					binary.LittleEndian.PutUint32(b, uint32(dspi.FilterTypePeaking))
 					return b
 				}(),
-				{uint16(dspi.ReqGetEQParam), 0x0229, 0}: func() []byte {
+				{uint16(dspi.ReqGetEQParam), 0x0229, 2}: func() []byte {
 					b := make([]byte, 4)
 					binary.LittleEndian.PutUint32(b, math.Float32bits(1000.0))
 					return b
 				}(),
-				{uint16(dspi.ReqGetEQParam), 0x022A, 0}: func() []byte {
+				{uint16(dspi.ReqGetEQParam), 0x022A, 2}: func() []byte {
 					b := make([]byte, 4)
 					binary.LittleEndian.PutUint32(b, math.Float32bits(1.5))
 					return b
 				}(),
-				{uint16(dspi.ReqGetEQParam), 0x022B, 0}: func() []byte {
+				{uint16(dspi.ReqGetEQParam), 0x022B, 2}: func() []byte {
 					b := make([]byte, 4)
 					binary.LittleEndian.PutUint32(b, math.Float32bits(-3.5))
 					return b
 				}(),
-				{uint16(dspi.ReqSetBypass), 0, 0}:          {},
-				{uint16(dspi.ReqGetBypass), 0, 0}:          {1},
-				{uint16(dspi.ReqSetBandBypass), 0x0203, 0}: {},
-				{uint16(dspi.ReqGetBandBypass), 0x0203, 0}: {1},
+				{uint16(dspi.ReqSetBypass), 0, 2}:          {},
+				{uint16(dspi.ReqGetBypass), 0, 2}:          {1},
+				{uint16(dspi.ReqSetBandBypass), 0x0203, 2}: {},
+				{uint16(dspi.ReqGetBandBypass), 0x0203, 2}: {1},
 			},
 		}
 		dev = newTestDevice(mock, dspi.PlatformRP2040)
@@ -70,7 +72,7 @@ var _ = Describe("EQBand", func() {
 			err := dev.SetEQBand(band)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(mock.CapturedRequests).To(HaveLen(2))
-			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetAllParams)))
+			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetAllParamsChunk)))
 			Expect(mock.CapturedRequests[1].BRequest).To(Equal(uint8(dspi.ReqSetEQParam)))
 
 			data := mock.CapturedRequests[1].Data
@@ -169,7 +171,7 @@ var _ = Describe("EQBand", func() {
 		It("sends the correct requests", func() {
 			_, _ = dev.GetEQBand(2, 5)
 			Expect(mock.CapturedRequests).To(HaveLen(5))
-			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetAllParams)))
+			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetAllParamsChunk)))
 			Expect(mock.CapturedRequests[1].BRequest).To(Equal(uint8(dspi.ReqGetEQParam)))
 			Expect(mock.CapturedRequests[1].WValue).To(Equal(uint16(0x0228))) // band 5 << 3
 			Expect(mock.CapturedRequests[2].WValue).To(Equal(uint16(0x0229)))
@@ -184,6 +186,7 @@ var _ = Describe("EQBand", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(mock.CapturedRequests).To(HaveLen(1))
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqSetBypass)))
+			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(2)))
 			Expect(mock.CapturedRequests[0].Data).To(Equal([]byte{1}))
 		})
 	})
@@ -201,7 +204,7 @@ var _ = Describe("EQBand", func() {
 			err := dev.SetBandBypass(2, 3, true)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(mock.CapturedRequests).To(HaveLen(2))
-			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetAllParams)))
+			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetAllParamsChunk)))
 			Expect(mock.CapturedRequests[1].BRequest).To(Equal(uint8(dspi.ReqSetBandBypass)))
 			Expect(mock.CapturedRequests[1].WValue).To(Equal(uint16(0x0203)))
 			Expect(mock.CapturedRequests[1].Data).To(Equal([]byte{1}))
@@ -231,7 +234,7 @@ var _ = Describe("EQBand", func() {
 		It("sends the correct wValue", func() {
 			_, _ = dev.GetBandBypass(2, 3)
 			Expect(mock.CapturedRequests).To(HaveLen(2))
-			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetAllParams)))
+			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetAllParamsChunk)))
 			Expect(mock.CapturedRequests[1].BRequest).To(Equal(uint8(dspi.ReqGetBandBypass)))
 			Expect(mock.CapturedRequests[1].WValue).To(Equal(uint16(0x0203)))
 		})
@@ -251,6 +254,11 @@ var _ = Describe("EQBand", func() {
 			Expect(dspi.FilterTypeHighShelf.String()).To(Equal("highshelf"))
 			Expect(dspi.FilterTypeLowPass.String()).To(Equal("lowpass"))
 			Expect(dspi.FilterTypeHighPass.String()).To(Equal("highpass"))
+			Expect(dspi.FilterTypeNotch.String()).To(Equal("notch"))
+			Expect(dspi.FilterTypeAllPass.String()).To(Equal("allpass"))
+			Expect(dspi.FilterTypeAllPass1.String()).To(Equal("allpass1"))
+			Expect(dspi.FilterTypeLowShelf1.String()).To(Equal("lowshelf1"))
+			Expect(dspi.FilterTypeHighShelf1.String()).To(Equal("highshelf1"))
 		})
 
 		It("parses known type strings", func() {
@@ -265,10 +273,22 @@ var _ = Describe("EQBand", func() {
 			t, err = dspi.ParseFilterType("highpass")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(t).To(Equal(dspi.FilterTypeHighPass))
+
+			t, err = dspi.ParseFilterType("notch")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(t).To(Equal(dspi.FilterTypeNotch))
+
+			t, err = dspi.ParseFilterType("allpass")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(t).To(Equal(dspi.FilterTypeAllPass))
+
+			t, err = dspi.ParseFilterType("lowshelf1")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(t).To(Equal(dspi.FilterTypeLowShelf1))
 		})
 
 		It("rejects unknown type strings", func() {
-			_, err := dspi.ParseFilterType("notch")
+			_, err := dspi.ParseFilterType("bogus")
 			Expect(err).To(MatchError(ContainSubstring("unknown filter type")))
 		})
 	})

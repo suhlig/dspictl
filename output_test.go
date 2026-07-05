@@ -15,14 +15,14 @@ var _ = Describe("Output", func() {
 	BeforeEach(func() {
 		mock = &mockControlTransfer{
 			ReturnData: map[[3]uint16][]byte{
-				{uint16(dspi.ReqGetOutputGain), 2, 0}:   {0x00, 0x00, 0x20, 0x41}, // float32 10.0
-				{uint16(dspi.ReqSetOutputGain), 2, 0}:   {},
-				{uint16(dspi.ReqGetOutputMute), 2, 0}:   {0x01},
-				{uint16(dspi.ReqSetOutputMute), 2, 0}:   {},
-				{uint16(dspi.ReqGetOutputDelay), 2, 0}:  {0x00, 0x00, 0xa0, 0x40}, // float32 5.0
-				{uint16(dspi.ReqSetOutputDelay), 2, 0}:  {},
-				{uint16(dspi.ReqGetOutputEnable), 2, 0}: {0x01},
-				{uint16(dspi.ReqSetOutputEnable), 2, 0}: {},
+				{uint16(dspi.ReqGetOutputGain), 2, 2}:   {0x00, 0x00, 0x20, 0x41}, // float32 10.0
+				{uint16(dspi.ReqSetOutputGain), 2, 2}:   {},
+				{uint16(dspi.ReqGetOutputMute), 2, 2}:   {0x01},
+				{uint16(dspi.ReqSetOutputMute), 2, 2}:   {},
+				{uint16(dspi.ReqGetOutputDelay), 2, 2}:  {0x00, 0x00, 0xa0, 0x40}, // float32 5.0
+				{uint16(dspi.ReqSetOutputDelay), 2, 2}:  {},
+				{uint16(dspi.ReqGetOutputEnable), 2, 2}: {0x01},
+				{uint16(dspi.ReqSetOutputEnable), 2, 2}: {},
 			},
 		}
 		dev = newTestDevice(mock, dspi.PlatformRP2350)
@@ -40,7 +40,7 @@ var _ = Describe("Output", func() {
 			Expect(mock.CapturedRequests).To(HaveLen(1))
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetOutputGain)))
 			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(2)))
-			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
+			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(2)))
 		})
 
 		It("returns an error when the device is closed", func() {
@@ -79,7 +79,7 @@ var _ = Describe("Output", func() {
 		})
 
 		It("returns false when the byte is zero", func() {
-			mock.ReturnData[[3]uint16{uint16(dspi.ReqGetOutputMute), 2, 0}] = []byte{0x00}
+			mock.ReturnData[[3]uint16{uint16(dspi.ReqGetOutputMute), 2, 2}] = []byte{0x00}
 			muted, err := dev.GetOutputMute(2)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(muted).To(BeFalse())
@@ -138,7 +138,7 @@ var _ = Describe("Output", func() {
 			Expect(mock.CapturedRequests).To(HaveLen(1))
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetOutputDelay)))
 			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(2)))
-			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
+			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(2)))
 		})
 
 		It("returns an error when the device is closed", func() {
@@ -177,7 +177,7 @@ var _ = Describe("Output", func() {
 		})
 
 		It("returns false when the byte is zero", func() {
-			mock.ReturnData[[3]uint16{uint16(dspi.ReqGetOutputEnable), 2, 0}] = []byte{0x00}
+			mock.ReturnData[[3]uint16{uint16(dspi.ReqGetOutputEnable), 2, 2}] = []byte{0x00}
 			enabled, err := dev.GetOutputEnable(2)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(enabled).To(BeFalse())

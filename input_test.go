@@ -17,18 +17,18 @@ var _ = Describe("Input", func() {
 	BeforeEach(func() {
 		mock = &mockControlTransfer{
 			ReturnData: map[[3]uint16][]byte{
-				{uint16(dspi.ReqGetInputSource), 0, 0}: {0x02},
-				{uint16(dspi.ReqSetInputSource), 0, 0}: {},
-				{uint16(dspi.ReqGetInputRate), 0, 0}: func() []byte {
+				{uint16(dspi.ReqGetInputSource), 0, 2}: {0x02},
+				{uint16(dspi.ReqSetInputSource), 0, 2}: {},
+				{uint16(dspi.ReqGetInputRate), 0, 2}: func() []byte {
 					b := make([]byte, 8)
 					binary.LittleEndian.PutUint32(b[0:4], 48000)
 					binary.LittleEndian.PutUint32(b[4:8], 48000)
 
 					return b
 				}(),
-				{uint16(dspi.ReqSetInputRate), 0, 0}: {},
-				{uint16(dspi.ReqGetI2SRxPin), 0, 0}:  {0x04},
-				{uint16(dspi.ReqSetI2SRxPin), 4, 0}:  {0x00},
+				{uint16(dspi.ReqSetInputRate), 0, 2}: {},
+				{uint16(dspi.ReqGetI2SRxPin), 0, 2}:  {0x04},
+				{uint16(dspi.ReqSetI2SRxPin), 4, 2}:  {0x00},
 			},
 		}
 		dev = newTestDevice(mock, dspi.PlatformRP2350)
@@ -104,7 +104,7 @@ var _ = Describe("Input", func() {
 		})
 
 		It("returns an error on non-zero status", func() {
-			mock.ReturnData[[3]uint16{uint16(dspi.ReqSetI2SRxPin), 4, 0}] = []byte{0x02}
+			mock.ReturnData[[3]uint16{uint16(dspi.ReqSetI2SRxPin), 4, 2}] = []byte{0x02}
 			err := dev.SetI2SRxPin(4)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("status 0x02"))

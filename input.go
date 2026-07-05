@@ -122,14 +122,22 @@ func (d *Device) GetInputRate() (InputRate, error) {
 	}, nil
 }
 
-// SetI2SRxPin sets the I2S RX data GPIO pin.
+// SetI2SRxPin sets the I2S RX data GPIO pin for pair 0.
+// This is a convenience wrapper around the pair-aware SetI2SRxPinPair.
 func (d *Device) SetI2SRxPin(pin int) error {
+	return d.SetI2SRxPinPair(0, pin)
+}
+
+// SetI2SRxPinPair sets the I2S RX data GPIO pin for the given I2S pair.
+// wValue is encoded as (pair << 8) | pin.
+func (d *Device) SetI2SRxPinPair(pair, pin int) error {
 	if d.closed {
 		return fmt.Errorf("device is closed")
 	}
 
 	buf := make([]byte, 1)
-	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqSetI2SRxPin, uint16(pin), vendorInterface, buf)
+	wValue := uint16(pair)<<8 | uint16(pin)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqSetI2SRxPin, wValue, vendorInterface, buf)
 
 	if err != nil {
 		return fmt.Errorf("REQ_SET_I2S_RX_PIN: %w", err)
@@ -142,17 +150,56 @@ func (d *Device) SetI2SRxPin(pin int) error {
 	return nil
 }
 
-// GetI2SRxPin returns the current I2S RX data GPIO pin.
+// GetI2SRxPin returns the current I2S RX data GPIO pin for pair 0.
+// This is a convenience wrapper around the pair-aware GetI2SRxPinPair.
 func (d *Device) GetI2SRxPin() (int, error) {
+	return d.GetI2SRxPinPair(0)
+}
+
+// GetI2SRxPinPair returns the current I2S RX data GPIO pin for the given I2S pair.
+func (d *Device) GetI2SRxPinPair(pair int) (int, error) {
 	if d.closed {
 		return 0, fmt.Errorf("device is closed")
 	}
 
 	buf := make([]byte, 1)
-	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetI2SRxPin, 0, vendorInterface, buf)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetI2SRxPin, uint16(pair), vendorInterface, buf)
 
 	if err != nil {
 		return 0, fmt.Errorf("REQ_GET_I2S_RX_PIN: %w", err)
+	}
+
+	return int(buf[0]), nil
+}
+
+// SetI2SInputChannels sets the number of I2S input channels.
+// Valid values: 2, 4, 6, 8.
+func (d *Device) SetI2SInputChannels(channels int) error {
+	if d.closed {
+		return fmt.Errorf("device is closed")
+	}
+
+	_, err := d.usb.ControlTransfer(vendorInterfaceOutRequest, ReqSetI2SInputChannels, 0, vendorInterface, []byte{byte(channels)})
+
+	if err != nil {
+		return fmt.Errorf("REQ_SET_I2S_INPUT_CHANNELS: %w", err)
+	}
+
+	return nil
+}
+
+// GetI2SInputChannels returns the number of I2S input channels.
+// Returns 0 if the field is absent.
+func (d *Device) GetI2SInputChannels() (int, error) {
+	if d.closed {
+		return 0, fmt.Errorf("device is closed")
+	}
+
+	buf := make([]byte, 1)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetI2SInputChannels, 0, vendorInterface, buf)
+
+	if err != nil {
+		return 0, fmt.Errorf("REQ_GET_I2S_INPUT_CHANNELS: %w", err)
 	}
 
 	return int(buf[0]), nil

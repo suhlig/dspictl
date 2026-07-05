@@ -16,22 +16,22 @@ var _ = Describe("Loudness", func() {
 		mock = &mockControlTransfer{
 			ReturnData: map[[3]uint16][]byte{
 				// GetLoudness: enabled
-				{uint16(dspi.ReqGetLoudness), 0, 0}: {1},
+				{uint16(dspi.ReqGetLoudness), 0, 2}: {1},
 
 				// SetLoudness: empty success
-				{uint16(dspi.ReqSetLoudness), 0, 0}: {},
+				{uint16(dspi.ReqSetLoudness), 0, 2}: {},
 
 				// GetLoudnessReference: 83.0 dB SPL
-				{uint16(dspi.ReqGetLoudnessReference), 0, 0}: {0x00, 0x00, 0xA6, 0x42}, // float32 83.0
+				{uint16(dspi.ReqGetLoudnessReference), 0, 2}: {0x00, 0x00, 0xA6, 0x42}, // float32 83.0
 
 				// SetLoudnessReference: empty success
-				{uint16(dspi.ReqSetLoudnessReference), 0, 0}: {},
+				{uint16(dspi.ReqSetLoudnessReference), 0, 2}: {},
 
 				// GetLoudnessIntensity: 100.0%
-				{uint16(dspi.ReqGetLoudnessIntensity), 0, 0}: {0x00, 0x00, 0xC8, 0x42}, // float32 100.0
+				{uint16(dspi.ReqGetLoudnessIntensity), 0, 2}: {0x00, 0x00, 0xC8, 0x42}, // float32 100.0
 
 				// SetLoudnessIntensity: empty success
-				{uint16(dspi.ReqSetLoudnessIntensity), 0, 0}: {},
+				{uint16(dspi.ReqSetLoudnessIntensity), 0, 2}: {},
 			},
 		}
 		dev = newTestDevice(mock, dspi.PlatformRP2350)
@@ -45,7 +45,7 @@ var _ = Describe("Loudness", func() {
 		})
 
 		It("returns false when disabled", func() {
-			mock.ReturnData[[3]uint16{uint16(dspi.ReqGetLoudness), 0, 0}] = []byte{0}
+			mock.ReturnData[[3]uint16{uint16(dspi.ReqGetLoudness), 0, 2}] = []byte{0}
 			enabled, err := dev.GetLoudness()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(enabled).To(BeFalse())
@@ -56,7 +56,7 @@ var _ = Describe("Loudness", func() {
 			Expect(mock.CapturedRequests).To(HaveLen(1))
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetLoudness)))
 			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0)))
-			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
+			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(2)))
 		})
 
 		It("returns an error when the device is closed", func() {

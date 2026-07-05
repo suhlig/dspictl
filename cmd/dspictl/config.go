@@ -74,10 +74,14 @@ When you set the BCK pin, LRCLK is automatically placed on the next GPIO.`,
 	cmd.AddCommand(mckCmd)
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "i2s-rx-pin [<gpio>]",
-		Short: "Get or set the I2S RX data GPIO pin",
-		Args:  cobra.MaximumNArgs(1),
-		RunE:  runConfigI2SRxPin,
+		Use:   "i2s-rx-pin [<pair> [<gpio>]]",
+		Short: "Get or set the I2S RX data GPIO pin for an I2S pair",
+		Long: `Get or set the I2S RX data GPIO pin. With no arguments, shows pair 0.
+With one argument, sets pair 0 to the given GPIO (backwards-compatible).
+With two arguments, sets the given pair (0-3) to the given GPIO.`,
+		Args:              cobra.MaximumNArgs(2),
+		RunE:              runConfigI2SRxPin,
+		ValidArgsFunction: completeConfigI2SRxPin,
 	})
 
 	cmd.AddCommand(&cobra.Command{
@@ -556,27 +560,65 @@ func runConfigI2SRxPin(cmd *cobra.Command, args []string) error {
 				continue
 			}
 
-			fmt.Printf("%s: I2S RX pin=GPIO %d\n", d.Serial(), pin)
+			fmt.Printf("%s: I2S RX pair 0 pin=GPIO %d\n", d.Serial(), pin)
 		}
 
 		return nil
 	}
 
-	pin, err := strconv.Atoi(args[0])
+	if len(args) == 1 {
+		pin, err := strconv.Atoi(args[0])
+
+		if err != nil {
+			return fmt.Errorf("invalid GPIO: %w", err)
+		}
+
+		for _, d := range devices {
+			if err := d.SetI2SRxPin(pin); err != nil {
+				slog.Error("setting I2S RX pin failed", "serial", d.Serial(), "error", err)
+
+				continue
+			}
+
+			fmt.Printf("%s: I2S RX pair 0 pin=GPIO %d\n", d.Serial(), pin)
+		}
+
+		return nil
+	}
+
+	pair, err := strconv.Atoi(args[0])
+
+	if err != nil {
+		return fmt.Errorf("invalid pair: %w", err)
+	}
+
+	if pair < 0 || pair > 3 {
+		return fmt.Errorf("invalid pair: %d (expected 0-3)", pair)
+	}
+
+	pin, err := strconv.Atoi(args[1])
 
 	if err != nil {
 		return fmt.Errorf("invalid GPIO: %w", err)
 	}
 
 	for _, d := range devices {
-		if err := d.SetI2SRxPin(pin); err != nil {
+		if err := d.SetI2SRxPinPair(pair, pin); err != nil {
 			slog.Error("setting I2S RX pin failed", "serial", d.Serial(), "error", err)
 
 			continue
 		}
 
-		fmt.Printf("%s: I2S RX pin=GPIO %d\n", d.Serial(), pin)
+		fmt.Printf("%s: I2S RX pair %d pin=GPIO %d\n", d.Serial(), pair, pin)
 	}
 
 	return nil
+}
+
+func completeConfigI2SRxPin(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) == 0 {
+		return []string{"0", "1", "2", "3"}, cobra.ShellCompDirectiveNoFileComp
+	}
+
+	return nil, cobra.ShellCompDirectiveNoFileComp
 }

@@ -230,10 +230,7 @@ func (d *Device) SetCrossoverBand(band *CrossoverBand) error {
 		return fmt.Errorf("device is closed")
 	}
 
-	maxChannel := 6
-	if d.platform == PlatformRP2350 {
-		maxChannel = 10
-	}
+	maxChannel := d.MaxEQChannel()
 
 	err := band.Validate(maxChannel)
 	if err != nil {
@@ -266,10 +263,7 @@ func (d *Device) GetCrossoverBand(channel, band int) (*CrossoverBand, error) {
 		return nil, fmt.Errorf("device is closed")
 	}
 
-	maxChannel := 6
-	if d.platform == PlatformRP2350 {
-		maxChannel = 10
-	}
+	maxChannel := d.MaxEQChannel()
 
 	if channel < 0 || channel > maxChannel {
 		return nil, fmt.Errorf("channel %d out of range (0-%d)", channel, maxChannel)

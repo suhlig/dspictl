@@ -44,7 +44,7 @@ type MeterSnapshot struct {
 	Peaks     [maxChannels]Level
 	CPU0      int
 	CPU1      int
-	ClipFlags uint16
+	ClipFlags uint32
 	Channels  int
 	err       error
 }

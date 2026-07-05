@@ -36,9 +36,9 @@ func (m *mockControlTransfer) ControlTransfer(bmRequestType, bRequest uint8, wVa
 	}
 
 	if ret, ok := m.ReturnData[key]; ok {
-		copy(data, ret)
+		n := copy(data, ret)
 
-		return len(ret), nil
+		return n, nil
 	}
 
 	return 0, fmt.Errorf("no mock data for request 0x%02x", bRequest)

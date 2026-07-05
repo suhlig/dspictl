@@ -15,19 +15,19 @@ var _ = Describe("Config", func() {
 	BeforeEach(func() {
 		mock = &mockControlTransfer{
 			ReturnData: map[[3]uint16][]byte{
-				{uint16(dspi.ReqGetOutputType), 2, 0}:     {0x01},
-				{uint16(dspi.ReqSetOutputType), 2, 0}:     {},
-				{uint16(dspi.ReqGetOutputPin), 3, 0}:      {0x05},
-				{uint16(dspi.ReqSetOutputPin), 0x0503, 0}: {0x00},
-				{uint16(dspi.ReqGetI2SBckPin), 0, 0}:      {0x07},
-				{uint16(dspi.ReqSetI2SBckPin), 7, 0}:      {0x00},
-				{uint16(dspi.ReqGetMCKEnable), 0, 0}:      {0x01},
-				{uint16(dspi.ReqSetMCKEnable), 0, 0}:      {0x00},
-				{uint16(dspi.ReqSetMCKEnable), 1, 0}:      {0x00},
-				{uint16(dspi.ReqGetMCKPin), 0, 0}:         {0x09},
-				{uint16(dspi.ReqSetMCKPin), 9, 0}:         {0x00},
-				{uint16(dspi.ReqGetMCKMultiplier), 0, 0}:  {0x01},
-				{uint16(dspi.ReqSetMCKMultiplier), 1, 0}:  {0x00},
+				{uint16(dspi.ReqGetOutputType), 2, 2}:     {0x01},
+				{uint16(dspi.ReqSetOutputType), 2, 2}:     {},
+				{uint16(dspi.ReqGetOutputPin), 3, 2}:      {0x05},
+				{uint16(dspi.ReqSetOutputPin), 0x0503, 2}: {0x00},
+				{uint16(dspi.ReqGetI2SBckPin), 0, 2}:      {0x07},
+				{uint16(dspi.ReqSetI2SBckPin), 7, 2}:      {0x00},
+				{uint16(dspi.ReqGetMCKEnable), 0, 2}:      {0x01},
+				{uint16(dspi.ReqSetMCKEnable), 0, 2}:      {0x00},
+				{uint16(dspi.ReqSetMCKEnable), 1, 2}:      {0x00},
+				{uint16(dspi.ReqGetMCKPin), 0, 2}:         {0x09},
+				{uint16(dspi.ReqSetMCKPin), 9, 2}:         {0x00},
+				{uint16(dspi.ReqGetMCKMultiplier), 0, 2}:  {0x01},
+				{uint16(dspi.ReqSetMCKMultiplier), 1, 2}:  {0x00},
 			},
 		}
 		dev = newTestDevice(mock, dspi.PlatformRP2350)
@@ -40,7 +40,7 @@ var _ = Describe("Config", func() {
 			Expect(mock.CapturedRequests).To(HaveLen(1))
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqSetOutputType)))
 			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(2)))
-			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
+			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(2)))
 			Expect(mock.CapturedRequests[0].Data).To(Equal([]byte{0x01}))
 		})
 
@@ -59,7 +59,7 @@ var _ = Describe("Config", func() {
 		})
 
 		It("decodes the response byte as S/PDIF", func() {
-			mock.ReturnData[[3]uint16{uint16(dspi.ReqGetOutputType), 2, 0}] = []byte{0x00}
+			mock.ReturnData[[3]uint16{uint16(dspi.ReqGetOutputType), 2, 2}] = []byte{0x00}
 			outputType, err := dev.GetOutputType(2)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(outputType).To(Equal(0))
@@ -70,7 +70,7 @@ var _ = Describe("Config", func() {
 			Expect(mock.CapturedRequests).To(HaveLen(1))
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetOutputType)))
 			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(2)))
-			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
+			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(2)))
 		})
 
 		It("returns an error when the device is closed", func() {
@@ -87,11 +87,11 @@ var _ = Describe("Config", func() {
 			Expect(mock.CapturedRequests).To(HaveLen(1))
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqSetOutputPin)))
 			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0x0503)))
-			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
+			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(2)))
 		})
 
 		It("returns an error on non-zero status", func() {
-			mock.ReturnData[[3]uint16{uint16(dspi.ReqSetOutputPin), 0x0503, 0}] = []byte{0x02}
+			mock.ReturnData[[3]uint16{uint16(dspi.ReqSetOutputPin), 0x0503, 2}] = []byte{0x02}
 			err := dev.SetOutputPin(3, 5)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("status 0x02"))
@@ -116,7 +116,7 @@ var _ = Describe("Config", func() {
 			Expect(mock.CapturedRequests).To(HaveLen(1))
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetOutputPin)))
 			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(3)))
-			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
+			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(2)))
 		})
 
 		It("returns an error when the device is closed", func() {
@@ -133,11 +133,11 @@ var _ = Describe("Config", func() {
 			Expect(mock.CapturedRequests).To(HaveLen(1))
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqSetI2SBckPin)))
 			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(7)))
-			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
+			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(2)))
 		})
 
 		It("returns an error on non-zero status", func() {
-			mock.ReturnData[[3]uint16{uint16(dspi.ReqSetI2SBckPin), 7, 0}] = []byte{0x04}
+			mock.ReturnData[[3]uint16{uint16(dspi.ReqSetI2SBckPin), 7, 2}] = []byte{0x04}
 			err := dev.SetI2SBckPin(7)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("status 0x04"))
@@ -162,7 +162,7 @@ var _ = Describe("Config", func() {
 			Expect(mock.CapturedRequests).To(HaveLen(1))
 			Expect(mock.CapturedRequests[0].BRequest).To(Equal(uint8(dspi.ReqGetI2SBckPin)))
 			Expect(mock.CapturedRequests[0].WValue).To(Equal(uint16(0)))
-			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(0)))
+			Expect(mock.CapturedRequests[0].WIndex).To(Equal(uint16(2)))
 		})
 
 		It("returns an error when the device is closed", func() {
@@ -192,7 +192,7 @@ var _ = Describe("Config", func() {
 		})
 
 		It("returns an error when the firmware reports a non-success status", func() {
-			mock.ReturnData[[3]uint16{uint16(dspi.ReqSetMCKEnable), 0x01, 0}] = []byte{dspi.PinConfigPinInUse}
+			mock.ReturnData[[3]uint16{uint16(dspi.ReqSetMCKEnable), 0x01, 2}] = []byte{dspi.PinConfigPinInUse}
 			err := dev.SetMCKEnable(true)
 			Expect(err).To(MatchError(ContainSubstring("status 0x02")))
 		})
@@ -212,7 +212,7 @@ var _ = Describe("Config", func() {
 		})
 
 		It("returns false when the byte is zero", func() {
-			mock.ReturnData[[3]uint16{uint16(dspi.ReqGetMCKEnable), 0, 0}] = []byte{0x00}
+			mock.ReturnData[[3]uint16{uint16(dspi.ReqGetMCKEnable), 0, 2}] = []byte{0x00}
 			enabled, err := dev.GetMCKEnable()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(enabled).To(BeFalse())
@@ -242,7 +242,7 @@ var _ = Describe("Config", func() {
 		})
 
 		It("returns an error when the firmware reports a non-success status", func() {
-			mock.ReturnData[[3]uint16{uint16(dspi.ReqSetMCKPin), 9, 0}] = []byte{dspi.PinConfigInvalidPin}
+			mock.ReturnData[[3]uint16{uint16(dspi.ReqSetMCKPin), 9, 2}] = []byte{dspi.PinConfigInvalidPin}
 			err := dev.SetMCKPin(9)
 			Expect(err).To(MatchError(ContainSubstring("status 0x01")))
 		})
@@ -285,7 +285,7 @@ var _ = Describe("Config", func() {
 		})
 
 		It("returns an error when the firmware reports a non-success status", func() {
-			mock.ReturnData[[3]uint16{uint16(dspi.ReqSetMCKMultiplier), 1, 0}] = []byte{dspi.PinConfigInvalidPin}
+			mock.ReturnData[[3]uint16{uint16(dspi.ReqSetMCKMultiplier), 1, 2}] = []byte{dspi.PinConfigInvalidPin}
 			err := dev.SetMCKMultiplier(1)
 			Expect(err).To(MatchError(ContainSubstring("status 0x01")))
 		})
@@ -305,7 +305,7 @@ var _ = Describe("Config", func() {
 		})
 
 		It("decodes 0x00 as 128x", func() {
-			mock.ReturnData[[3]uint16{uint16(dspi.ReqGetMCKMultiplier), 0, 0}] = []byte{0x00}
+			mock.ReturnData[[3]uint16{uint16(dspi.ReqGetMCKMultiplier), 0, 2}] = []byte{0x00}
 			multiplier, err := dev.GetMCKMultiplier()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(multiplier).To(Equal(0))

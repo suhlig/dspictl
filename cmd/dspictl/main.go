@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/suhlig/dspi"
@@ -145,29 +146,30 @@ func completeChoices(choices ...[]string) func(*cobra.Command, []string, string)
 	}
 }
 
-// completeInputChannels returns input channel indices (0-1) with names for shell completion.
+// completeInputChannels returns input channel indices with names for shell completion.
+// Input channels are identified by their group name ending in " Input".
 func completeInputChannels(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) > 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	return completeChannelIndices(func(ch dspi.ChannelInfo) bool { return ch.Index <= 1 })
+	return completeChannelIndices(func(ch dspi.ChannelInfo) bool { return strings.HasSuffix(ch.Group, " Input") })
 }
 
-// completeEQMasterChannels returns master EQ channel indices (0-1) with names.
+// completeEQMasterChannels returns master EQ channel indices (inputs) with names.
 func completeEQMasterChannels(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) > 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	return completeChannelIndices(func(ch dspi.ChannelInfo) bool { return ch.Index <= 1 })
+	return completeChannelIndices(func(ch dspi.ChannelInfo) bool { return strings.HasSuffix(ch.Group, " Input") })
 }
 
 // completeEQMasterChannelsAndBands returns master channels for arg 0, bands for arg 1.
 func completeEQMasterChannelsAndBands(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	switch len(args) {
 	case 0:
-		return completeChannelIndices(func(ch dspi.ChannelInfo) bool { return ch.Index <= 1 })
+		return completeChannelIndices(func(ch dspi.ChannelInfo) bool { return strings.HasSuffix(ch.Group, " Input") })
 	case 1:
 		return completeEQBands()
 	}
@@ -239,6 +241,7 @@ func defaultBandRangeCompletions(minBand, maxBand int) []string {
 }
 
 // completeOutputChannels returns output channel indices with names for shell completion.
+// Uses NumInputChannels from the device to compute the output offset dynamically.
 func completeOutputChannels(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) > 0 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
@@ -262,12 +265,17 @@ func completeOutputChannels(cmd *cobra.Command, args []string, toComplete string
 			continue
 		}
 
+		numInputCh, err := d.NumInputChannels()
+		if err != nil {
+			numInputCh = 2
+		}
+
 		for _, ch := range channels {
-			if ch.Index < 2 {
+			if ch.Index < numInputCh {
 				continue
 			}
 
-			outputIndex := ch.Index - 2
+			outputIndex := ch.Index - numInputCh
 			item := fmt.Sprintf("%d\t%s", outputIndex, ch.Name)
 
 			if !seen[item] {
@@ -280,7 +288,8 @@ func completeOutputChannels(cmd *cobra.Command, args []string, toComplete string
 	return completions, cobra.ShellCompDirectiveNoFileComp
 }
 
-// completeMatrixRoutes returns input (0-1) or output indices with names for matrix commands.
+// completeMatrixRoutes returns input or output indices with names for matrix commands.
+// Uses NumInputChannels from the device to determine the split dynamically.
 func completeMatrixRoutes(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	devices, err := openDevices()
 
@@ -293,6 +302,16 @@ func completeMatrixRoutes(cmd *cobra.Command, args []string, toComplete string) 
 	seen := make(map[string]bool)
 	var completions []string
 
+	// Determine numInputCh from the first available device
+	numInputCh := 2
+	for _, d := range devices {
+		n, err := d.NumInputChannels()
+		if err == nil && n > 0 {
+			numInputCh = n
+			break
+		}
+	}
+
 	switch len(args) {
 	case 0:
 		for _, d := range devices {
@@ -303,7 +322,7 @@ func completeMatrixRoutes(cmd *cobra.Command, args []string, toComplete string) 
 			}
 
 			for _, ch := range channels {
-				if ch.Index > 1 {
+				if ch.Index >= numInputCh {
 					continue
 				}
 
@@ -324,11 +343,11 @@ func completeMatrixRoutes(cmd *cobra.Command, args []string, toComplete string) 
 			}
 
 			for _, ch := range channels {
-				if ch.Index < 2 {
+				if ch.Index < numInputCh {
 					continue
 				}
 
-				outputIndex := ch.Index - 2
+				outputIndex := ch.Index - numInputCh
 				item := fmt.Sprintf("%d\t%s", outputIndex, ch.Name)
 
 				if !seen[item] {
