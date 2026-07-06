@@ -56,6 +56,19 @@ func newVolumeCmd() *cobra.Command {
 		RunE:  runVolumeUnmute,
 	})
 
+	cmd.AddCommand(&cobra.Command{
+		Use:   "user [<db>]",
+		Short: "Get or set UAC/user volume (-60 to 0 dB)",
+		Args:  cobra.MaximumNArgs(1),
+		RunE:  runVolumeUser,
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "saved",
+		Short: "Show the saved boot-default master volume",
+		RunE:  runVolumeSaved,
+	})
+
 	return cmd
 }
 
@@ -241,6 +254,76 @@ func runVolumeUnmute(cmd *cobra.Command, args []string) error {
 		}
 
 		fmt.Printf("%s: unmuted (-20 dB)\n", d.Serial())
+	}
+
+	return nil
+}
+
+func runVolumeUser(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+
+	defer closeDevices(devices)
+
+	if len(args) == 0 {
+		for _, d := range devices {
+			gain, err := d.GetUserVolume()
+
+			if err != nil {
+				slog.Error("getting user volume failed", "serial", d.Serial(), "error", err)
+
+				continue
+			}
+
+			fmt.Printf("%s: user volume: %s\n", d.Serial(), gain)
+		}
+
+		return nil
+	}
+
+	db, err := strconv.ParseFloat(args[0], 64)
+
+	if err != nil {
+		return fmt.Errorf("invalid dB value: %w", err)
+	}
+
+	for _, d := range devices {
+		err := d.SetUserVolume(db)
+
+		if err != nil {
+			slog.Error("setting user volume failed", "serial", d.Serial(), "error", err)
+
+			continue
+		}
+
+		fmt.Printf("%s: user volume: %s\n", d.Serial(), dspi.NewGain(db))
+	}
+
+	return nil
+}
+
+func runVolumeSaved(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+
+	defer closeDevices(devices)
+
+	for _, d := range devices {
+		gain, err := d.GetSavedMasterVolume()
+
+		if err != nil {
+			slog.Error("getting saved master volume failed", "serial", d.Serial(), "error", err)
+
+			continue
+		}
+
+		fmt.Printf("%s: saved master volume: %s\n", d.Serial(), gain)
 	}
 
 	return nil

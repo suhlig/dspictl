@@ -34,6 +34,13 @@ func newPreampCmd() *cobra.Command {
 		ValidArgsFunction: completeInputChannels,
 	})
 
+	cmd.AddCommand(&cobra.Command{
+		Use:   "global [<db>]",
+		Short: "Get or set the global preamp (applied before per-channel preamp)",
+		Args:  cobra.MaximumNArgs(1),
+		RunE:  runPreampGlobal,
+	})
+
 	return cmd
 }
 
@@ -147,6 +154,52 @@ func runPreampSet(cmd *cobra.Command, args []string) error {
 
 		name := channels[ch].Name
 		fmt.Printf("%s: ch %d %s: %s\n", d.Serial(), ch, name, dspi.NewGain(db))
+	}
+
+	return nil
+}
+
+func runPreampGlobal(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+
+	defer closeDevices(devices)
+
+	if len(args) == 0 {
+		for _, d := range devices {
+			gain, err := d.GetPreamp()
+
+			if err != nil {
+				slog.Error("getting global preamp failed", "serial", d.Serial(), "error", err)
+
+				continue
+			}
+
+			fmt.Printf("%s: global preamp: %s\n", d.Serial(), gain)
+		}
+
+		return nil
+	}
+
+	db, err := strconv.ParseFloat(args[0], 64)
+
+	if err != nil {
+		return fmt.Errorf("invalid dB value: %w", err)
+	}
+
+	for _, d := range devices {
+		err := d.SetPreamp(db)
+
+		if err != nil {
+			slog.Error("setting global preamp failed", "serial", d.Serial(), "error", err)
+
+			continue
+		}
+
+		fmt.Printf("%s: global preamp: %s\n", d.Serial(), dspi.NewGain(db))
 	}
 
 	return nil

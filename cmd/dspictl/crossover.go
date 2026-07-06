@@ -40,7 +40,6 @@ func newCrossoverCmd() *cobra.Command {
 	}
 	setCmd.Flags().String("type", "", "Filter type (e.g. lr4-lp, bw2-hp, bes6-lp)")
 	setCmd.Flags().Float64("freq", 0, "Frequency in Hz")
-	setCmd.Flags().Bool("bypass", false, "Bypass this band")
 	_ = setCmd.MarkFlagRequired("type")
 	cmd.AddCommand(setCmd)
 
@@ -53,7 +52,7 @@ func newCrossoverCmd() *cobra.Command {
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:               "bypass <channel> <band> [true|false]",
+		Use:               "bypass <channel> <band> [on|off]",
 		Short:             "Get or set bypass for a crossover band",
 		Args:              cobra.RangeArgs(2, 3),
 		RunE:              runCrossoverBypass,
@@ -169,14 +168,12 @@ func runCrossoverSet(cmd *cobra.Command, args []string) error {
 	}
 
 	freq, _ := cmd.Flags().GetFloat64("freq")
-	bypass, _ := cmd.Flags().GetBool("bypass")
 
 	cb := &dspi.CrossoverBand{
 		Channel: ch + 2,
 		Band:    band,
 		Type:    t,
 		Freq:    freq,
-		Bypass:  bypass,
 	}
 
 	devices, err := openDevices()
@@ -193,11 +190,7 @@ func runCrossoverSet(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
-		state := ""
-		if bypass {
-			state = " (bypassed)"
-		}
-		fmt.Printf("%s: ch %d band %d: %s  %.1f Hz%s\n", d.Serial(), cb.Channel, cb.Band, cb.Type, cb.Freq, state)
+		fmt.Printf("%s: ch %d band %d: %s  %.1f Hz\n", d.Serial(), cb.Channel, cb.Band, cb.Type, cb.Freq)
 	}
 
 	return nil
@@ -270,14 +263,9 @@ func runCrossoverBypass(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	var bypass bool
-	switch args[2] {
-	case "true":
-		bypass = true
-	case "false":
-		bypass = false
-	default:
-		return fmt.Errorf("invalid value: %s (expected true or false)", args[2])
+	bypass, err := parseBoolArg(args[2])
+	if err != nil {
+		return fmt.Errorf("invalid bypass value: %w", err)
 	}
 
 	for _, d := range devices {

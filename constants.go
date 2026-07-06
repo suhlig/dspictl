@@ -6,6 +6,7 @@ const (
 	vendorInterface = 2
 	maxChannels     = 17
 
+	ReqSaveParams      = 0x51
 	ReqGetStatus       = 0x50
 	ReqGetPlatform     = 0x7F
 	ReqClearClips      = 0x83
@@ -14,8 +15,18 @@ const (
 	ReqGetChannelName  = 0x9C
 	ReqSetChannelName  = 0x9B
 
+	ReqSetPreamp   = 0x44
+	ReqGetPreamp   = 0x45
 	ReqSetPreampCh = 0xD0
 	ReqGetPreampCh = 0xD1
+
+	ReqSetChannelGain = 0x54
+	ReqGetChannelGain = 0x55
+	ReqSetChannelMute = 0x56
+	ReqGetChannelMute = 0x57
+
+	ReqSetDelay = 0x48
+	ReqGetDelay = 0x49
 
 	ReqSetOutputGain   = 0x74
 	ReqGetOutputGain   = 0x75
@@ -66,12 +77,24 @@ const (
 	ReqSetMCKMultiplier = 0xC8
 	ReqGetMCKMultiplier = 0xC9
 
-	ReqSetMasterVolumeMode = 0xD4
-	ReqGetMasterVolumeMode = 0xD5
-	ReqSaveMasterVolume    = 0xD6
+	ReqSetMasterVolumeMode  = 0xD4
+	ReqGetMasterVolumeMode  = 0xD5
+	ReqSaveMasterVolume     = 0xD6
+	ReqGetSavedMasterVolume = 0xD7
+
+	ReqSetUserVolume = 0xDA
+	ReqGetUserVolume = 0xDB
 
 	ReqGetBufferStats   = 0xB0
+	ReqResetBufferStats = 0xB1
 	ReqGetUSBErrorStats = 0xB2
+
+	ReqSaveOutputConfig = 0x52
+
+	ReqGetSpdifRxStatus   = 0xE2
+	ReqGetSpdifRxChStatus = 0xE3
+	ReqSetSpdifRxPin      = 0xE4
+	ReqGetSpdifRxPin      = 0xE5
 
 	ReqGetAllParams = 0xA0
 	ReqSetAllParams = 0xA1
@@ -85,6 +108,38 @@ const (
 
 	ReqSetBandBypass = 0xD8
 	ReqGetBandBypass = 0xD9
+
+	ReqSetCrossfeed       = 0x5E
+	ReqGetCrossfeed       = 0x5F
+	ReqSetCrossfeedPreset = 0x60
+	ReqGetCrossfeedPreset = 0x61
+	ReqSetCrossfeedFreq   = 0x62
+	ReqGetCrossfeedFreq   = 0x63
+	ReqSetCrossfeedFeed   = 0x64
+	ReqGetCrossfeedFeed   = 0x65
+	ReqSetCrossfeedITD    = 0x66
+	ReqGetCrossfeedITD    = 0x67
+
+	ReqSetLeveller          = 0xB4
+	ReqGetLeveller          = 0xB5
+	ReqSetLevellerAmount    = 0xB6
+	ReqGetLevellerAmount    = 0xB7
+	ReqSetLevellerSpeed     = 0xB8
+	ReqGetLevellerSpeed     = 0xB9
+	ReqSetLevellerMaxGain   = 0xBA
+	ReqGetLevellerMaxGain   = 0xBB
+	ReqSetLevellerLookahead = 0xBC
+	ReqGetLevellerLookahead = 0xBD
+	ReqSetLevellerGate      = 0xBE
+	ReqGetLevellerGate      = 0xBF
+
+	ReqSetDACHwMuteConfig = 0xEA
+	ReqGetDACHwMuteConfig = 0xEB
+	ReqTestDACHwMute      = 0xEC
+
+	ReqSetLGSoundSync       = 0xE6
+	ReqGetLGSoundSync       = 0xE7
+	ReqGetLGSoundSyncStatus = 0xE8
 
 	ReqGetSerial = 0x7E
 
