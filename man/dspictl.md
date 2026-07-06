@@ -74,6 +74,15 @@ against the device. A *--target* is required when more than one device is connec
 dspictl firmware upgrade dspi-firmware.uf2
 ```
 
+### firmware enter-bootloader
+
+Reboot the device into UF2 bootloader mode without flashing. The device
+reconnects as a mass storage device for manual firmware updates.
+
+```
+dspictl firmware enter-bootloader
+```
+
 ## factory-reset
 
 Reset the live DSP state to factory defaults. Stored presets are not affected.
@@ -144,6 +153,26 @@ Unmute the master output. The volume returns to the firmware default of -20 dB.
 dspictl volume unmute
 ```
 
+### volume user [*db*]
+
+Get or set the UAC/user volume. The user volume is independent of the master
+volume and has a range of -60 to 0 dB. This is typically controlled by the
+operating system's volume slider over USB Audio Class.
+
+```
+dspictl volume user         # show current user volume
+dspictl volume user -30     # set user volume to -30 dB
+```
+
+### volume saved
+
+Show the saved boot-default master volume that was persisted via
+`volume save`.
+
+```
+dspictl volume saved
+```
+
 ## preamp
 
 Per-channel input preamp gain get/set.
@@ -167,6 +196,16 @@ Set preamp gain for an input channel. Range depends on the device capabilities.
 
 ```
 dspictl preamp set 0 -6.0   # set channel 0 to -6 dB
+```
+
+### preamp global [*db*]
+
+Get or set the global preamp, applied before the per-channel preamps. This
+affects the overall input level.
+
+```
+dspictl preamp global         # show current global preamp
+dspictl preamp global -6      # set global preamp to -6 dB
 ```
 
 ## output
@@ -272,12 +311,15 @@ Delete (clear) a preset slot.
 dspictl preset delete 2
 ```
 
-### preset name *slot* *name*
+### preset name *slot* [*name*]
 
-Set a human-readable name for a preset slot.
+Set a human-readable name for a preset slot. Use the *--name* flag as the
+canonical form, or pass the name as a positional argument for backward
+compatibility.
 
 ```
-dspictl preset name 2 "Dinner Party"
+dspictl preset name 2 "Dinner Party"            # positional (backward compat)
+dspictl preset name 2 --name "Dinner Party"      # flag (canonical form)
 ```
 
 ### preset active
@@ -343,22 +385,22 @@ Reset all master EQ bands to flat in a preset slot.
 dspictl preset eq master clear 2 0
 ```
 
-#### preset eq master bypass *slot* [*true*|*false*]
+#### preset eq master bypass *slot* [*on*|*off*]
 
 Get or set the master EQ bypass state in a preset slot.
 
 ```
 dspictl preset eq master bypass 2          # show bypass state
-dspictl preset eq master bypass 2 true     # enable bypass
+dspictl preset eq master bypass 2 on       # enable bypass
 ```
 
-#### preset eq master band-bypass *slot* *channel* *band* [*true*|*false*]
+#### preset eq master band-bypass *slot* *channel* *band* [*on*|*off*]
 
 Get or set bypass for a single master EQ band in a preset slot.
 
 ```
 dspictl preset eq master band-bypass 2 0 0       # show bypass state
-dspictl preset eq master band-bypass 2 0 0 true  # enable bypass
+dspictl preset eq master band-bypass 2 0 0 on    # enable bypass
 ```
 
 #### preset eq output set *slot* *channel* *band*
@@ -378,13 +420,13 @@ Reset all output EQ bands to flat in a preset slot.
 dspictl preset eq output clear 2 0
 ```
 
-#### preset eq output band-bypass *slot* *channel* *band* [*true*|*false*]
+#### preset eq output band-bypass *slot* *channel* *band* [*on*|*off*]
 
 Get or set bypass for a single output EQ band in a preset slot.
 
 ```
 dspictl preset eq output band-bypass 2 0 0       # show bypass state
-dspictl preset eq output band-bypass 2 0 0 true  # enable bypass
+dspictl preset eq output band-bypass 2 0 0 on    # enable bypass
 ```
 
 #### preset eq crossover set *slot* *channel* *band*
@@ -404,13 +446,13 @@ Reset all crossover bands to flat in a preset slot.
 dspictl preset eq crossover clear 2 0
 ```
 
-#### preset eq crossover bypass *slot* *channel* *band* [*true*|*false*]
+#### preset eq crossover bypass *slot* *channel* *band* [*on*|*off*]
 
 Get or set bypass for a crossover band in a preset slot.
 
 ```
 dspictl preset eq crossover bypass 2 0 20       # show bypass state
-dspictl preset eq crossover bypass 2 0 20 true  # enable bypass
+dspictl preset eq crossover bypass 2 0 20 on    # enable bypass
 ```
 
 ### preset copy filter *to-slot*
@@ -502,13 +544,52 @@ dspictl channel-name get       # show all channels
 dspictl channel-name get 2     # show channel 2 name
 ```
 
-### channel-name set *channel* *name*
+### channel-name set *channel* [*name*]
 
-Set the name for a channel (max 31 characters).
+Set the name for a channel (max 31 characters). Use the *--name* flag as the
+canonical form, or pass the name as a positional argument for backward
+compatibility.
 
 ```
-dspictl channel-name set 0 "Left In"
-dspictl channel-name set 3 "Surround Right"
+dspictl channel-name set 0 "Left In"              # positional (backward compat)
+dspictl channel-name set 0 --name "Left In"        # flag (canonical form)
+```
+
+## channel
+
+Channel gain, mute, unmute, and delay controls. Operates on any channel
+(input or output) by index.
+
+### channel gain *channel* *db*
+
+Set the gain for a channel.
+
+```
+dspictl channel gain 0 -6
+```
+
+### channel mute *channel*
+
+Mute a channel.
+
+```
+dspictl channel mute 2
+```
+
+### channel unmute *channel*
+
+Unmute a channel.
+
+```
+dspictl channel unmute 2
+```
+
+### channel delay *channel* *ms*
+
+Set a time-alignment delay on a channel. Range is 0 to 85 ms.
+
+```
+dspictl channel delay 1 3.5
 ```
 
 ## config
@@ -516,14 +597,17 @@ dspictl channel-name set 3 "Surround Right"
 Hardware configuration commands for GPIO pins, I2S settings, and DSP state
 export/import.
 
-### config output-type *slot* [spdif|i2s]
+### config output-type *slot* [*spdif*|*i2s*]
 
 Get or set the output type for a slot. Each slot can be configured as *spdif*
-(S/PDIF digital output) or *i2s* (I2S digital audio).
+(S/PDIF digital output) or *i2s* (I2S digital audio). Use the *--type* flag as
+the canonical form, or pass the type as a positional argument for backward
+compatibility.
 
 ```
-dspictl config output-type 0         # show current type
-dspictl config output-type 0 spdif   # set to S/PDIF
+dspictl config output-type 0              # show current type
+dspictl config output-type 0 spdif        # positional (backward compat)
+dspictl config output-type 0 --type spdif # flag (canonical form)
 ```
 
 ### config output-pin *output* [*gpio*]
@@ -549,13 +633,13 @@ dspictl config bck-pin 10      # set BCK to GPIO 10 (LRCLK will be GPIO 11)
 
 I2S master clock sub-commands.
 
-#### config mck enable [true|false]
+#### config mck enable [on|off]
 
 Get or set the MCK (master clock) output state.
 
 ```
 dspictl config mck enable          # show current state
-dspictl config mck enable true     # enable MCK output
+dspictl config mck enable on       # enable MCK output
 ```
 
 #### config mck pin [*gpio*]
@@ -577,17 +661,16 @@ dspictl config mck multiplier         # show current multiplier
 dspictl config mck multiplier 256     # set to 256x
 ```
 
-### config i2s-rx-pin [*pair* [*gpio*]]
+### config i2s-rx-pin
 
 Get or set the I2S RX (receive) data GPIO pin for an I2S data pair.
-With no arguments, shows pair 0. With one argument, sets pair 0
-(backwards-compatible). With two arguments, sets the given pair (0-3)
-to the given GPIO.
+With no flags, shows pair 0 pin. Use *--pair* and *--pin* to specify
+which pair to query or configure.
 
 ```
-dspictl config i2s-rx-pin          # show pair 0 pin
-dspictl config i2s-rx-pin 8        # set pair 0 to GPIO 8
-dspictl config i2s-rx-pin 2 12     # set pair 2 to GPIO 12
+dspictl config i2s-rx-pin                   # show pair 0 pin
+dspictl config i2s-rx-pin --pin 8           # set pair 0 to GPIO 8
+dspictl config i2s-rx-pin --pair 2 --pin 12 # set pair 2 to GPIO 12
 ```
 
 ### config output-config-mode [independent|preset]
@@ -604,7 +687,7 @@ dspictl config output-config-mode preset   # switch to preset mode
 
 ### config export
 
-Export the complete DSP state to stdout as a JSON object. This includes all
+Export the complete DSP state to stdout as a binary dump. This includes all
 parameters: volume, EQ, matrix, presets, channel names, etc.
 
 ```
@@ -613,12 +696,39 @@ dspictl config export
 
 ### config import
 
-Import a complete DSP state from stdin. The input must be a JSON object in the
+Import a complete DSP state from stdin. The input must be a binary dump in the
 same format as produced by `config export`.
 
 ```
-dspictl config export > backup.json
-dspictl config import < backup.json
+dspictl config export > backup.bin
+cat backup.bin | dspictl config import
+```
+
+### config spdif-rx-pin [*gpio*]
+
+Get or set the GPIO pin used for S/PDIF RX input.
+
+```
+dspictl config spdif-rx-pin        # show current pin
+dspictl config spdif-rx-pin 5      # set to GPIO 5
+```
+
+### config save-output
+
+Save the current output pin and type configuration to flash so it persists
+across power cycles.
+
+```
+dspictl config save-output
+```
+
+### config save
+
+Commit all current live DSP state (volume, EQ, matrix, routing, channel names)
+to flash. This is the master persistence command.
+
+```
+dspictl config save
 ```
 
 ## input
@@ -710,22 +820,22 @@ Reset all master EQ bands to flat for a channel.
 dspictl eq master clear 0
 ```
 
-#### eq master bypass [true|false]
+#### eq master bypass [on|off]
 
 Get or set the global master EQ bypass.
 
 ```
 dspictl eq master bypass        # show current state
-dspictl eq master bypass true   # bypass master EQ
+dspictl eq master bypass on     # bypass master EQ
 ```
 
-#### eq master band-bypass *channel* *band* [true|false]
+#### eq master band-bypass *channel* *band* [on|off]
 
 Get or set bypass for a single master EQ band.
 
 ```
 dspictl eq master band-bypass 0 0          # show bypass state
-dspictl eq master band-bypass 0 0 true     # bypass band
+dspictl eq master band-bypass 0 0 on       # bypass band
 ```
 
 ### eq output
@@ -765,12 +875,12 @@ Reset all output EQ bands to flat for a channel.
 dspictl eq output clear 2
 ```
 
-#### eq output band-bypass *channel* *band* [true|false]
+#### eq output band-bypass *channel* *band* [on|off]
 
 Get or set bypass for a single output EQ band.
 
 ```
-dspictl eq output band-bypass 2 0 true
+dspictl eq output band-bypass 2 0 on
 ```
 
 ### eq crossover
@@ -811,9 +921,6 @@ Configure a crossover band. The following flags are available:
 *--freq* *hz*
 : Crossover frequency in Hz.
 
-*--bypass*
-: Bypass this band (boolean flag).
-
 ```
 dspictl eq crossover set 2 20 --type lr4-lp --freq 800
 dspictl eq crossover set 2 21 --type lr4-hp --freq 800
@@ -827,13 +934,13 @@ Reset all crossover bands to flat for an output channel.
 dspictl eq crossover clear 2
 ```
 
-#### eq crossover bypass *channel* *band* [true|false]
+#### eq crossover bypass *channel* *band* [on|off]
 
 Get or set bypass for a crossover band.
 
 ```
 dspictl eq crossover bypass 2 20          # show bypass state
-dspictl eq crossover bypass 2 20 true     # bypass this band
+dspictl eq crossover bypass 2 20 on       # bypass this band
 ```
 
 ## loudness
@@ -949,6 +1056,203 @@ Clear clip detection latches that may have been triggered by signal overload.
 
 ```
 dspictl diagnostics clear-clips
+```
+
+### diagnostics spdif-rx-status
+
+Show S/PDIF RX status including lock state, audio/non-audio detection, and
+sample rate.
+
+```
+dspictl diagnostics spdif-rx-status
+```
+
+### diagnostics spdif-rx-channel-status
+
+Show the raw S/PDIF RX channel status bytes (24 bytes of IEC 60958 channel
+status data).
+
+```
+dspictl diagnostics spdif-rx-channel-status
+```
+
+### diagnostics reset-buffer-stats
+
+Reset the buffer fill statistics counters.
+
+```
+dspictl diagnostics reset-buffer-stats
+```
+
+## crossfeed
+
+Crossfeed (headphone spatialization) control. Crossfeed mixes a small amount
+of the left channel into the right and vice versa, with frequency-dependent
+filtering and delay, to simulate the natural crosstalk that occurs when
+listening to loudspeakers.
+
+With no subcommand, shows the crossfeed status with all parameters.
+
+### crossfeed enable [on|off]
+
+Get or set crossfeed enable state.
+
+```
+dspictl crossfeed enable on
+```
+
+### crossfeed preset [*n*]
+
+Get or set crossfeed preset (0-4).
+
+```
+dspictl crossfeed preset 2
+```
+
+### crossfeed freq [*hz*]
+
+Get or set the crossfeed crossover frequency in Hz.
+
+```
+dspictl crossfeed freq 700
+```
+
+### crossfeed feed [*db*]
+
+Get or set the crossfeed feed level in dB.
+
+```
+dspictl crossfeed feed -3.0
+```
+
+### crossfeed itd [on|off]
+
+Get or set the interaural time delay (ITD) feature.
+
+```
+dspictl crossfeed itd on
+```
+
+## dac-mute
+
+DAC hardware mute control. Manages the mute GPIO pin and timing for pop-free
+output muting on power state transitions.
+
+With no arguments, shows the current DAC mute configuration.
+
+### dac-mute on
+
+Enable DAC hardware mute.
+
+```
+dspictl dac-mute on
+```
+
+### dac-mute off
+
+Disable DAC hardware mute.
+
+```
+dspictl dac-mute off
+```
+
+### dac-mute config
+
+Configure all DAC hardware mute GPIO parameters at once using flags.
+All flags are required:
+
+- *--enabled*: on/off (or true/false)
+- *--active-low*: on/off (true=active low, false=active high)
+- *--pin*: GPIO pin number, or 255 to keep current
+- *--hold-ms*: hold time in milliseconds
+- *--release-ms*: release time in milliseconds
+
+```
+dspictl dac-mute config --enabled --active-low --pin 255 --hold-ms 100 --release-ms 50
+```
+
+### dac-mute test
+
+Run a DAC mute test cycle to verify the mute GPIO configuration.
+
+```
+dspictl dac-mute test
+```
+
+## leveller
+
+Dynamic range compression (leveller) control for automatic level management.
+
+With no subcommand, shows the leveller status with all parameters.
+
+### leveller enable [on|off]
+
+Get or set leveller enable state.
+
+```
+dspictl leveller enable on
+```
+
+### leveller amount [*value*]
+
+Get or set compression amount.
+
+```
+dspictl leveller amount 10
+```
+
+### leveller speed [*n*]
+
+Get or set attack/release speed.
+
+```
+dspictl leveller speed 3
+```
+
+### leveller maxgain [*db*]
+
+Get or set maximum gain reduction in dB.
+
+```
+dspictl leveller maxgain -12
+```
+
+### leveller lookahead [on|off]
+
+Get or set lookahead enable.
+
+```
+dspictl leveller lookahead on
+```
+
+### leveller gate [*db*]
+
+Get or set noise gate threshold in dB.
+
+```
+dspictl leveller gate -80
+```
+
+## lg-sound-sync
+
+LG Sound Sync control for TV audio return over optical. When enabled, the LG
+TV remote can control the DSPi volume via the S/PDIF connection.
+
+### lg-sound-sync enable [on|off]
+
+Get or set LG Sound Sync enable state.
+
+```
+dspictl lg-sound-sync enable on
+```
+
+### lg-sound-sync status
+
+Show detailed LG Sound Sync status including whether a compatible TV is
+present, mute state, and volume level.
+
+```
+dspictl lg-sound-sync status
 ```
 
 ## mixer

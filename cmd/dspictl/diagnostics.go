@@ -37,6 +37,24 @@ func newDiagnosticsCmd() *cobra.Command {
 		RunE:  runDiagnosticsClearClips,
 	})
 
+	cmd.AddCommand(&cobra.Command{
+		Use:   "spdif-rx-status",
+		Short: "Show S/PDIF RX status (lock, audio, sample rate)",
+		RunE:  runDiagnosticsSpdifRxStatus,
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "spdif-rx-channel-status",
+		Short: "Show raw S/PDIF RX channel status bytes",
+		RunE:  runDiagnosticsSpdifRxChannelStatus,
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "reset-buffer-stats",
+		Short: "Reset buffer fill statistics counters",
+		RunE:  runDiagnosticsResetBufferStats,
+	})
+
 	return cmd
 }
 
@@ -176,6 +194,108 @@ func runDiagnosticsClearClips(cmd *cobra.Command, args []string) error {
 		}
 
 		fmt.Printf("%s: clips cleared\n", d.Serial())
+	}
+
+	return nil
+}
+
+func runDiagnosticsSpdifRxStatus(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+
+	defer closeDevices(devices)
+
+	for _, d := range devices {
+		status, err := d.GetSpdifRxStatus()
+
+		if err != nil {
+			slog.Error("getting S/PDIF RX status failed", "serial", d.Serial(), "error", err)
+
+			continue
+		}
+
+		lockState := "no lock"
+
+		if status.Locked {
+			lockState = "locked"
+		}
+
+		audioState := "non-audio"
+
+		if status.Audio {
+			audioState = "audio"
+		}
+
+		fmt.Printf("%s: %s, %s", d.Serial(), lockState, audioState)
+
+		if status.Rate > 0 {
+			fmt.Printf(", %d Hz", status.Rate)
+		}
+
+		fmt.Println()
+	}
+
+	return nil
+}
+
+func runDiagnosticsSpdifRxChannelStatus(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+
+	defer closeDevices(devices)
+
+	for _, d := range devices {
+		status, err := d.GetSpdifRxChannelStatus()
+
+		if err != nil {
+			slog.Error("getting S/PDIF RX channel status failed", "serial", d.Serial(), "error", err)
+
+			continue
+		}
+
+		fmt.Printf("%s:", d.Serial())
+
+		for i, b := range status.Raw {
+			if i%16 == 0 {
+				fmt.Printf("\n  ")
+			} else if i%4 == 0 {
+				fmt.Printf(" ")
+			}
+
+			fmt.Printf("%02x", b)
+		}
+
+		fmt.Println()
+	}
+
+	return nil
+}
+
+func runDiagnosticsResetBufferStats(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+
+	defer closeDevices(devices)
+
+	for _, d := range devices {
+		err := d.ResetBufferStats()
+
+		if err != nil {
+			slog.Error("resetting buffer stats failed", "serial", d.Serial(), "error", err)
+
+			continue
+		}
+
+		fmt.Printf("%s: buffer stats reset\n", d.Serial())
 	}
 
 	return nil

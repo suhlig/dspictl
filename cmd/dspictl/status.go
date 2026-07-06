@@ -49,6 +49,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 
 		inputSource, inputSourceErr := d.GetInputSource()
 		inputRate, inputRateErr := d.GetInputRate()
+		sampleRate, sampleRateErr := d.GetSampleRate()
 
 		fwVersion := d.FirmwareVersion().String()
 
@@ -73,6 +74,10 @@ func runStatus(cmd *cobra.Command, args []string) error {
 					fmt.Printf(" (I2S %d Hz)", inputRate.SelectedHz)
 				}
 				fmt.Printf("\n")
+
+				if sampleRateErr == nil && sampleRate > 0 {
+					fmt.Printf("  Sample Rate (raw): %d Hz\n", sampleRate)
+				}
 			}
 		}
 

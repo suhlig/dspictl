@@ -59,15 +59,15 @@ func newPresetEQMasterCmd() *cobra.Command {
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:               "bypass <slot> [true|false]",
+		Use:               "bypass <slot> [on|off]",
 		Short:             "Get or set master EQ bypass in a preset slot",
 		Args:              cobra.RangeArgs(1, 2),
 		RunE:              runPresetEQMasterBypass,
-		ValidArgsFunction: completeChoices(nil, []string{"true", "false"}),
+		ValidArgsFunction: completeChoices(nil, []string{"on", "off"}),
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:               "band-bypass <slot> <channel> <band> [true|false]",
+		Use:               "band-bypass <slot> <channel> <band> [on|off]",
 		Short:             "Get or set bypass for a single master band in a preset slot",
 		Args:              cobra.RangeArgs(3, 4),
 		RunE:              runPresetEQMasterBandBypass,
@@ -106,7 +106,7 @@ func newPresetEQOutputCmd() *cobra.Command {
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:               "band-bypass <slot> <channel> <band> [true|false]",
+		Use:               "band-bypass <slot> <channel> <band> [on|off]",
 		Short:             "Get or set bypass for a single output band in a preset slot",
 		Args:              cobra.RangeArgs(3, 4),
 		RunE:              runPresetEQOutputBandBypass,
@@ -131,7 +131,6 @@ func newPresetEQCrossoverCmd() *cobra.Command {
 	}
 	setCmd.Flags().String("type", "", "Crossover filter type (e.g. lr4-lp, bw2-hp, bes6-lp)")
 	setCmd.Flags().Float64("freq", 0, "Frequency in Hz")
-	setCmd.Flags().Bool("bypass", false, "Bypass this band")
 	_ = setCmd.MarkFlagRequired("type")
 	cmd.AddCommand(setCmd)
 
@@ -144,7 +143,7 @@ func newPresetEQCrossoverCmd() *cobra.Command {
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:               "bypass <slot> <channel> <band> [true|false]",
+		Use:               "bypass <slot> <channel> <band> [on|off]",
 		Short:             "Get or set bypass for a crossover band in a preset slot",
 		Args:              cobra.RangeArgs(3, 4),
 		RunE:              runPresetEQCrossoverBypass,
@@ -281,14 +280,9 @@ func runPresetEQMasterBypass(cmd *cobra.Command, args []string) error {
 		})
 	}
 
-	var bypass bool
-	switch args[1] {
-	case "true":
-		bypass = true
-	case "false":
-		bypass = false
-	default:
-		return fmt.Errorf("invalid value: %s (expected true or false)", args[1])
+	bypass, err := parseBoolArg(args[1])
+	if err != nil {
+		return fmt.Errorf("invalid bypass value: %w", err)
 	}
 
 	return withEachDevice(func(d *dspi.Device) error {
@@ -336,14 +330,9 @@ func runPresetEQMasterBandBypass(cmd *cobra.Command, args []string) error {
 		})
 	}
 
-	var bypass bool
-	switch args[3] {
-	case "true":
-		bypass = true
-	case "false":
-		bypass = false
-	default:
-		return fmt.Errorf("invalid value: %s (expected true or false)", args[3])
+	bypass, err := parseBoolArg(args[3])
+	if err != nil {
+		return fmt.Errorf("invalid bypass value: %w", err)
 	}
 
 	return withEachDevice(func(d *dspi.Device) error {
@@ -454,14 +443,9 @@ func runPresetEQOutputBandBypass(cmd *cobra.Command, args []string) error {
 		})
 	}
 
-	var bypass bool
-	switch args[3] {
-	case "true":
-		bypass = true
-	case "false":
-		bypass = false
-	default:
-		return fmt.Errorf("invalid value: %s (expected true or false)", args[3])
+	bypass, err := parseBoolArg(args[3])
+	if err != nil {
+		return fmt.Errorf("invalid bypass value: %w", err)
 	}
 
 	return withEachDevice(func(d *dspi.Device) error {
@@ -500,14 +484,12 @@ func runPresetEQCrossoverSet(cmd *cobra.Command, args []string) error {
 	}
 
 	freq, _ := cmd.Flags().GetFloat64("freq")
-	bypass, _ := cmd.Flags().GetBool("bypass")
 
 	cb := &dspi.CrossoverBand{
 		Channel: ch + 2,
 		Band:    band,
 		Type:    t,
 		Freq:    freq,
-		Bypass:  bypass,
 	}
 
 	return withEachDevice(func(d *dspi.Device) error {
@@ -587,14 +569,9 @@ func runPresetEQCrossoverBypass(cmd *cobra.Command, args []string) error {
 		})
 	}
 
-	var bypass bool
-	switch args[3] {
-	case "true":
-		bypass = true
-	case "false":
-		bypass = false
-	default:
-		return fmt.Errorf("invalid value: %s (expected true or false)", args[3])
+	bypass, err := parseBoolArg(args[3])
+	if err != nil {
+		return fmt.Errorf("invalid bypass value: %w", err)
 	}
 
 	return withEachDevice(func(d *dspi.Device) error {

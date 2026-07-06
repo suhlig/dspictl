@@ -25,13 +25,15 @@ func newChannelNameCmd() *cobra.Command {
 		ValidArgsFunction: completeChannels,
 	})
 
-	cmd.AddCommand(&cobra.Command{
-		Use:               "set <channel> <name>",
+	channelNameSetCmd := &cobra.Command{
+		Use:               "set <channel> [<name>]",
 		Short:             "Set a channel name (max 31 chars) (alias for `channel-name <channel> <name>`)",
-		Args:              cobra.ExactArgs(2),
+		Args:              cobra.RangeArgs(1, 2),
 		RunE:              runChannelNameSet,
 		ValidArgsFunction: completeChannels,
-	})
+	}
+	channelNameSetCmd.Flags().String("name", "", "Channel name (max 31 chars)")
+	cmd.AddCommand(channelNameSetCmd)
 
 	return cmd
 }
@@ -141,7 +143,16 @@ func runChannelNameSet(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid channel: %w", err)
 	}
 
-	name := args[1]
+	// Check --name flag first (canonical form), fall back to positional arg
+	name, err := cmd.Flags().GetString("name")
+
+	if err != nil {
+		return fmt.Errorf("getting name flag: %w", err)
+	}
+
+	if name == "" && len(args) > 1 {
+		name = args[1]
+	}
 
 	devices, err := openDevices()
 

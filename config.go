@@ -211,6 +211,26 @@ func (d *Device) SetMCKMultiplier(multiplier int) error {
 	return nil
 }
 
+// SaveOutputConfig saves the current output pin/type configuration to flash.
+func (d *Device) SaveOutputConfig() error {
+	if d.closed {
+		return fmt.Errorf("device is closed")
+	}
+
+	buf := make([]byte, 1)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqSaveOutputConfig, 0, vendorInterface, buf)
+
+	if err != nil {
+		return fmt.Errorf("REQ_SAVE_OUTPUT_CONFIG: %w", err)
+	}
+
+	if len(buf) > 0 && buf[0] != 0 {
+		return fmt.Errorf("REQ_SAVE_OUTPUT_CONFIG: status 0x%02X", buf[0])
+	}
+
+	return nil
+}
+
 // GetMCKMultiplier returns the MCK multiplier.
 // 0=128x, 1=256x.
 func (d *Device) GetMCKMultiplier() (int, error) {

@@ -23,6 +23,18 @@ func newFirmwareCmd() *cobra.Command {
 	cmd.AddCommand(newFirmwareVersionCmd())
 	cmd.AddCommand(newFirmwareUpgradeCmd())
 
+	cmd.AddCommand(&cobra.Command{
+		Use:   "enter-bootloader",
+		Short: "Reboot the device into UF2 bootloader mode",
+		Long: `Reboot all connected (or --target) DSPi devices into their UF2
+bootloader. The device re-enumerates as a mass-storage volume,
+ready for a UF2 firmware file to be copied to it.
+
+Use "firmware upgrade" to perform the full upgrade flow including
+entering the bootloader and copying the firmware file.`,
+		RunE: runFirmwareEnterBootloader,
+	})
+
 	return cmd
 }
 
@@ -32,6 +44,30 @@ func newFirmwareVersionCmd() *cobra.Command {
 		Short: "Show firmware version of connected devices",
 		RunE:  runFirmwareVersion,
 	}
+}
+
+func runFirmwareEnterBootloader(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+
+	defer closeDevices(devices)
+
+	for _, d := range devices {
+		err := d.EnterBootloader()
+
+		if err != nil {
+			slog.Error("entering bootloader failed", "serial", d.Serial(), "error", err)
+
+			continue
+		}
+
+		fmt.Printf("%s: entered bootloader\n", d.Serial())
+	}
+
+	return nil
 }
 
 func runFirmwareVersion(cmd *cobra.Command, args []string) error {

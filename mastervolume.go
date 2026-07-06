@@ -1,6 +1,10 @@
 package dspi
 
-import "fmt"
+import (
+	"encoding/binary"
+	"fmt"
+	"math"
+)
 
 // SetMasterVolumeMode sets the persistence mode for master volume.
 // mode: 0=independent, 1=with preset.
@@ -50,4 +54,20 @@ func (d *Device) SaveMasterVolume() error {
 	}
 
 	return nil
+}
+
+// GetSavedMasterVolume reads the saved boot-default master volume.
+func (d *Device) GetSavedMasterVolume() (Gain, error) {
+	if d.closed {
+		return 0, fmt.Errorf("device is closed")
+	}
+
+	buf := make([]byte, 4)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetSavedMasterVolume, 0, vendorInterface, buf)
+
+	if err != nil {
+		return 0, fmt.Errorf("REQ_GET_SAVED_MASTER_VOLUME: %w", err)
+	}
+
+	return NewGain(float64(math.Float32frombits(binary.LittleEndian.Uint32(buf)))), nil
 }

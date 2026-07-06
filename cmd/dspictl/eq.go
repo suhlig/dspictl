@@ -66,15 +66,15 @@ func newEQMasterCmd() *cobra.Command {
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:               "bypass [true|false]",
+		Use:               "bypass [on|off]",
 		Short:             "Get or set master EQ bypass",
 		Args:              cobra.MaximumNArgs(1),
 		RunE:              runEQMasterBypass,
-		ValidArgsFunction: completeChoices([]string{"true", "false"}),
+		ValidArgsFunction: completeChoices([]string{"on", "off"}),
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:               "band-bypass <channel> <band> [true|false]",
+		Use:               "band-bypass <channel> <band> [on|off]",
 		Short:             "Get or set bypass for a single EQ band",
 		Args:              cobra.RangeArgs(2, 3),
 		RunE:              runEQMasterBandBypass,
@@ -129,7 +129,7 @@ func newEQOutputCmd() *cobra.Command {
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:               "band-bypass <channel> <band> [true|false]",
+		Use:               "band-bypass <channel> <band> [on|off]",
 		Short:             "Get or set bypass for a single EQ band",
 		Args:              cobra.RangeArgs(2, 3),
 		RunE:              runEQOutputBandBypass,
@@ -455,15 +455,9 @@ func runEQMasterBypass(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	var bypass bool
-
-	switch args[0] {
-	case "true":
-		bypass = true
-	case "false":
-		bypass = false
-	default:
-		return fmt.Errorf("invalid value: %s (expected true or false)", args[0])
+	bypass, err := parseBoolArg(args[0])
+	if err != nil {
+		return fmt.Errorf("invalid bypass value: %w", err)
 	}
 
 	for _, d := range devices {
@@ -538,15 +532,9 @@ func bandBypassForDevices(channel, band int, args []string) error {
 		return nil
 	}
 
-	var bypass bool
-
-	switch args[0] {
-	case "true":
-		bypass = true
-	case "false":
-		bypass = false
-	default:
-		return fmt.Errorf("invalid value: %s (expected true or false)", args[0])
+	bypass, err := parseBoolArg(args[0])
+	if err != nil {
+		return fmt.Errorf("invalid bypass value: %w", err)
 	}
 
 	for _, d := range devices {

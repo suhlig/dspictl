@@ -46,13 +46,15 @@ func newPresetCmd() *cobra.Command {
 		ValidArgsFunction: completeChoices(slotChoices),
 	})
 
-	cmd.AddCommand(&cobra.Command{
-		Use:               "name <slot> <name>",
+	presetNameCmd := &cobra.Command{
+		Use:               "name <slot> [<name>]",
 		Short:             "Set a slot name",
-		Args:              cobra.ExactArgs(2),
+		Args:              cobra.RangeArgs(1, 2),
 		RunE:              runPresetName,
 		ValidArgsFunction: completeChoices(slotChoices, nil),
-	})
+	}
+	presetNameCmd.Flags().String("name", "", "Slot name")
+	cmd.AddCommand(presetNameCmd)
 
 	cmd.AddCommand(&cobra.Command{
 		Use:   "active",
@@ -363,7 +365,16 @@ func runPresetName(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid slot: %w", err)
 	}
 
-	name := args[1]
+	// Check --name flag first (canonical form), fall back to positional arg
+	name, err := cmd.Flags().GetString("name")
+
+	if err != nil {
+		return fmt.Errorf("getting name flag: %w", err)
+	}
+
+	if name == "" && len(args) > 1 {
+		name = args[1]
+	}
 
 	devices, err := openDevices()
 

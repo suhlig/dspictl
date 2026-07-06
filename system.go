@@ -120,6 +120,66 @@ func (d *Device) GetBufferStats() (*BufferStats, error) {
 	return &BufferStats{Data: buf[:n]}, nil
 }
 
+// ResetBufferStats resets the buffer fill statistics counters.
+// Unlike most status commands, this expects a status byte of 1 on success.
+func (d *Device) ResetBufferStats() error {
+	if d.closed {
+		return fmt.Errorf("device is closed")
+	}
+
+	buf := make([]byte, 1)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqResetBufferStats, 1, vendorInterface, buf)
+
+	if err != nil {
+		return fmt.Errorf("REQ_RESET_BUFFER_STATS: %w", err)
+	}
+
+	if len(buf) > 0 && buf[0] != 1 {
+		return fmt.Errorf("REQ_RESET_BUFFER_STATS: unexpected status 0x%02X", buf[0])
+	}
+
+	return nil
+}
+
+// GetSampleRate reads the current audio sample rate from the device
+// using REQ_GET_STATUS with wValue=15. This differs from GetInputRate
+// which reads the I2S configuration.
+func (d *Device) GetSampleRate() (uint32, error) {
+	if d.closed {
+		return 0, fmt.Errorf("device is closed")
+	}
+
+	buf := make([]byte, 4)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetStatus, 15, vendorInterface, buf)
+
+	if err != nil {
+		return 0, fmt.Errorf("REQ_GET_STATUS(wValue=15): %w", err)
+	}
+
+	return binary.LittleEndian.Uint32(buf), nil
+}
+
+// SaveParams commits all current live DSP state to flash.
+// This persists volume, EQ, matrix, routing, channel names, etc.
+func (d *Device) SaveParams() error {
+	if d.closed {
+		return fmt.Errorf("device is closed")
+	}
+
+	buf := make([]byte, 1)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqSaveParams, 0, vendorInterface, buf)
+
+	if err != nil {
+		return fmt.Errorf("REQ_SAVE_PARAMS: %w", err)
+	}
+
+	if len(buf) > 0 && buf[0] != 0 {
+		return fmt.Errorf("REQ_SAVE_PARAMS: status 0x%02X", buf[0])
+	}
+
+	return nil
+}
+
 // GetUSBErrorStats reads USB PHY error counters.
 func (d *Device) GetUSBErrorStats() (*USBErrorStats, error) {
 	if d.closed {

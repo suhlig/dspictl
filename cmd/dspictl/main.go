@@ -108,6 +108,11 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newDiagnosticsCmd())
 	rootCmd.AddCommand(mixer.NewCmd())
 	rootCmd.AddCommand(newManCmd())
+	rootCmd.AddCommand(newChannelCmd())
+	rootCmd.AddCommand(newCrossfeedCmd())
+	rootCmd.AddCommand(newLevellerCmd())
+	rootCmd.AddCommand(newDACMuteCmd())
+	rootCmd.AddCommand(newLGSoundSyncCmd())
 
 	return rootCmd
 }
