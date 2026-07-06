@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/spf13/cobra"
+	"github.com/suhlig/dspi"
 )
 
 func newDiagnosticsCmd() *cobra.Command {
@@ -47,6 +48,17 @@ func newDiagnosticsCmd() *cobra.Command {
 		Use:   "spdif-rx-channel-status",
 		Short: "Show raw S/PDIF RX channel status bytes",
 		RunE:  runDiagnosticsSpdifRxChannelStatus,
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "channels",
+		Short: "Show the number of input channels the firmware advertises",
+		Long: `Show the number of audio input channels the firmware advertises via USB.
+
+This value is baked into the firmware's USB descriptor and cannot be changed
+at runtime. It determines how many channels the host (e.g. a Mac) sees when
+the device is enumerated.`,
+		RunE: runDiagnosticsChannels,
 	})
 
 	cmd.AddCommand(&cobra.Command{
@@ -272,6 +284,41 @@ func runDiagnosticsSpdifRxChannelStatus(cmd *cobra.Command, args []string) error
 		}
 
 		fmt.Println()
+	}
+
+	return nil
+}
+
+func runDiagnosticsChannels(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+
+	defer closeDevices(devices)
+
+	for _, d := range devices {
+		n, err := d.NumInputChannels()
+
+		if err != nil {
+			slog.Error("getting input channels failed", "serial", d.Serial(), "error", err)
+
+			continue
+		}
+
+		total := 7
+
+		if d.Platform() == dspi.PlatformRP2350 {
+			total = 17
+		}
+
+		outputs := total - n
+
+		fmt.Printf("%s:\n", d.Serial())
+		fmt.Printf("  Input channels:  %d (USB)\n", n)
+		fmt.Printf("  Output channels: %d\n", outputs)
+		fmt.Printf("  Total channels:  %d\n", total)
 	}
 
 	return nil

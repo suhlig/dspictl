@@ -1076,6 +1076,17 @@ status data).
 dspictl diagnostics spdif-rx-channel-status
 ```
 
+### diagnostics channels
+
+Show the number of audio input channels the firmware advertises over USB.
+This value is baked into the firmware's USB descriptor and is fixed at
+compile time. It determines how many channels the host (e.g. a Mac) sees
+when the device is enumerated.
+
+```
+dspictl diagnostics channels
+```
+
 ### diagnostics reset-buffer-stats
 
 Reset the buffer fill statistics counters.

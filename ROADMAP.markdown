@@ -253,6 +253,7 @@ Device diagnostics and monitoring.
 | `clear-clips` | — | Clear clip detection latches |
 | `spdif-rx-status` | — | Show S/PDIF RX status (lock, audio, sample rate) |
 | `spdif-rx-channel-status` | — | Show raw S/PDIF RX channel status bytes |
+| `channels` | — | Show number of input channels the firmware advertises |
 | `reset-buffer-stats` | — | Reset buffer fill statistics counters |
 
 ### `dspictl config`
