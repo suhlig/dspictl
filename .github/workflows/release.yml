@@ -140,11 +140,21 @@ jobs:
             exit 1
           fi
 
+      - name: Detect Pre-release
+        id: prerelease
+        run: |
+          if echo "$GITHUB_REF_NAME" | grep -qE '\-(rc|alpha|beta|dev)'; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           files: archives/*
           body_path: release_notes.md
+          prerelease: ${{ steps.prerelease.outputs.prerelease == 'true' }}
 
       - name: Bump Homebrew Formula
         uses: mislav/bump-homebrew-formula-action@v4.1
