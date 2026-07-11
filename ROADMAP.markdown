@@ -231,6 +231,7 @@ Crossfeed (headphone spatialization) control.
 | `freq` | `[<hz>]` | Get or set crossover frequency in Hz |
 | `feed` | `[<db>]` | Get or set feed level in dB |
 | `itd` | `[on\|off]` | Get or set interaural time delay |
+| `outputs` | `[mask]` | Get or set output-pair mask (hex, e.g. 0x03) |
 
 ```
 dspictl crossfeed
@@ -239,6 +240,8 @@ dspictl crossfeed preset 2
 dspictl crossfeed freq 700
 dspictl crossfeed feed -3.0
 dspictl crossfeed itd on
+dspictl crossfeed outputs       # get
+dspictl crossfeed outputs 0x03  # set
 ```
 
 ### `dspictl diagnostics`
@@ -391,6 +394,7 @@ Loudness compensation (ISO 226:2003 equal-loudness contours).
 | `loudness intensity [pct]` | Get or set intensity (0–200%) |
 | `loudness intensity get` | Alias for `loudness intensity` |
 | `loudness intensity set <pct>` | Alias for `loudness intensity <pct>` |
+| `loudness outputs [mask]` | Get or set per-output mask (hex, e.g. 0xFFFF) |
 
 ```
 dspictl loudness
@@ -403,6 +407,8 @@ dspictl loudness intensity        # get
 dspictl loudness intensity 100    # set
 dspictl loudness intensity get    # same as above
 dspictl loudness intensity set 100 # same as above
+dspictl loudness outputs        # get
+dspictl loudness outputs 0x0003 # set
 ```
 
 ### `dspictl leveller`
@@ -418,6 +424,8 @@ Dynamic range compression (leveller) control.
 | `maxgain` | `[<db>]` | Get or set maximum gain reduction in dB |
 | `lookahead` | `[on\|off]` | Get or set lookahead enable |
 | `gate` | `[<db>]` | Get or set noise gate threshold in dB |
+| `detector-mask` | `[mask]` | Get or set detector input-channel mask (hex) |
+| `apply-mask` | `[mask]` | Get or set apply input-channel mask (hex) |
 
 ```
 dspictl leveller
@@ -427,6 +435,10 @@ dspictl leveller speed 3
 dspictl leveller maxgain -12
 dspictl leveller lookahead on
 dspictl leveller gate -80
+dspictl leveller detector-mask       # get
+dspictl leveller detector-mask 0xFF  # set
+dspictl leveller apply-mask          # get
+dspictl leveller apply-mask 0xFF     # set
 ```
 
 ### `dspictl lg-sound-sync`

@@ -174,3 +174,34 @@ func (d *Device) GetCrossfeedITD() (bool, error) {
 
 	return buf[0] != 0, nil
 }
+
+// SetCrossfeedOutputPairMask sets the crossfeed output-pair mask (V20+).
+// Bit p enables crossfeed on output pair p (outputs 2p / 2p+1).
+// Default 0x01 = pair 0 only. Mask changes apply glitch-free.
+func (d *Device) SetCrossfeedOutputPairMask(mask uint8) error {
+	if d.closed {
+		return fmt.Errorf("device is closed")
+	}
+
+	_, err := d.usb.ControlTransfer(vendorInterfaceOutRequest, ReqSetCrossfeedOutputs, 0, vendorInterface, []byte{mask})
+	if err != nil {
+		return fmt.Errorf("REQ_SET_CROSSFEED_OUTPUTS: %w", err)
+	}
+
+	return nil
+}
+
+// GetCrossfeedOutputPairMask returns the current crossfeed output-pair mask.
+func (d *Device) GetCrossfeedOutputPairMask() (uint8, error) {
+	if d.closed {
+		return 0, fmt.Errorf("device is closed")
+	}
+
+	buf := make([]byte, 1)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetCrossfeedOutputs, 0, vendorInterface, buf)
+	if err != nil {
+		return 0, fmt.Errorf("REQ_GET_CROSSFEED_OUTPUTS: %w", err)
+	}
+
+	return buf[0], nil
+}

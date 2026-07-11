@@ -105,20 +105,24 @@ const (
 	ReqGetLoudnessReference = 0x5B
 	ReqSetLoudnessIntensity = 0x5C
 	ReqGetLoudnessIntensity = 0x5D
+	ReqSetLoudnessMask      = 0xFA
+	ReqGetLoudnessMask      = 0xFB
 
 	ReqSetBandBypass = 0xD8
 	ReqGetBandBypass = 0xD9
 
-	ReqSetCrossfeed       = 0x5E
-	ReqGetCrossfeed       = 0x5F
-	ReqSetCrossfeedPreset = 0x60
-	ReqGetCrossfeedPreset = 0x61
-	ReqSetCrossfeedFreq   = 0x62
-	ReqGetCrossfeedFreq   = 0x63
-	ReqSetCrossfeedFeed   = 0x64
-	ReqGetCrossfeedFeed   = 0x65
-	ReqSetCrossfeedITD    = 0x66
-	ReqGetCrossfeedITD    = 0x67
+	ReqSetCrossfeed        = 0x5E
+	ReqGetCrossfeed        = 0x5F
+	ReqSetCrossfeedPreset  = 0x60
+	ReqGetCrossfeedPreset  = 0x61
+	ReqSetCrossfeedFreq    = 0x62
+	ReqGetCrossfeedFreq    = 0x63
+	ReqSetCrossfeedFeed    = 0x64
+	ReqGetCrossfeedFeed    = 0x65
+	ReqSetCrossfeedITD     = 0x66
+	ReqGetCrossfeedITD     = 0x67
+	ReqSetCrossfeedOutputs = 0xFC
+	ReqGetCrossfeedOutputs = 0xFD
 
 	ReqSetLeveller          = 0xB4
 	ReqGetLeveller          = 0xB5
@@ -132,6 +136,8 @@ const (
 	ReqGetLevellerLookahead = 0xBD
 	ReqSetLevellerGate      = 0xBE
 	ReqGetLevellerGate      = 0xBF
+	ReqSetLevellerMasks     = 0xDE
+	ReqGetLevellerMasks     = 0xDF
 
 	ReqSetDACHwMuteConfig = 0xEA
 	ReqGetDACHwMuteConfig = 0xEB

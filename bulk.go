@@ -11,11 +11,13 @@ const (
 	// Linux usbfs 4096-byte limit (rounded down for safety).
 	chunkSize = 4096
 
-	// wireBulkSizeV16 is the V16 WireBulkParams payload size in bytes.
-	wireBulkSizeV16 = 5864
+	// wireBulkSize is the V20 WireBulkParams payload size in bytes.
+	// V20 adds: loudness_output_mask in global (V19), crossfeed output_pair_mask (V20),
+	// leveller detector/apply masks growing from 16→20 bytes (V18), and ADAT section (V17).
+	wireBulkSize = 5876
 )
 
-// V16 field offsets within the WireBulkParams payload (5864 bytes).
+// V20 field offsets within the WireBulkParams payload (5876 bytes).
 const (
 	fieldHeader       = 0    // 16 bytes
 	fieldGlobal       = 16   // 16 bytes
@@ -28,14 +30,15 @@ const (
 	fieldEQ           = 824  // 3264 bytes (17×12 × 16)
 	fieldChannelNames = 4088 // 544 bytes (17×32)
 	fieldI2SConfig    = 4632 // 16 bytes
-	fieldLeveller     = 4648 // 16 bytes
-	fieldPreamp       = 4664 // 32 bytes (8 × float32)
-	fieldMasterVolume = 4696 // 16 bytes
-	fieldInputConfig  = 4712 // 16 bytes
-	fieldLgSoundSync  = 4728 // 16 bytes
-	fieldUserVolume   = 4744 // 16 bytes
-	fieldDacHwMute    = 4760 // 16 bytes
-	fieldCrossovers   = 4776 // 1088 bytes (17×4 × 16)
+	fieldLeveller     = 4648 // 20 bytes (V18: +detector/apply masks at +16/+17)
+	fieldPreamp       = 4668 // 32 bytes (8 × float32)
+	fieldMasterVolume = 4700 // 16 bytes
+	fieldInputConfig  = 4716 // 16 bytes
+	fieldLgSoundSync  = 4732 // 16 bytes
+	fieldUserVolume   = 4748 // 16 bytes
+	fieldDacHwMute    = 4764 // 16 bytes
+	fieldCrossovers   = 4780 // 1088 bytes (17×4 × 16)
+	fieldADAT         = 5868 // 8 bytes
 )
 
 // fieldEntry describes a named field in the bulk payload by its offset and size.
@@ -56,7 +59,7 @@ var fieldRegistry = map[string]fieldEntry{
 	"eq":            {fieldEQ, 3264},
 	"channel_names": {fieldChannelNames, 544},
 	"i2s_config":    {fieldI2SConfig, 16},
-	"leveller":      {fieldLeveller, 16},
+	"leveller":      {fieldLeveller, 20},
 	"preamp":        {fieldPreamp, 32},
 	"master_volume": {fieldMasterVolume, 16},
 	"input_config":  {fieldInputConfig, 16},
@@ -64,6 +67,7 @@ var fieldRegistry = map[string]fieldEntry{
 	"user_volume":   {fieldUserVolume, 16},
 	"dac_hw_mute":   {fieldDacHwMute, 16},
 	"crossovers":    {fieldCrossovers, 1088},
+	"adat":          {fieldADAT, 8},
 }
 
 // BulkHeader is the 16-byte header parsed from a WireBulkParams payload.
@@ -108,8 +112,8 @@ func (d *Device) GetAllParams() (*BulkParams, error) {
 
 	h := ParseBulkHeader(scratch[:n])
 	payloadLen := h.PayloadLength
-	if payloadLen < 16 || payloadLen > wireBulkSizeV16 {
-		payloadLen = wireBulkSizeV16
+	if payloadLen < 16 || payloadLen > wireBulkSize {
+		payloadLen = wireBulkSize
 	}
 
 	// Allocate full payload buffer and copy the first chunk data.
@@ -336,4 +340,48 @@ func (bp *BulkParams) I2SInputChannels() (int, bool) {
 // SetI2SInputChannels updates the I2S input channel count in the bulk parameters.
 func (bp *BulkParams) SetI2SInputChannels(v int) {
 	bp.SetU8("input_config", 4, uint8(v))
+}
+
+// LoudnessOutputMask returns the loudness output bitmask from the bulk parameters.
+// Bit k = loudness compensates output channel k (V19+; default 0xFFFF = all outputs).
+func (bp *BulkParams) LoudnessOutputMask() (uint16, bool) {
+	return bp.GetU16("global", 6)
+}
+
+// SetLoudnessOutputMask updates the loudness output bitmask in the bulk parameters.
+func (bp *BulkParams) SetLoudnessOutputMask(v uint16) {
+	bp.SetU16("global", 6, v)
+}
+
+// CrossfeedOutputPairMask returns the crossfeed output-pair bitmask from the bulk parameters.
+// Bit p = crossfeed runs on output pair p (outputs 2p / 2p+1) (V20+; default 0x01).
+func (bp *BulkParams) CrossfeedOutputPairMask() (uint8, bool) {
+	return bp.GetU8("crossfeed", 3)
+}
+
+// SetCrossfeedOutputPairMask updates the crossfeed output-pair bitmask in the bulk parameters.
+func (bp *BulkParams) SetCrossfeedOutputPairMask(v uint8) {
+	bp.SetU8("crossfeed", 3, v)
+}
+
+// LevellerDetectorMask returns the leveller detector channel mask from the bulk parameters.
+// Bit k = input channel k feeds the shared RMS detector (V18+).
+func (bp *BulkParams) LevellerDetectorMask() (uint8, bool) {
+	return bp.GetU8("leveller", 16)
+}
+
+// SetLevellerDetectorMask updates the leveller detector channel mask in the bulk parameters.
+func (bp *BulkParams) SetLevellerDetectorMask(v uint8) {
+	bp.SetU8("leveller", 16, v)
+}
+
+// LevellerApplyMask returns the leveller apply channel mask from the bulk parameters.
+// Bit k = gain is applied to input channel k (V18+).
+func (bp *BulkParams) LevellerApplyMask() (uint8, bool) {
+	return bp.GetU8("leveller", 17)
+}
+
+// SetLevellerApplyMask updates the leveller apply channel mask in the bulk parameters.
+func (bp *BulkParams) SetLevellerApplyMask(v uint8) {
+	bp.SetU8("leveller", 17, v)
 }

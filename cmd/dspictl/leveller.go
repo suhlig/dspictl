@@ -59,6 +59,20 @@ func newLevellerCmd() *cobra.Command {
 		RunE:  runLevellerGate,
 	})
 
+	cmd.AddCommand(&cobra.Command{
+		Use:   "detector-mask [mask]",
+		Short: "Get or set detector input-channel mask (hex)",
+		Args:  cobra.MaximumNArgs(1),
+		RunE:  runLevellerDetectorMask,
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "apply-mask [mask]",
+		Short: "Get or set apply input-channel mask (hex)",
+		Args:  cobra.MaximumNArgs(1),
+		RunE:  runLevellerApplyMask,
+	})
+
 	return cmd
 }
 
@@ -99,6 +113,10 @@ func runLevellerStatus(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  Max Gain: %.1f dB\n", maxGain)
 		fmt.Printf("  Lookahead: %s\n", laState)
 		fmt.Printf("  Gate: %.1f dB\n", gate)
+
+		detMask, appMask, _ := d.GetLevellerMasks()
+		fmt.Printf("  Detector mask: 0x%02X\n", detMask)
+		fmt.Printf("  Apply mask: 0x%02X\n", appMask)
 	}
 
 	return nil
@@ -333,6 +351,78 @@ func runLevellerGate(cmd *cobra.Command, args []string) error {
 			continue
 		}
 		fmt.Printf("%s: leveller gate=%.1f dB\n", d.Serial(), gate)
+	}
+
+	return nil
+}
+
+func runLevellerDetectorMask(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+	defer closeDevices(devices)
+
+	if len(args) == 0 {
+		for _, d := range devices {
+			detMask, _, err := d.GetLevellerMasks()
+			if err != nil {
+				slog.Error("getting leveller detector mask failed", "serial", d.Serial(), "error", err)
+				continue
+			}
+			fmt.Printf("%s: leveller detector mask = 0x%02X\n", d.Serial(), detMask)
+		}
+		return nil
+	}
+
+	mask, err := strconv.ParseUint(args[0], 0, 16)
+	if err != nil {
+		return fmt.Errorf("invalid mask value: %w", err)
+	}
+
+	for _, d := range devices {
+		_, appMask, _ := d.GetLevellerMasks()
+		if err := d.SetLevellerMasks(uint8(mask), appMask); err != nil {
+			slog.Error("setting leveller detector mask failed", "serial", d.Serial(), "error", err)
+			continue
+		}
+		fmt.Printf("%s: leveller detector mask = 0x%02X\n", d.Serial(), uint8(mask))
+	}
+
+	return nil
+}
+
+func runLevellerApplyMask(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+	defer closeDevices(devices)
+
+	if len(args) == 0 {
+		for _, d := range devices {
+			_, appMask, err := d.GetLevellerMasks()
+			if err != nil {
+				slog.Error("getting leveller apply mask failed", "serial", d.Serial(), "error", err)
+				continue
+			}
+			fmt.Printf("%s: leveller apply mask = 0x%02X\n", d.Serial(), appMask)
+		}
+		return nil
+	}
+
+	mask, err := strconv.ParseUint(args[0], 0, 16)
+	if err != nil {
+		return fmt.Errorf("invalid mask value: %w", err)
+	}
+
+	for _, d := range devices {
+		detMask, _, _ := d.GetLevellerMasks()
+		if err := d.SetLevellerMasks(detMask, uint8(mask)); err != nil {
+			slog.Error("setting leveller apply mask failed", "serial", d.Serial(), "error", err)
+			continue
+		}
+		fmt.Printf("%s: leveller apply mask = 0x%02X\n", d.Serial(), uint8(mask))
 	}
 
 	return nil
