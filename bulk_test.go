@@ -11,15 +11,15 @@ import (
 var _ = Describe("Bulk", func() {
 	Describe("GetAllParams", func() {
 		It("returns the parsed header and raw payload", func() {
-			// Build a V16-style payload (5864 bytes)
-			payload := make([]byte, 5864)
+			// Build a V20 payload (5876 bytes)
+			payload := make([]byte, 5876)
 			payload[0] = 1 // format version
 			payload[1] = byte(dspi.PlatformRP2350)
 			payload[2] = 17                                   // num channels
 			payload[3] = 9                                    // num output channels
 			payload[4] = 8                                    // num input channels (V16)
 			payload[5] = 12                                   // max bands
-			binary.LittleEndian.PutUint16(payload[6:8], 5864) // payload length
+			binary.LittleEndian.PutUint16(payload[6:8], 5876) // payload length
 
 			mock := &mockControlTransfer{
 				ReturnData: map[[3]uint16][]byte{
@@ -31,8 +31,8 @@ var _ = Describe("Bulk", func() {
 					}(),
 					// Second chunk: offset=16, up to 4096 bytes
 					{uint16(dspi.ReqGetAllParamsChunk), 16, 2}: payload[16 : 16+4096],
-					// Third chunk: offset=4112, remaining 1752 bytes
-					{uint16(dspi.ReqGetAllParamsChunk), 4112, 2}: payload[4112:],
+					// Third chunk: offset=4112, remaining 1764 bytes
+					{uint16(dspi.ReqGetAllParamsChunk), 4112, 2}: payload[4112:5876],
 				},
 			}
 			dev := newTestDevice(mock, dspi.PlatformRP2350)
@@ -46,8 +46,8 @@ var _ = Describe("Bulk", func() {
 			Expect(bp.Header.NumOutputs).To(Equal(9))
 			Expect(bp.Header.NumInputChannels).To(Equal(8))
 			Expect(bp.Header.MaxBands).To(Equal(12))
-			Expect(bp.Header.PayloadLength).To(Equal(5864))
-			Expect(bp.Raw).To(HaveLen(5864))
+			Expect(bp.Header.PayloadLength).To(Equal(5876))
+			Expect(bp.Raw).To(HaveLen(5876))
 		})
 
 		It("sends chunked requests starting from offset 0", func() {
@@ -55,11 +55,11 @@ var _ = Describe("Bulk", func() {
 				ReturnData: map[[3]uint16][]byte{
 					{uint16(dspi.ReqGetAllParamsChunk), 0, 2}: func() []byte {
 						b := make([]byte, 16)
-						binary.LittleEndian.PutUint16(b[6:8], 5864)
+						binary.LittleEndian.PutUint16(b[6:8], 5876)
 						return b
 					}(),
 					{uint16(dspi.ReqGetAllParamsChunk), 16, 2}:   make([]byte, 4096),
-					{uint16(dspi.ReqGetAllParamsChunk), 4112, 2}: make([]byte, 1752),
+					{uint16(dspi.ReqGetAllParamsChunk), 4112, 2}: make([]byte, 1764),
 				},
 			}
 			dev := newTestDevice(mock, dspi.PlatformRP2350)
@@ -155,11 +155,11 @@ var _ = Describe("Bulk", func() {
 
 	Describe("WireInputConfig accessors via field registry", func() {
 		It("reads input source, RX pin, rate, and I2S channels", func() {
-			raw := make([]byte, 5864)
-			raw[4712] = 2 // input_config offset: input source = I2S
-			raw[4714] = 4 // rx pin (pair 0)
-			raw[4715] = 1 // 48000
-			raw[4716] = 8 // I2S input channels
+			raw := make([]byte, 5876)
+			raw[4716] = 2 // input_config offset: input source = I2S
+			raw[4718] = 4 // rx pin (pair 0)
+			raw[4719] = 1 // 48000
+			raw[4720] = 8 // I2S input channels
 
 			bp := &dspi.BulkParams{Raw: raw}
 
@@ -187,26 +187,26 @@ var _ = Describe("Bulk", func() {
 		})
 
 		It("writes values into raw", func() {
-			raw := make([]byte, 5864)
+			raw := make([]byte, 5876)
 			bp := &dspi.BulkParams{Raw: raw}
 
 			bp.SetInputSource(2)
-			Expect(raw[4712]).To(Equal(byte(2)))
+			Expect(raw[4716]).To(Equal(byte(2)))
 
 			bp.SetI2SRxPin(5)
-			Expect(raw[4714]).To(Equal(byte(5)))
+			Expect(raw[4718]).To(Equal(byte(5)))
 
 			bp.SetI2SInputRate(1)
-			Expect(raw[4715]).To(Equal(byte(1)))
+			Expect(raw[4719]).To(Equal(byte(1)))
 
 			bp.SetI2SInputChannels(4)
-			Expect(raw[4716]).To(Equal(byte(4)))
+			Expect(raw[4720]).To(Equal(byte(4)))
 		})
 	})
 
 	Describe("Field registry accessors", func() {
 		It("reads and writes via GetU8/SetU8 on named fields", func() {
-			raw := make([]byte, 5864)
+			raw := make([]byte, 5876)
 			bp := &dspi.BulkParams{Raw: raw}
 
 			// Write via field registry
@@ -229,7 +229,7 @@ var _ = Describe("Bulk", func() {
 		})
 
 		It("reads and writes via GetU32/SetU32", func() {
-			raw := make([]byte, 5864)
+			raw := make([]byte, 5876)
 			bp := &dspi.BulkParams{Raw: raw}
 
 			bp.SetU32("master_volume", 0, 0xDEADBEEF)
@@ -239,7 +239,7 @@ var _ = Describe("Bulk", func() {
 		})
 
 		It("reads and writes via GetFloat32/SetFloat32", func() {
-			raw := make([]byte, 5864)
+			raw := make([]byte, 5876)
 			bp := &dspi.BulkParams{Raw: raw}
 
 			bp.SetFloat32("delays", 0, 1.5)

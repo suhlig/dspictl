@@ -101,3 +101,39 @@ func (d *Device) GetLoudnessIntensity() (float64, error) {
 
 	return float64(math.Float32frombits(binary.LittleEndian.Uint32(buf))), nil
 }
+
+// SetLoudnessOutputMask sets the per-output loudness mask (V19+).
+// Bit k enables loudness compensation on output channel k.
+// Default 0xFFFF = all outputs compensated. Mask changes apply from the
+// next audio packet with no recompute or reset.
+func (d *Device) SetLoudnessOutputMask(mask uint16) error {
+	if d.closed {
+		return fmt.Errorf("device is closed")
+	}
+
+	buf := make([]byte, 2)
+	buf[0] = byte(mask & 0xFF)
+	buf[1] = byte(mask >> 8)
+
+	_, err := d.usb.ControlTransfer(vendorInterfaceOutRequest, ReqSetLoudnessMask, 0, vendorInterface, buf)
+	if err != nil {
+		return fmt.Errorf("REQ_SET_LOUDNESS_MASK: %w", err)
+	}
+
+	return nil
+}
+
+// GetLoudnessOutputMask returns the current per-output loudness mask.
+func (d *Device) GetLoudnessOutputMask() (uint16, error) {
+	if d.closed {
+		return 0, fmt.Errorf("device is closed")
+	}
+
+	buf := make([]byte, 2)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetLoudnessMask, 0, vendorInterface, buf)
+	if err != nil {
+		return 0, fmt.Errorf("REQ_GET_LOUDNESS_MASK: %w", err)
+	}
+
+	return uint16(buf[0]) | uint16(buf[1])<<8, nil
+}

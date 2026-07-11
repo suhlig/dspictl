@@ -1021,6 +1021,18 @@ Set the compensation intensity.
 dspictl loudness intensity set 100
 ```
 
+### loudness outputs [mask]
+
+Get or set the per-output loudness mask (V19+). Bit *k* enables loudness
+compensation on output channel *k* (PDM included). Default is 0xFFFF (all
+outputs). Mask changes apply from the next audio packet with no recompute
+or reset.
+
+```
+dspictl loudness outputs         # show current mask
+dspictl loudness outputs 0x0003  # set (outputs 0 and 1 only)
+```
+
 ## diagnostics
 
 Device diagnostics and monitoring. These commands expose internal device metrics
@@ -1144,6 +1156,16 @@ Get or set the interaural time delay (ITD) feature.
 dspictl crossfeed itd on
 ```
 
+### crossfeed outputs [mask]
+
+Get or set the crossfeed output-pair mask (V20+). Bit *p* enables crossfeed
+on output pair *p* (outputs 2p and 2p+1). Default is 0x01 (pair 0 only).
+
+```
+dspictl crossfeed outputs        # show current mask
+dspictl crossfeed outputs 0x03   # set (pairs 0 and 1)
+```
+
 ## dac-mute
 
 DAC hardware mute control. Manages the mute GPIO pin and timing for pop-free
@@ -1242,6 +1264,28 @@ Get or set noise gate threshold in dB.
 
 ```
 dspictl leveller gate -80
+```
+
+### leveller detector-mask [mask]
+
+Get or set the detector input-channel mask (V18+). Bit *k* selects which
+input channel *k* feeds the shared RMS detector. Default is 0xFF (all
+inputs). Changes apply glitch-free without a state reset.
+
+```
+dspictl leveller detector-mask         # show current mask
+dspictl leveller detector-mask 0x03    # set (inputs 0 and 1)
+```
+
+### leveller apply-mask [mask]
+
+Get or set the apply input-channel mask (V18+). Bit *k* selects which input
+channel *k* receives the gain computed by the detector. Default is 0xFF (all
+inputs).
+
+```
+dspictl leveller apply-mask         # show current mask
+dspictl leveller apply-mask 0x03    # set (inputs 0 and 1)
 ```
 
 ## lg-sound-sync

@@ -60,6 +60,13 @@ Presets:
 		ValidArgsFunction: completeChoices([]string{"on", "off"}),
 	})
 
+	cmd.AddCommand(&cobra.Command{
+		Use:   "outputs [mask]",
+		Short: "Get or set output-pair mask (hex, e.g. 0x03)",
+		Args:  cobra.MaximumNArgs(1),
+		RunE:  runCrossfeedOutputs,
+	})
+
 	return cmd
 }
 
@@ -98,6 +105,10 @@ func runCrossfeedStatus(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  Freq: %.0f Hz\n", freq)
 		fmt.Printf("  Feed: %.1f dB\n", feed)
 		fmt.Printf("  ITD: %s\n", itdState)
+
+		outputMask, _ := d.GetCrossfeedOutputPairMask()
+		outputState := fmt.Sprintf("0x%02X", outputMask)
+		fmt.Printf("  Output pairs: %s\n", outputState)
 	}
 
 	return nil
@@ -296,6 +307,41 @@ func runCrossfeedITD(cmd *cobra.Command, args []string) error {
 			continue
 		}
 		fmt.Printf("%s: crossfeed ITD=%s\n", d.Serial(), args[0])
+	}
+
+	return nil
+}
+
+func runCrossfeedOutputs(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+	defer closeDevices(devices)
+
+	if len(args) == 0 {
+		for _, d := range devices {
+			mask, err := d.GetCrossfeedOutputPairMask()
+			if err != nil {
+				slog.Error("getting crossfeed output mask failed", "serial", d.Serial(), "error", err)
+				continue
+			}
+			fmt.Printf("%s: crossfeed output-pair mask = 0x%02X\n", d.Serial(), mask)
+		}
+		return nil
+	}
+
+	mask, err := strconv.ParseUint(args[0], 0, 16)
+	if err != nil {
+		return fmt.Errorf("invalid mask value: %w", err)
+	}
+
+	for _, d := range devices {
+		if err := d.SetCrossfeedOutputPairMask(uint8(mask)); err != nil {
+			slog.Error("setting crossfeed output mask failed", "serial", d.Serial(), "error", err)
+			continue
+		}
+		fmt.Printf("%s: crossfeed output-pair mask = 0x%02X\n", d.Serial(), uint8(mask))
 	}
 
 	return nil
