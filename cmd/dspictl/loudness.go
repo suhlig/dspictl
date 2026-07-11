@@ -67,22 +67,20 @@ func newLoudnessCmd() *cobra.Command {
 	cmd.AddCommand(intCmd)
 
 	outCmd := &cobra.Command{
-		Use:   "outputs [mask]",
-		Short: "Get or set per-output loudness mask (hex, e.g. 0xFFFF)",
-		Args:  cobra.MaximumNArgs(1),
-		RunE:  runLoudnessOutputs,
+		Use:   "outputs [on|off] [<channels...>]",
+		Short: "Get or set per-output loudness mask",
+		Long: `Get or set which output channels are compensated.
+
+With no arguments, shows the current active outputs.
+With "on" or "off" followed by channel numbers, toggles specific outputs.
+With a preset name, sets the mask to a predefined value.
+
+Presets:
+  all   – all outputs (default)
+  none  – disable all outputs`,
+		Args: cobra.ArbitraryArgs,
+		RunE: runLoudnessOutputs,
 	}
-	outCmd.AddCommand(&cobra.Command{
-		Use:   "get",
-		Short: "Show current output mask",
-		RunE:  runLoudnessOutputsGet,
-	})
-	outCmd.AddCommand(&cobra.Command{
-		Use:   "set <mask>",
-		Short: "Set output mask (hex, e.g. 0xFFFF)",
-		Args:  cobra.ExactArgs(1),
-		RunE:  runLoudnessOutputsSet,
-	})
 	cmd.AddCommand(outCmd)
 
 	return cmd
@@ -127,8 +125,8 @@ func printLoudnessCompact(d *dspi.Device) {
 	fmt.Printf("  Loudness: enabled, ref=%.0f dB SPL, intensity=%.0f%%\n", ref, intensity)
 
 	mask, err := d.GetLoudnessOutputMask()
-	if err == nil && mask != 0xFFFF {
-		fmt.Printf("  Loudness outputs: 0x%04X\n", mask)
+	if err == nil {
+		fmt.Printf("  Active outputs: %s\n", formatMaskU16(mask, 16))
 	}
 }
 
@@ -163,7 +161,7 @@ func printLoudnessStatus(d *dspi.Device) {
 
 	mask, err := d.GetLoudnessOutputMask()
 	if err == nil {
-		fmt.Printf("  Output mask: 0x%04X\n", mask)
+		fmt.Printf("  Active outputs: %s\n", formatMaskU16(mask, 16))
 	}
 }
 
@@ -304,49 +302,79 @@ func runLoudnessIntensitySet(cmd *cobra.Command, args []string) error {
 }
 
 func runLoudnessOutputs(cmd *cobra.Command, args []string) error {
-	if len(args) == 0 {
-		return runLoudnessOutputsGet(cmd, args)
-	}
-	return runLoudnessOutputsSet(cmd, args)
-}
-
-func runLoudnessOutputsGet(cmd *cobra.Command, args []string) error {
 	devices, err := openDevices()
 	if err != nil {
 		return fmt.Errorf("opening DSPi devices: %w", err)
 	}
 	defer closeDevices(devices)
 
+	if len(args) == 0 {
+		// Show status
+		for _, d := range devices {
+			mask, err := d.GetLoudnessOutputMask()
+			if err != nil {
+				slog.Error("getting loudness output mask failed", "serial", d.Serial(), "error", err)
+				continue
+			}
+			fmt.Printf("%s: loudness active outputs: %s\n", d.Serial(), formatMaskU16(mask, 16))
+		}
+		return nil
+	}
+
+	// Named presets
+	switch args[0] {
+	case "all":
+		for _, d := range devices {
+			if err := d.SetLoudnessOutputMask(0xFFFF); err != nil {
+				slog.Error("setting loudness output mask failed", "serial", d.Serial(), "error", err)
+				continue
+			}
+			fmt.Printf("%s: loudness active outputs: all (16)\n", d.Serial())
+		}
+		return nil
+	case "none":
+		for _, d := range devices {
+			if err := d.SetLoudnessOutputMask(0x0000); err != nil {
+				slog.Error("setting loudness output mask failed", "serial", d.Serial(), "error", err)
+				continue
+			}
+			fmt.Printf("%s: loudness active outputs: none\n", d.Serial())
+		}
+		return nil
+	}
+
+	// on/off with channel numbers
+	if args[0] != "on" && args[0] != "off" {
+		return fmt.Errorf("expected \"on\", \"off\", \"all\", or \"none\", got %q", args[0])
+	}
+	enable := args[0] == "on"
+	channelArgs := args[1:]
+	if len(channelArgs) == 0 {
+		return fmt.Errorf("%s requires at least one channel number", args[0])
+	}
+
 	for _, d := range devices {
-		mask, err := d.GetLoudnessOutputMask()
+		current, err := d.GetLoudnessOutputMask()
 		if err != nil {
 			slog.Error("getting loudness output mask failed", "serial", d.Serial(), "error", err)
 			continue
 		}
-		fmt.Printf("%s: loudness output mask = 0x%04X\n", d.Serial(), mask)
-	}
 
-	return nil
-}
+		var newMask uint16
+		if enable {
+			newMask, err = maskSetBits(current, channelArgs, 16)
+		} else {
+			newMask, err = maskClearBits(current, channelArgs, 16)
+		}
+		if err != nil {
+			return fmt.Errorf("%w", err)
+		}
 
-func runLoudnessOutputsSet(cmd *cobra.Command, args []string) error {
-	mask, err := strconv.ParseUint(args[0], 0, 16)
-	if err != nil {
-		return fmt.Errorf("invalid mask value: %w", err)
-	}
-
-	devices, err := openDevices()
-	if err != nil {
-		return fmt.Errorf("opening DSPi devices: %w", err)
-	}
-	defer closeDevices(devices)
-
-	for _, d := range devices {
-		if err := d.SetLoudnessOutputMask(uint16(mask)); err != nil {
+		if err := d.SetLoudnessOutputMask(newMask); err != nil {
 			slog.Error("setting loudness output mask failed", "serial", d.Serial(), "error", err)
 			continue
 		}
-		fmt.Printf("%s: loudness output mask = 0x%04X\n", d.Serial(), uint16(mask))
+		fmt.Printf("%s: loudness active outputs: %s\n", d.Serial(), formatMaskU16(newMask, 16))
 	}
 
 	return nil

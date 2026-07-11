@@ -61,10 +61,20 @@ Presets:
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "outputs [mask]",
-		Short: "Get or set output-pair mask (hex, e.g. 0x03)",
-		Args:  cobra.MaximumNArgs(1),
-		RunE:  runCrossfeedOutputs,
+		Use:   "outputs [on|off] [<pairs...>]",
+		Short: "Get or set crossfeed output-pair mask",
+		Long: `Get or set which output pairs are crossfed.
+
+With no arguments, shows the current active pairs.
+With "on" or "off" followed by pair numbers, toggles specific pairs.
+With a preset name, sets the mask to a predefined value.
+
+Presets:
+  all         – all pairs
+  headphones  – pair 1 only (typical headphone setup)
+  none        – disable all pairs`,
+		Args: cobra.ArbitraryArgs,
+		RunE: runCrossfeedOutputs,
 	})
 
 	return cmd
@@ -107,8 +117,7 @@ func runCrossfeedStatus(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  ITD: %s\n", itdState)
 
 		outputMask, _ := d.GetCrossfeedOutputPairMask()
-		outputState := fmt.Sprintf("0x%02X", outputMask)
-		fmt.Printf("  Output pairs: %s\n", outputState)
+		fmt.Printf("  Active output pairs: %s\n", formatMaskU8(outputMask, 8))
 	}
 
 	return nil
@@ -326,22 +335,73 @@ func runCrossfeedOutputs(cmd *cobra.Command, args []string) error {
 				slog.Error("getting crossfeed output mask failed", "serial", d.Serial(), "error", err)
 				continue
 			}
-			fmt.Printf("%s: crossfeed output-pair mask = 0x%02X\n", d.Serial(), mask)
+			fmt.Printf("%s: crossfeed active output pairs: %s\n", d.Serial(), formatMaskU8(mask, 8))
 		}
 		return nil
 	}
 
-	mask, err := strconv.ParseUint(args[0], 0, 16)
-	if err != nil {
-		return fmt.Errorf("invalid mask value: %w", err)
+	// Named presets
+	switch args[0] {
+	case "all":
+		for _, d := range devices {
+			if err := d.SetCrossfeedOutputPairMask(0xFF); err != nil {
+				slog.Error("setting crossfeed output mask failed", "serial", d.Serial(), "error", err)
+				continue
+			}
+			fmt.Printf("%s: crossfeed active output pairs: all (8)\n", d.Serial())
+		}
+		return nil
+	case "headphones":
+		for _, d := range devices {
+			if err := d.SetCrossfeedOutputPairMask(0x01); err != nil {
+				slog.Error("setting crossfeed output mask failed", "serial", d.Serial(), "error", err)
+				continue
+			}
+			fmt.Printf("%s: crossfeed active output pairs: 1 (headphones)\n", d.Serial())
+		}
+		return nil
+	case "none":
+		for _, d := range devices {
+			if err := d.SetCrossfeedOutputPairMask(0x00); err != nil {
+				slog.Error("setting crossfeed output mask failed", "serial", d.Serial(), "error", err)
+				continue
+			}
+			fmt.Printf("%s: crossfeed active output pairs: none\n", d.Serial())
+		}
+		return nil
+	}
+
+	if args[0] != "on" && args[0] != "off" {
+		return fmt.Errorf("expected \"on\", \"off\", \"all\", \"headphones\", or \"none\", got %q", args[0])
+	}
+	enable := args[0] == "on"
+	pairArgs := args[1:]
+	if len(pairArgs) == 0 {
+		return fmt.Errorf("%s requires at least one pair number", args[0])
 	}
 
 	for _, d := range devices {
-		if err := d.SetCrossfeedOutputPairMask(uint8(mask)); err != nil {
+		current, err := d.GetCrossfeedOutputPairMask()
+		if err != nil {
+			slog.Error("getting crossfeed output mask failed", "serial", d.Serial(), "error", err)
+			continue
+		}
+
+		var newMask uint8
+		if enable {
+			newMask, err = maskSetBitsU8(current, pairArgs, 8)
+		} else {
+			newMask, err = maskClearBitsU8(current, pairArgs, 8)
+		}
+		if err != nil {
+			return fmt.Errorf("%w", err)
+		}
+
+		if err := d.SetCrossfeedOutputPairMask(newMask); err != nil {
 			slog.Error("setting crossfeed output mask failed", "serial", d.Serial(), "error", err)
 			continue
 		}
-		fmt.Printf("%s: crossfeed output-pair mask = 0x%02X\n", d.Serial(), uint8(mask))
+		fmt.Printf("%s: crossfeed active output pairs: %s\n", d.Serial(), formatMaskU8(newMask, 8))
 	}
 
 	return nil

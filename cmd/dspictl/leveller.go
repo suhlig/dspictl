@@ -60,17 +60,39 @@ func newLevellerCmd() *cobra.Command {
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "detector-mask [mask]",
-		Short: "Get or set detector input-channel mask (hex)",
-		Args:  cobra.MaximumNArgs(1),
-		RunE:  runLevellerDetectorMask,
+		Use:   "detector-mask [on|off] [<channels...>]",
+		Short: "Get or set detector input-channel mask",
+		Long: `Get or set which input channels feed the shared RMS detector.
+
+With no arguments, shows the current active inputs.
+With "on" or "off" followed by channel numbers, toggles specific inputs.
+With a preset name, sets the mask to a predefined value.
+
+Presets:
+  all      – all inputs (Night mode)
+  center   – center channel only (Dialog boost)
+  front-lr – front L/R only
+  none     – disable all`,
+		Args: cobra.ArbitraryArgs,
+		RunE: runLevellerDetectorMask,
 	})
 
 	cmd.AddCommand(&cobra.Command{
-		Use:   "apply-mask [mask]",
-		Short: "Get or set apply input-channel mask (hex)",
-		Args:  cobra.MaximumNArgs(1),
-		RunE:  runLevellerApplyMask,
+		Use:   "apply-mask [on|off] [<channels...>]",
+		Short: "Get or set apply input-channel mask",
+		Long: `Get or set which input channels receive the computed gain.
+
+With no arguments, shows the current active inputs.
+With "on" or "off" followed by channel numbers, toggles specific inputs.
+With a preset name, sets the mask to a predefined value.
+
+Presets:
+  all      – all inputs (Night mode)
+  center   – center channel only (Dialog boost)
+  front-lr – front L/R only
+  none     – disable all`,
+		Args: cobra.ArbitraryArgs,
+		RunE: runLevellerApplyMask,
 	})
 
 	return cmd
@@ -115,8 +137,8 @@ func runLevellerStatus(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  Gate: %.1f dB\n", gate)
 
 		detMask, appMask, _ := d.GetLevellerMasks()
-		fmt.Printf("  Detector mask: 0x%02X\n", detMask)
-		fmt.Printf("  Apply mask: 0x%02X\n", appMask)
+		fmt.Printf("  Detector inputs: %s\n", formatMaskU8(detMask, 8))
+		fmt.Printf("  Apply inputs: %s\n", formatMaskU8(appMask, 8))
 	}
 
 	return nil
@@ -357,42 +379,23 @@ func runLevellerGate(cmd *cobra.Command, args []string) error {
 }
 
 func runLevellerDetectorMask(cmd *cobra.Command, args []string) error {
-	devices, err := openDevices()
-	if err != nil {
-		return fmt.Errorf("opening DSPi devices: %w", err)
-	}
-	defer closeDevices(devices)
-
-	if len(args) == 0 {
-		for _, d := range devices {
-			detMask, _, err := d.GetLevellerMasks()
-			if err != nil {
-				slog.Error("getting leveller detector mask failed", "serial", d.Serial(), "error", err)
-				continue
-			}
-			fmt.Printf("%s: leveller detector mask = 0x%02X\n", d.Serial(), detMask)
-		}
-		return nil
-	}
-
-	mask, err := strconv.ParseUint(args[0], 0, 16)
-	if err != nil {
-		return fmt.Errorf("invalid mask value: %w", err)
-	}
-
-	for _, d := range devices {
-		_, appMask, _ := d.GetLevellerMasks()
-		if err := d.SetLevellerMasks(uint8(mask), appMask); err != nil {
-			slog.Error("setting leveller detector mask failed", "serial", d.Serial(), "error", err)
-			continue
-		}
-		fmt.Printf("%s: leveller detector mask = 0x%02X\n", d.Serial(), uint8(mask))
-	}
-
-	return nil
+	return runLevellerMaskCmd(args, true)
 }
 
 func runLevellerApplyMask(cmd *cobra.Command, args []string) error {
+	return runLevellerMaskCmd(args, false)
+}
+
+// levellerPresets maps preset names to detector/apply mask pairs.
+var levellerPresets = map[string][2]uint8{
+	"all":      {0xFF, 0xFF},
+	"night":    {0xFF, 0xFF},
+	"center":   {0x04, 0x04},
+	"front-lr": {0x03, 0x03},
+	"none":     {0x00, 0x00},
+}
+
+func runLevellerMaskCmd(args []string, isDetector bool) error {
 	devices, err := openDevices()
 	if err != nil {
 		return fmt.Errorf("opening DSPi devices: %w", err)
@@ -401,28 +404,78 @@ func runLevellerApplyMask(cmd *cobra.Command, args []string) error {
 
 	if len(args) == 0 {
 		for _, d := range devices {
-			_, appMask, err := d.GetLevellerMasks()
+			detMask, appMask, err := d.GetLevellerMasks()
 			if err != nil {
-				slog.Error("getting leveller apply mask failed", "serial", d.Serial(), "error", err)
+				slog.Error("getting leveller masks failed", "serial", d.Serial(), "error", err)
 				continue
 			}
-			fmt.Printf("%s: leveller apply mask = 0x%02X\n", d.Serial(), appMask)
+			if isDetector {
+				fmt.Printf("%s: leveller detector inputs: %s\n", d.Serial(), formatMaskU8(detMask, 8))
+			} else {
+				fmt.Printf("%s: leveller apply inputs: %s\n", d.Serial(), formatMaskU8(appMask, 8))
+			}
 		}
 		return nil
 	}
 
-	mask, err := strconv.ParseUint(args[0], 0, 16)
-	if err != nil {
-		return fmt.Errorf("invalid mask value: %w", err)
+	// Named presets
+	if preset, ok := levellerPresets[args[0]]; ok {
+		for _, d := range devices {
+			if err := d.SetLevellerMasks(preset[0], preset[1]); err != nil {
+				slog.Error("setting leveller masks failed", "serial", d.Serial(), "error", err)
+				continue
+			}
+			if isDetector {
+				fmt.Printf("%s: leveller detector inputs: %s\n", d.Serial(), formatMaskU8(preset[0], 8))
+			} else {
+				fmt.Printf("%s: leveller apply inputs: %s\n", d.Serial(), formatMaskU8(preset[1], 8))
+			}
+		}
+		return nil
+	}
+
+	if args[0] != "on" && args[0] != "off" {
+		return fmt.Errorf("expected \"on\", \"off\", \"all\", \"center\", \"front-lr\", \"night\", or \"none\", got %q", args[0])
+	}
+	enable := args[0] == "on"
+	channelArgs := args[1:]
+	if len(channelArgs) == 0 {
+		return fmt.Errorf("%s requires at least one channel number", args[0])
 	}
 
 	for _, d := range devices {
-		detMask, _, _ := d.GetLevellerMasks()
-		if err := d.SetLevellerMasks(detMask, uint8(mask)); err != nil {
-			slog.Error("setting leveller apply mask failed", "serial", d.Serial(), "error", err)
+		detMask, appMask, err := d.GetLevellerMasks()
+		if err != nil {
+			slog.Error("getting leveller masks failed", "serial", d.Serial(), "error", err)
 			continue
 		}
-		fmt.Printf("%s: leveller apply mask = 0x%02X\n", d.Serial(), uint8(mask))
+
+		var newMask uint8
+		if enable {
+			newMask, err = maskSetBitsU8(detMask, channelArgs, 8)
+		} else {
+			newMask, err = maskClearBitsU8(detMask, channelArgs, 8)
+		}
+		if err != nil {
+			return fmt.Errorf("%w", err)
+		}
+
+		var setErr error
+		if isDetector {
+			setErr = d.SetLevellerMasks(newMask, appMask)
+		} else {
+			setErr = d.SetLevellerMasks(detMask, newMask)
+		}
+		if setErr != nil {
+			slog.Error("setting leveller masks failed", "serial", d.Serial(), "error", setErr)
+			continue
+		}
+
+		if isDetector {
+			fmt.Printf("%s: leveller detector inputs: %s\n", d.Serial(), formatMaskU8(newMask, 8))
+		} else {
+			fmt.Printf("%s: leveller apply inputs: %s\n", d.Serial(), formatMaskU8(newMask, 8))
+		}
 	}
 
 	return nil

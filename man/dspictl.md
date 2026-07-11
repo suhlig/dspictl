@@ -1021,16 +1021,25 @@ Set the compensation intensity.
 dspictl loudness intensity set 100
 ```
 
-### loudness outputs [mask]
+### loudness outputs [on|off] [<channels...>]
 
-Get or set the per-output loudness mask (V19+). Bit *k* enables loudness
-compensation on output channel *k* (PDM included). Default is 0xFFFF (all
-outputs). Mask changes apply from the next audio packet with no recompute
-or reset.
+Get or set which output channels are compensated (V19+).
+
+With no arguments, shows the current active outputs. With `on` or `off`
+followed by channel numbers, toggles specific outputs. With a preset name,
+sets the mask to a predefined value.
+
+Presets:
+
+- **all** – all outputs (default)
+- **none** – disable all outputs
 
 ```
-dspictl loudness outputs         # show current mask
-dspictl loudness outputs 0x0003  # set (outputs 0 and 1 only)
+dspictl loudness outputs            # show active outputs
+dspictl loudness outputs on 0 1     # enable outputs 0 and 1
+dspictl loudness outputs off 2      # disable output 2
+dspictl loudness outputs all        # enable all outputs
+dspictl loudness outputs none       # disable all
 ```
 
 ## diagnostics
@@ -1156,14 +1165,26 @@ Get or set the interaural time delay (ITD) feature.
 dspictl crossfeed itd on
 ```
 
-### crossfeed outputs [mask]
+### crossfeed outputs [on|off] [<pairs...>]
 
-Get or set the crossfeed output-pair mask (V20+). Bit *p* enables crossfeed
-on output pair *p* (outputs 2p and 2p+1). Default is 0x01 (pair 0 only).
+Get or set which output pairs are crossfed (V20+). With no arguments, shows
+the current active pairs. With `on` or `off` followed by pair numbers,
+toggles specific pairs. With a preset name, sets the mask to a predefined
+value.
+
+Presets:
+
+- **all** – all pairs
+- **headphones** – pair 1 only (typical headphone setup)
+- **none** – disable all pairs
 
 ```
-dspictl crossfeed outputs        # show current mask
-dspictl crossfeed outputs 0x03   # set (pairs 0 and 1)
+dspictl crossfeed outputs              # show active pairs
+dspictl crossfeed outputs on 0 1       # enable pairs 0 and 1
+dspictl crossfeed outputs off 2        # disable pair 2
+dspictl crossfeed outputs all          # enable all
+dspictl crossfeed outputs headphones   # pair 1 only
+dspictl crossfeed outputs none         # disable all
 ```
 
 ## dac-mute
@@ -1266,26 +1287,46 @@ Get or set noise gate threshold in dB.
 dspictl leveller gate -80
 ```
 
-### leveller detector-mask [mask]
+### leveller detector-mask [on|off] [<channels...>]
 
-Get or set the detector input-channel mask (V18+). Bit *k* selects which
-input channel *k* feeds the shared RMS detector. Default is 0xFF (all
-inputs). Changes apply glitch-free without a state reset.
+Get or set which input channels feed the shared RMS detector (V18+). With
+no arguments, shows the current active inputs. With `on` or `off` followed
+by channel numbers, toggles specific inputs. With a preset name, sets the
+mask to a predefined value.
 
-```
-dspictl leveller detector-mask         # show current mask
-dspictl leveller detector-mask 0x03    # set (inputs 0 and 1)
-```
+Presets:
 
-### leveller apply-mask [mask]
-
-Get or set the apply input-channel mask (V18+). Bit *k* selects which input
-channel *k* receives the gain computed by the detector. Default is 0xFF (all
-inputs).
+- **all** / **night** – all inputs (Night mode)
+- **center** – center channel only (Dialog boost)
+- **front-lr** – front L/R only
+- **none** – disable all
 
 ```
-dspictl leveller apply-mask         # show current mask
-dspictl leveller apply-mask 0x03    # set (inputs 0 and 1)
+dspictl leveller detector-mask              # show active inputs
+dspictl leveller detector-mask on 0 1       # enable inputs 0 and 1
+dspictl leveller detector-mask off 2        # disable input 2
+dspictl leveller detector-mask all          # all inputs
+dspictl leveller detector-mask center       # center only
+dspictl leveller detector-mask front-lr     # front L/R only
+dspictl leveller detector-mask none         # disable all
+```
+
+### leveller apply-mask [on|off] [<channels...>]
+
+Get or set which input channels receive the computed gain (V18+). Same
+structure and presets as detector-mask.
+
+Presets:
+
+- **all** / **night** – all inputs
+- **center** – center channel only
+- **front-lr** – front L/R only
+- **none** – disable all
+
+```
+dspictl leveller apply-mask              # show active inputs
+dspictl leveller apply-mask on 0 1       # enable inputs 0 and 1
+dspictl leveller apply-mask all          # all inputs
 ```
 
 ## lg-sound-sync

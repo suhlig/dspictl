@@ -231,7 +231,7 @@ Crossfeed (headphone spatialization) control.
 | `freq` | `[<hz>]` | Get or set crossover frequency in Hz |
 | `feed` | `[<db>]` | Get or set feed level in dB |
 | `itd` | `[on\|off]` | Get or set interaural time delay |
-| `outputs` | `[mask]` | Get or set output-pair mask (hex, e.g. 0x03) |
+| `outputs` | `[on\|off] [<pairs...>]` | Get or set crossfeed output-pair mask |
 
 ```
 dspictl crossfeed
@@ -240,8 +240,12 @@ dspictl crossfeed preset 2
 dspictl crossfeed freq 700
 dspictl crossfeed feed -3.0
 dspictl crossfeed itd on
-dspictl crossfeed outputs       # get
-dspictl crossfeed outputs 0x03  # set
+dspictl crossfeed outputs              # show active pairs
+dspictl crossfeed outputs on 0 1      # enable pairs
+dspictl crossfeed outputs off 2       # disable pair
+dspictl crossfeed outputs all         # enable all
+dspictl crossfeed outputs headphones  # pair 1 only
+dspictl crossfeed outputs none        # disable all
 ```
 
 ### `dspictl diagnostics`
@@ -394,7 +398,7 @@ Loudness compensation (ISO 226:2003 equal-loudness contours).
 | `loudness intensity [pct]` | Get or set intensity (0–200%) |
 | `loudness intensity get` | Alias for `loudness intensity` |
 | `loudness intensity set <pct>` | Alias for `loudness intensity <pct>` |
-| `loudness outputs [mask]` | Get or set per-output mask (hex, e.g. 0xFFFF) |
+| `loudness outputs [on\|off] [<ch...>]` | Get or set per-output loudness mask |
 
 ```
 dspictl loudness
@@ -407,8 +411,11 @@ dspictl loudness intensity        # get
 dspictl loudness intensity 100    # set
 dspictl loudness intensity get    # same as above
 dspictl loudness intensity set 100 # same as above
-dspictl loudness outputs        # get
-dspictl loudness outputs 0x0003 # set
+dspictl loudness outputs            # show active outputs
+dspictl loudness outputs on 0 1     # enable outputs
+dspictl loudness outputs off 2      # disable output
+dspictl loudness outputs all        # enable all
+dspictl loudness outputs none       # disable all
 ```
 
 ### `dspictl leveller`
@@ -424,8 +431,8 @@ Dynamic range compression (leveller) control.
 | `maxgain` | `[<db>]` | Get or set maximum gain reduction in dB |
 | `lookahead` | `[on\|off]` | Get or set lookahead enable |
 | `gate` | `[<db>]` | Get or set noise gate threshold in dB |
-| `detector-mask` | `[mask]` | Get or set detector input-channel mask (hex) |
-| `apply-mask` | `[mask]` | Get or set apply input-channel mask (hex) |
+| `detector-mask [on\|off] [<ch...>]` | Get or set detector input-channel mask |
+| `apply-mask [on\|off] [<ch...>]` | Get or set apply input-channel mask |
 
 ```
 dspictl leveller
@@ -435,10 +442,15 @@ dspictl leveller speed 3
 dspictl leveller maxgain -12
 dspictl leveller lookahead on
 dspictl leveller gate -80
-dspictl leveller detector-mask       # get
-dspictl leveller detector-mask 0xFF  # set
-dspictl leveller apply-mask          # get
-dspictl leveller apply-mask 0xFF     # set
+dspictl leveller detector-mask              # show active inputs
+dspictl leveller detector-mask on 0 1       # enable inputs
+dspictl leveller detector-mask off 2        # disable input
+dspictl leveller detector-mask all          # all inputs (Night mode)
+dspictl leveller detector-mask center       # center only (Dialog boost)
+dspictl leveller detector-mask front-lr     # front L/R only
+dspictl leveller detector-mask none         # disable all
+dspictl leveller apply-mask                 # show active inputs
+dspictl leveller apply-mask all             # all inputs
 ```
 
 ### `dspictl lg-sound-sync`
