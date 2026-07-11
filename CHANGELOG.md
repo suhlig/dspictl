@@ -4,12 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.0] - 2026-07-05
+## [2.0.0-rc.0] - 2026-07-11
 
-❗️This is a major new release with support for the V16 wire format introduced with DSPi v1.1.5. It is not backwards-compatible with older versions.
+❗️This is a release candidate for the major new release with support for the V16/V20 wire format introduced with DSPi v1.1.5. It is not backwards-compatible with older versions.
+
+### Added
+
+- Multichannel loudness: per-output mask (`loudness outputs on|off|all|none`)
+- Multichannel crossfeed: per-pair output mask (`crossfeed outputs on|off|all|headphones|none`)
+- Multichannel volume leveller: detector and apply channel masks (`leveller detector-mask`, `leveller apply-mask`)
+- Named presets matching the console app (Night mode, Dialog boost, Front L/R, Headphones)
+- `diagnostics channels` command
 
 ### Changed
 
+- Update wire format from V16 (5864 B) to V20 (5876 B)
 - Update module github.com/cpuguy83/go-md2man/v2 to v2.0.7 (#28)
 
 ## [1.7.0] - 2026-07-04
