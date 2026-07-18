@@ -154,6 +154,29 @@ var _ = Describe("EQBand", func() {
 			err := dev.SetEQBand(band)
 			Expect(err).ToNot(HaveOccurred())
 		})
+
+		It("sends an 18-byte packet for Linkwitz Transform with Qp sidecar", func() {
+			band := &dspi.EQBand{
+				Channel:       0,
+				Band:          0,
+				Type:          dspi.FilterTypeLinkwitzTransform,
+				Freq:          50,
+				QualityFactor: 0.5,
+				Gain:          25,
+				Qp:            0.707,
+			}
+
+			err := dev.SetEQBand(band)
+			Expect(err).ToNot(HaveOccurred())
+
+			data := mock.CapturedRequests[1].Data
+			Expect(data).To(HaveLen(18))
+			Expect(data[2]).To(Equal(byte(11)))
+			Expect(math.Float32frombits(binary.LittleEndian.Uint32(data[4:8]))).To(BeNumerically("~", 50.0, 0.01))
+			Expect(math.Float32frombits(binary.LittleEndian.Uint32(data[8:12]))).To(BeNumerically("~", 0.5, 0.01))
+			Expect(math.Float32frombits(binary.LittleEndian.Uint32(data[12:16]))).To(BeNumerically("~", 25.0, 0.01))
+			Expect(binary.LittleEndian.Uint16(data[16:18])).To(Equal(uint16(362))) // round(0.707 * 512)
+		})
 	})
 
 	Describe("GetEQBand", func() {
@@ -177,6 +200,24 @@ var _ = Describe("EQBand", func() {
 			Expect(mock.CapturedRequests[2].WValue).To(Equal(uint16(0x0229)))
 			Expect(mock.CapturedRequests[3].WValue).To(Equal(uint16(0x022A)))
 			Expect(mock.CapturedRequests[4].WValue).To(Equal(uint16(0x022B)))
+		})
+
+		It("reads Qp for Linkwitz Transform bands", func() {
+			mock.ReturnData[[3]uint16{uint16(dspi.ReqGetEQParam), 0x0228, 2}] = func() []byte {
+				b := make([]byte, 4)
+				binary.LittleEndian.PutUint32(b, uint32(dspi.FilterTypeLinkwitzTransform))
+				return b
+			}()
+			mock.ReturnData[[3]uint16{uint16(dspi.ReqGetEQParam), 0x022D, 2}] = func() []byte {
+				b := make([]byte, 4)
+				binary.LittleEndian.PutUint32(b, 362) // 0.707 * 512
+				return b
+			}()
+
+			band, err := dev.GetEQBand(2, 5)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(band.Type).To(Equal(dspi.FilterTypeLinkwitzTransform))
+			Expect(band.Qp).To(BeNumerically("~", 0.707, 0.001))
 		})
 	})
 

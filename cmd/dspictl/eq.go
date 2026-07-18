@@ -50,10 +50,11 @@ func newEQMasterCmd() *cobra.Command {
 		RunE:              runEQMasterSet,
 		ValidArgsFunction: completeEQMasterChannelsAndBands,
 	}
-	setCmd.Flags().String("type", "", "Filter type: flat, peak, lowshelf, highshelf, lowpass, highpass")
+	setCmd.Flags().String("type", "", "Filter type: flat, peak, lowshelf, highshelf, lowpass, highpass, linkwitz")
 	setCmd.Flags().Float64("freq", 0, "Frequency in Hz")
 	setCmd.Flags().Float64("q", 0, "Q factor")
-	setCmd.Flags().Float64("gain", 0, "Gain in dB")
+	setCmd.Flags().Float64("gain", 0, "Gain in dB (for linkwitz: target fp in Hz)")
+	setCmd.Flags().Float64("qp", 0, "Linkwitz Transform target Q (only for linkwitz type)")
 	_ = setCmd.MarkFlagRequired("type")
 	cmd.AddCommand(setCmd)
 
@@ -113,10 +114,11 @@ func newEQOutputCmd() *cobra.Command {
 		RunE:              runEQOutputSet,
 		ValidArgsFunction: completeEQOutputChannelsAndBands,
 	}
-	setCmd.Flags().String("type", "", "Filter type: flat, peak, lowshelf, highshelf, lowpass, highpass")
+	setCmd.Flags().String("type", "", "Filter type: flat, peak, lowshelf, highshelf, lowpass, highpass, linkwitz")
 	setCmd.Flags().Float64("freq", 0, "Frequency in Hz")
 	setCmd.Flags().Float64("q", 0, "Q factor")
-	setCmd.Flags().Float64("gain", 0, "Gain in dB")
+	setCmd.Flags().Float64("gain", 0, "Gain in dB (for linkwitz: target fp in Hz)")
+	setCmd.Flags().Float64("qp", 0, "Linkwitz Transform target Q (only for linkwitz type)")
 	_ = setCmd.MarkFlagRequired("type")
 	cmd.AddCommand(setCmd)
 
@@ -161,6 +163,7 @@ func parseEQBandArgs(args []string, flags *pflag.FlagSet, firmwareChannel int) (
 	freq, _ := flags.GetFloat64("freq")
 	q, _ := flags.GetFloat64("q")
 	gain, _ := flags.GetFloat64("gain")
+	qp, _ := flags.GetFloat64("qp")
 
 	return &dspi.EQBand{
 		Channel:       firmwareChannel,
@@ -169,6 +172,7 @@ func parseEQBandArgs(args []string, flags *pflag.FlagSet, firmwareChannel int) (
 		Freq:          freq,
 		QualityFactor: q,
 		Gain:          gain,
+		Qp:            qp,
 	}, nil
 }
 
@@ -180,6 +184,8 @@ func printEQBand(band *dspi.EQBand) {
 	switch band.Type {
 	case dspi.FilterTypeLowPass, dspi.FilterTypeHighPass:
 		fmt.Printf("    band %d: %s  %.1f Hz  Q %.2f\n", band.Band, band.Type, band.Freq, band.QualityFactor)
+	case dspi.FilterTypeLinkwitzTransform:
+		fmt.Printf("    band %d: %s  f0=%.1f Hz  Q0=%.2f  fp=%.1f Hz  Qp=%.3f\n", band.Band, band.Type, band.Freq, band.QualityFactor, band.Gain, band.Qp)
 	default:
 		fmt.Printf("    band %d: %s  %.1f Hz  Q %.2f  %+.1f dB\n", band.Band, band.Type, band.Freq, band.QualityFactor, band.Gain)
 	}
@@ -308,6 +314,8 @@ func printEQBandForDevice(serial string, band *dspi.EQBand) {
 	switch band.Type {
 	case dspi.FilterTypeLowPass, dspi.FilterTypeHighPass:
 		fmt.Printf("%s: ch %d band %d: %s  %.1f Hz  Q %.2f\n", serial, band.Channel, band.Band, band.Type, band.Freq, band.QualityFactor)
+	case dspi.FilterTypeLinkwitzTransform:
+		fmt.Printf("%s: ch %d band %d: %s  f0=%.1f Hz  Q0=%.2f  fp=%.1f Hz  Qp=%.3f\n", serial, band.Channel, band.Band, band.Type, band.Freq, band.QualityFactor, band.Gain, band.Qp)
 	default:
 		fmt.Printf("%s: ch %d band %d: %s  %.1f Hz  Q %.2f  %+.1f dB\n", serial, band.Channel, band.Band, band.Type, band.Freq, band.QualityFactor, band.Gain)
 	}

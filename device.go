@@ -402,10 +402,12 @@ func channelGroup(index int, platform Platform, inputSource int, numInputChannel
 	switch {
 	case index < numInputChannels:
 		switch inputSource {
-		case InputSourceSPDIF:
+		case InputSourceSPDIF, InputSourceSPDIF2, InputSourceSPDIF3:
 			return "S/PDIF Input"
 		case InputSourceI2S:
 			return "I2S Input"
+		case InputSourceADAT:
+			return "ADAT Input"
 		default:
 			return "USB Input"
 		}

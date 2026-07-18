@@ -79,6 +79,10 @@ func runStatus(cmd *cobra.Command, args []string) error {
 					fmt.Printf("  Sample Rate (raw): %d Hz\n", sampleRate)
 				}
 			}
+
+			if inputSource == dspi.InputSourceADAT {
+				printAdatInputStatusCompact(d)
+			}
 		}
 
 		printMCKStatus(d)
@@ -89,6 +93,20 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+// printAdatInputStatusCompact prints a one-line ADAT input summary for use in status output.
+func printAdatInputStatusCompact(d *dspi.Device) {
+	status, err := d.GetAdatInputStatus()
+	if err != nil {
+		return // silently skip if firmware doesn't support it
+	}
+
+	fmt.Printf("  ADAT Input: %s", status.State)
+	if status.DetectedRate > 0 {
+		fmt.Printf(" @ %d Hz", status.DetectedRate)
+	}
+	fmt.Printf(" (%s, rate_ok=%v)\n", dspi.AdatClockModeName(status.ClockMode), status.RateOK)
 }
 
 // printMCKStatus prints a one-line MCK summary for use in status output.

@@ -14,8 +14,70 @@ func InputSourceName(source int) string {
 		return "S/PDIF"
 	case InputSourceI2S:
 		return "I2S"
+	case InputSourceADAT:
+		return "ADAT"
+	case InputSourceSPDIF2:
+		return "S/PDIF 2"
+	case InputSourceSPDIF3:
+		return "S/PDIF 3"
 	default:
 		return fmt.Sprintf("Unknown(%d)", source)
+	}
+}
+
+// AdatInputState represents the ADAT input receiver lock state.
+type AdatInputState int
+
+const (
+	AdatInputInactive  AdatInputState = 0
+	AdatInputAcquiring AdatInputState = 1
+	AdatInputSyncing   AdatInputState = 2
+	AdatInputLocked    AdatInputState = 3
+	AdatInputRelocking AdatInputState = 4
+)
+
+// String returns a human-readable name for the ADAT input state.
+func (s AdatInputState) String() string {
+	switch s {
+	case AdatInputInactive:
+		return "inactive"
+	case AdatInputAcquiring:
+		return "acquiring"
+	case AdatInputSyncing:
+		return "syncing"
+	case AdatInputLocked:
+		return "locked"
+	case AdatInputRelocking:
+		return "relocking"
+	default:
+		return fmt.Sprintf("unknown(%d)", s)
+	}
+}
+
+// AdatInputStatus holds the decoded 20-byte status packet from REQ_GET_ADAT_INPUT_STATUS.
+type AdatInputStatus struct {
+	State        AdatInputState
+	ClockMode    int
+	Enabled      bool
+	Pin          uint8
+	RateOK       bool
+	LockCount    uint8
+	LossCount    uint8
+	SlipCount    uint8
+	HeaderErrors uint16
+	DetectedRate uint32
+	MeasuredHz   uint32
+}
+
+// AdatClockModeName returns a human-readable name for the ADAT input clock mode.
+func AdatClockModeName(mode int) string {
+	switch mode {
+	case AdatClockModeMaster:
+		return "master"
+	case AdatClockModeSlave:
+		return "slave"
+	default:
+		return fmt.Sprintf("unknown(%d)", mode)
 	}
 }
 
@@ -200,6 +262,151 @@ func (d *Device) GetI2SInputChannels() (int, error) {
 
 	if err != nil {
 		return 0, fmt.Errorf("REQ_GET_I2S_INPUT_CHANNELS: %w", err)
+	}
+
+	return int(buf[0]), nil
+}
+
+// GetAdatInputStatus reads the 20-byte ADAT input status packet.
+func (d *Device) GetAdatInputStatus() (*AdatInputStatus, error) {
+	if d.closed {
+		return nil, fmt.Errorf("device is closed")
+	}
+
+	buf := make([]byte, 20)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetAdatInputStatus, 0, vendorInterface, buf)
+
+	if err != nil {
+		return nil, fmt.Errorf("REQ_GET_ADAT_INPUT_STATUS: %w", err)
+	}
+
+	return &AdatInputStatus{
+		State:        AdatInputState(buf[0]),
+		ClockMode:    int(buf[1]),
+		Enabled:      buf[2] != 0,
+		Pin:          buf[3],
+		RateOK:       buf[4] != 0,
+		LockCount:    buf[5],
+		LossCount:    buf[6],
+		SlipCount:    buf[7],
+		HeaderErrors: binary.LittleEndian.Uint16(buf[8:10]),
+		DetectedRate: binary.LittleEndian.Uint32(buf[12:16]),
+		MeasuredHz:   binary.LittleEndian.Uint32(buf[16:20]),
+	}, nil
+}
+
+// SetAdatInputEnable enables or disables the ADAT input.
+// The firmware returns a PIN_CONFIG_* status byte.
+func (d *Device) SetAdatInputEnable(enabled bool) error {
+	if d.closed {
+		return fmt.Errorf("device is closed")
+	}
+
+	wValue := uint16(0)
+	if enabled {
+		wValue = 1
+	}
+
+	buf := make([]byte, 1)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqSetAdatInputEnable, wValue, vendorInterface, buf)
+
+	if err != nil {
+		return fmt.Errorf("REQ_SET_ADAT_INPUT_ENABLE: %w", err)
+	}
+
+	if buf[0] != PinConfigSuccess {
+		return fmt.Errorf("REQ_SET_ADAT_INPUT_ENABLE: status 0x%02X", buf[0])
+	}
+
+	return nil
+}
+
+// GetAdatInputEnable returns the configured ADAT input enable state.
+func (d *Device) GetAdatInputEnable() (bool, error) {
+	if d.closed {
+		return false, fmt.Errorf("device is closed")
+	}
+
+	buf := make([]byte, 1)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetAdatInputEnable, 0, vendorInterface, buf)
+
+	if err != nil {
+		return false, fmt.Errorf("REQ_GET_ADAT_INPUT_ENABLE: %w", err)
+	}
+
+	return buf[0] != 0, nil
+}
+
+// SetAdatInputPin sets the ADAT input RX GPIO pin (or 0xFF to clear).
+// The firmware returns a PIN_CONFIG_* status byte.
+func (d *Device) SetAdatInputPin(pin int) error {
+	if d.closed {
+		return fmt.Errorf("device is closed")
+	}
+
+	buf := make([]byte, 1)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqSetAdatInputPin, uint16(pin), vendorInterface, buf)
+
+	if err != nil {
+		return fmt.Errorf("REQ_SET_ADAT_INPUT_PIN: %w", err)
+	}
+
+	if buf[0] != PinConfigSuccess {
+		return fmt.Errorf("REQ_SET_ADAT_INPUT_PIN: status 0x%02X", buf[0])
+	}
+
+	return nil
+}
+
+// GetAdatInputPin returns the configured ADAT input RX GPIO pin.
+// Returns 0xFF when unset.
+func (d *Device) GetAdatInputPin() (uint8, error) {
+	if d.closed {
+		return 0, fmt.Errorf("device is closed")
+	}
+
+	buf := make([]byte, 1)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetAdatInputPin, 0, vendorInterface, buf)
+
+	if err != nil {
+		return 0, fmt.Errorf("REQ_GET_ADAT_INPUT_PIN: %w", err)
+	}
+
+	return buf[0], nil
+}
+
+// SetAdatInputClockMode sets the ADAT input clock mode (0=master, 1=slave).
+// The firmware returns a PIN_CONFIG_* status byte; the change is deferred.
+func (d *Device) SetAdatInputClockMode(mode int) error {
+	if d.closed {
+		return fmt.Errorf("device is closed")
+	}
+
+	buf := make([]byte, 1)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqSetAdatInputClockMode, uint16(mode), vendorInterface, buf)
+
+	if err != nil {
+		return fmt.Errorf("REQ_SET_ADAT_INPUT_CLOCK_MODE: %w", err)
+	}
+
+	if buf[0] != PinConfigSuccess {
+		return fmt.Errorf("REQ_SET_ADAT_INPUT_CLOCK_MODE: status 0x%02X", buf[0])
+	}
+
+	return nil
+}
+
+// GetAdatInputClockMode returns the live ADAT input clock mode.
+func (d *Device) GetAdatInputClockMode() (int, error) {
+	if d.closed {
+		return 0, fmt.Errorf("device is closed")
+	}
+
+	buf := make([]byte, 1)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetAdatInputClockMode, 0, vendorInterface, buf)
+
+	if err != nil {
+		return 0, fmt.Errorf("REQ_GET_ADAT_INPUT_CLOCK_MODE: %w", err)
 	}
 
 	return int(buf[0]), nil

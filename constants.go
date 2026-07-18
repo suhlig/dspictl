@@ -6,14 +6,30 @@ const (
 	vendorInterface = 2
 	maxChannels     = 17
 
-	ReqSaveParams      = 0x51
-	ReqGetStatus       = 0x50
-	ReqGetPlatform     = 0x7F
-	ReqClearClips      = 0x83
-	ReqSetMasterVolume = 0xD2
-	ReqGetMasterVolume = 0xD3
-	ReqGetChannelName  = 0x9C
-	ReqSetChannelName  = 0x9B
+	ReqSaveParams  = 0x51
+	ReqGetStatus   = 0x50
+	ReqGetPlatform = 0x7F
+	ReqClearClips  = 0x83
+
+	// Psychoacoustic Bass (missing-fundamental bass enhancement).
+	ReqSetPsybass          = 0x30
+	ReqGetPsybass          = 0x31
+	ReqSetPsybassCutoff    = 0x32
+	ReqGetPsybassCutoff    = 0x33
+	ReqSetPsybassHarmonics = 0x34
+	ReqGetPsybassHarmonics = 0x35
+	ReqSetPsybassDrive     = 0x36
+	ReqGetPsybassDrive     = 0x37
+	ReqSetPsybassCharacter = 0x38
+	ReqGetPsybassCharacter = 0x39
+	ReqSetPsybassOriginal  = 0x3A
+	ReqGetPsybassOriginal  = 0x3B
+	ReqSetPsybassMask      = 0x3C
+	ReqGetPsybassMask      = 0x3D
+	ReqSetMasterVolume     = 0xD2
+	ReqGetMasterVolume     = 0xD3
+	ReqGetChannelName      = 0x9C
+	ReqSetChannelName      = 0x9B
 
 	ReqSetPreamp   = 0x44
 	ReqGetPreamp   = 0x45
@@ -111,6 +127,15 @@ const (
 	ReqSetBandBypass = 0xD8
 	ReqGetBandBypass = 0xD9
 
+	// ADAT Input commands (RP2350 only; state round-trips on RP2040).
+	ReqSetAdatInputEnable    = 0x68
+	ReqGetAdatInputEnable    = 0x69
+	ReqSetAdatInputPin       = 0x6A
+	ReqGetAdatInputPin       = 0x6B
+	ReqSetAdatInputClockMode = 0x6C
+	ReqGetAdatInputClockMode = 0x6D
+	ReqGetAdatInputStatus    = 0x6E
+
 	ReqSetCrossfeed        = 0x5E
 	ReqGetCrossfeed        = 0x5F
 	ReqSetCrossfeedPreset  = 0x60
@@ -161,9 +186,19 @@ const (
 	ReqGetAllParamsChunk = 0xA2
 	ReqSetAllParamsChunk = 0xA3
 
-	InputSourceUSB   = 0
-	InputSourceSPDIF = 1
-	InputSourceI2S   = 2
+	InputSourceUSB    = 0
+	InputSourceSPDIF  = 1
+	InputSourceI2S    = 2
+	InputSourceADAT   = 3
+	InputSourceSPDIF2 = 4
+	InputSourceSPDIF3 = 5
+
+	// ADAT input clock modes (see AdatClockModeMaster/Slave constants).
+	AdatClockModeMaster = 0
+	AdatClockModeSlave  = 1
+
+	// ADAT input RX GPIO sentinel meaning "unset".
+	AdatInputPinUnset = 0xFF
 
 	PinConfigSuccess      = 0x00
 	PinConfigInvalidPin   = 0x01

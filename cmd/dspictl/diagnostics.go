@@ -51,6 +51,12 @@ func newDiagnosticsCmd() *cobra.Command {
 	})
 
 	cmd.AddCommand(&cobra.Command{
+		Use:   "adat-input-status",
+		Short: "Show ADAT input receiver status",
+		RunE:  runDiagnosticsAdatInputStatus,
+	})
+
+	cmd.AddCommand(&cobra.Command{
 		Use:   "channels",
 		Short: "Show the number of input channels the firmware advertises",
 		Long: `Show the number of audio input channels the firmware advertises via USB.
@@ -307,6 +313,8 @@ func runDiagnosticsChannels(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
+		inputSource, _ := d.GetInputSource()
+
 		total := 7
 
 		if d.Platform() == dspi.PlatformRP2350 {
@@ -316,12 +324,16 @@ func runDiagnosticsChannels(cmd *cobra.Command, args []string) error {
 		outputs := total - n
 
 		fmt.Printf("%s:\n", d.Serial())
-		fmt.Printf("  Input channels:  %d (USB)\n", n)
+		fmt.Printf("  Input channels:  %d (%s)\n", n, dspi.InputSourceName(inputSource))
 		fmt.Printf("  Output channels: %d\n", outputs)
 		fmt.Printf("  Total channels:  %d\n", total)
 	}
 
 	return nil
+}
+
+func runDiagnosticsAdatInputStatus(cmd *cobra.Command, args []string) error {
+	return runAdatInputStatus(cmd, args)
 }
 
 func runDiagnosticsResetBufferStats(cmd *cobra.Command, args []string) error {
