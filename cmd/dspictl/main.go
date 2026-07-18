@@ -36,12 +36,35 @@ func mainE(ctx context.Context) error {
 }
 
 var knownValueTakingFlags = map[string]bool{
-	"--target": true,
-	"--freq":   true,
-	"--q":      true,
-	"--gain":   true,
-	"--type":   true,
-	"--qp":     true,
+	"--target":      true,
+	"--freq":        true,
+	"--q":           true,
+	"--gain":        true,
+	"--type":        true,
+	"--qp":          true,
+	"--level":       true,
+	"--p1":          true,
+	"--p2":          true,
+	"--p3":          true,
+	"--p4":          true,
+	"--f1":          true,
+	"--f2":          true,
+	"--period":      true,
+	"--pulse-width": true,
+	"--on-cycles":   true,
+	"--off-cycles":  true,
+	"--edge-cycles": true,
+	"--ratio":       true,
+	"--count":       true,
+	"--tone-lo":     true,
+	"--tone-hi":     true,
+	"--pattern":     true,
+	"--blip":        true,
+	"--steps":       true,
+	"--dwell":       true,
+	"--duration":    true,
+	"--repeat":      true,
+	"--gap":         true,
 }
 
 var negativeNumberRe = regexp.MustCompile(`^-\d+(\.\d+)?$`)
@@ -115,6 +138,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newDACMuteCmd())
 	rootCmd.AddCommand(newLGSoundSyncCmd())
 	rootCmd.AddCommand(newPsybassCmd())
+	rootCmd.AddCommand(newSiggenCmd())
 
 	return rootCmd
 }

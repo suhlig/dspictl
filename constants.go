@@ -186,6 +186,44 @@ const (
 	ReqGetAllParamsChunk = 0xA2
 	ReqSetAllParamsChunk = 0xA3
 
+	ReqSiggenSetConfig = 0xA4
+	ReqSiggenGetConfig = 0xA5
+	ReqSiggenControl   = 0xA6
+	ReqSiggenGetStatus = 0xA7
+	ReqSiggenGetCaps   = 0xA8
+
+	SiggenCtlStop    SiggenControlAction = 0
+	SiggenCtlStart   SiggenControlAction = 1
+	SiggenCtlStopNow SiggenControlAction = 2
+
+	SiggenFlagRaw    = 0x01
+	SiggenFlagDecorr = 0x02
+	SiggenFlagWalk   = 0x04
+
+	SiggenStateIdle    SiggenState = 0
+	SiggenStateFadeIn  SiggenState = 1
+	SiggenStateRun     SiggenState = 2
+	SiggenStateGap     SiggenState = 3
+	SiggenStateFadeOut SiggenState = 4
+
+	SiggenStopReasonNone      SiggenStopReason = 0
+	SiggenStopReasonHost      SiggenStopReason = 1
+	SiggenStopReasonCompleted SiggenStopReason = 2
+	SiggenStopReasonPreset    SiggenStopReason = 3
+	SiggenStopReasonReconfig  SiggenStopReason = 4
+
+	SiggenParamUnused  SiggenParamSemantic = 0
+	SiggenParamFreqHz  SiggenParamSemantic = 1
+	SiggenParamMs      SiggenParamSemantic = 2
+	SiggenParamCycles  SiggenParamSemantic = 3
+	SiggenParamCount   SiggenParamSemantic = 4
+	SiggenParamRatio   SiggenParamSemantic = 5
+	SiggenParamPattern SiggenParamSemantic = 6
+
+	SiggenTimingContinuous SiggenTimingModel = 0
+	SiggenTimingSweep      SiggenTimingModel = 1
+	SiggenTimingPattern    SiggenTimingModel = 2
+
 	InputSourceUSB    = 0
 	InputSourceSPDIF  = 1
 	InputSourceI2S    = 2

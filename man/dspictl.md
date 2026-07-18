@@ -1500,6 +1500,61 @@ present, mute state, and volume level.
 dspictl lg-sound-sync status
 ```
 
+## siggen
+
+Control the onboard test signal generator. The generator can inject one of 15
+measurement/diagnostic signals directly into the output pipeline without a host
+audio stream.
+
+### siggen types
+
+List the signal types supported by the connected device, including parameter
+ranges.
+
+```
+dspictl siggen types
+```
+
+### siggen status
+
+Show the current generator state.
+
+```
+dspictl siggen status
+```
+
+### siggen start
+
+Configure and start the generator. At minimum, `--type` and `--channels` are
+required. The default level is -20 dBFS.
+
+```
+dspictl siggen start --type sine --channels 0,1 --level -20 --freq 1000
+dspictl siggen start --type sweep-log --channels 0 --f1 20 --f2 20000 --duration 10000
+dspictl siggen start --type channel-id --channels 0 1 2 3
+```
+
+Use `--raw` to bypass per-channel crossover + PEQ on the generator channels,
+`--walk` to play one channel at a time, and `--decorr` for independent noise
+generators on each channel.
+
+### siggen config
+
+Stage a configuration without starting the generator.
+
+```
+dspictl siggen config --type pink --channels 0 --level -30
+```
+
+### siggen stop
+
+Stop the generator. Use `--now` for an immediate hard stop without fade.
+
+```
+dspictl siggen stop
+dspictl siggen stop --now
+```
+
 ## mixer
 
 Launch an interactive full-screen terminal UI mixer.
