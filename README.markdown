@@ -2,6 +2,8 @@
 
 A command-line tool and Go library to control one or more [DSPi audio devices](https://github.com/WeebLabs/DSPi) from the command line. A full-screen terminal UI is also available as `dspictl mixer`.
 
+> **New contributors:** looking for the code behind a feature? Start with [`CODEBASE_MAP.md`](CODEBASE_MAP.md).
+
 Homebrew users can install it via `brew install suhlig/tap/dspictl`. For other platforms, pre-built archives are available from [GitHub Releases](https://github.com/suhlig/dspi/releases):
 
 | File | Architecture | Typical Hardware |
