@@ -203,8 +203,7 @@ The workflow runs `go test -tags=hwtest -v ./...` against whatever devices are c
 
    ```sh
    version=$(git cliff --bumped-version)
-   git tag "$version"
-   git push origin "$version"
+   git tag "$version" && git push origin "$version"
    ```
 
 ## License
