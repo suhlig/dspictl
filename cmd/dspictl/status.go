@@ -89,10 +89,42 @@ func runStatus(cmd *cobra.Command, args []string) error {
 
 		printLoudnessCompact(d)
 
+		printSiggenCompact(d)
+
 		fmt.Printf("  CPU: %d%% / %d%%\n", meter.CPU0, meter.CPU1)
 	}
 
 	return nil
+}
+
+// printSiggenCompact prints a one-line signal-generator summary for use in status output.
+// It silently skips the line if the firmware does not support the generator.
+func printSiggenCompact(d *dspi.Device) {
+	status, err := d.GetSiggenStatus()
+	if err != nil {
+		return
+	}
+
+	if status.State == dspi.SiggenStateIdle {
+		fmt.Printf("  Siggen: idle\n")
+		return
+	}
+
+	fmt.Printf("  Siggen: %s %s", status.State, status.SignalType)
+
+	if cfg, err := d.GetSiggenConfig(); err == nil && cfg.ChannelMask != 0 {
+		fmt.Printf(" on %s", formatMaskU16(cfg.ChannelMask, 16))
+	}
+
+	if status.ActiveChannel >= 0 {
+		fmt.Printf(" (walk ch %d)", status.ActiveChannel)
+	}
+
+	if status.CurrentFreq > 0 {
+		fmt.Printf(" @ %.1f Hz", status.CurrentFreq)
+	}
+
+	fmt.Println()
 }
 
 // printAdatInputStatusCompact prints a one-line ADAT input summary for use in status output.
