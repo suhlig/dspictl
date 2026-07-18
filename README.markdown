@@ -198,7 +198,7 @@ The workflow runs `go test -tags=hwtest -v ./...` against whatever devices are c
 1. Edit and then commit the updated `CHANGELOG.md`:
 
    ```sh
-   git add CHANGELOG.md && git commit -m "Prepare changelog for $(git cliff --bumped-version)"
+   git add CHANGELOG.md && git commit -m "Update changelog for $(git cliff --bumped-version)"
    ```
 
 1. Push a tag to trigger the release workflow:
