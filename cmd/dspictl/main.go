@@ -41,6 +41,7 @@ var knownValueTakingFlags = map[string]bool{
 	"--q":      true,
 	"--gain":   true,
 	"--type":   true,
+	"--qp":     true,
 }
 
 var negativeNumberRe = regexp.MustCompile(`^-\d+(\.\d+)?$`)
@@ -113,6 +114,7 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newLevellerCmd())
 	rootCmd.AddCommand(newDACMuteCmd())
 	rootCmd.AddCommand(newLGSoundSyncCmd())
+	rootCmd.AddCommand(newPsybassCmd())
 
 	return rootCmd
 }

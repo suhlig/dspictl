@@ -1,4 +1,4 @@
-% DSPICTL 1 "June 2026" "dspictl" "User Commands"
+% DSPICTL 1 "July 2026" "dspictl" "User Commands"
 
 # NAME
 
@@ -735,14 +735,15 @@ dspictl config save
 
 Input source selection and I2S configuration.
 
-### input source [usb|spdif|i2s]
+### input source [usb|spdif|i2s|adat|spdif2|spdif3]
 
 Get or set the active input source. The DSPi can receive audio from USB,
-S/PDIF, or I2S.
+S/PDIF, I2S, ADAT, or the optional S/PDIF 2/3 inputs.
 
 ```
 dspictl input source         # show current source
 dspictl input source spdif   # switch to S/PDIF input
+dspictl input source adat    # switch to ADAT input (RP2350 only)
 ```
 
 ### input rate [44100|48000|96000]
@@ -764,6 +765,46 @@ over up to 4 I2S data pairs.
 ```
 dspictl input channels           # show current channel count
 dspictl input channels 8         # set to 8 channels
+```
+
+### input adat enable [on|off]
+
+Get or set the ADAT input enable state. ADAT input is only available on the
+RP2350 and requires a configured RX pin before it can be enabled.
+
+```
+dspictl input adat enable        # show current state
+dspictl input adat enable on     # enable ADAT input
+```
+
+### input adat pin [<gpio>]
+
+Get or set the ADAT input RX GPIO pin. Set to 255 to clear the pin assignment.
+The pin may equal the ADAT output pin for loopback self-testing.
+
+```
+dspictl input adat pin      # show current pin
+dspictl input adat pin 20   # assign GPIO 20
+```
+
+### input adat clock-mode [master|slave]
+
+Get or set the ADAT input clock mode. In *master* mode (default) the device is
+the rate authority; in *slave* mode the incoming ADAT stream clocks the DSPi.
+The change is deferred if ADAT is the active source.
+
+```
+dspictl input adat clock-mode        # show current mode
+dspictl input adat clock-mode slave  # slave to external ADAT clock
+```
+
+### input adat status
+
+Show the ADAT input receiver status: lock state, clock mode, pin, rate_ok,
+lock/loss/slip counts, and detected/measured sample rates.
+
+```
+dspictl input adat status
 ```
 
 ## eq
@@ -796,20 +837,24 @@ dspictl eq master get 0 0
 Configure an EQ band. The following flags are available:
 
 *--type* (required)
-: Filter type. One of: `flat`, `peak`, `lowshelf`, `highshelf`, `lowpass`, `highpass`, `notch`, `allpass`, `allpass1`, `lowshelf1`, `highshelf1`.
+: Filter type. One of: `flat`, `peak`, `lowshelf`, `highshelf`, `lowpass`, `highpass`, `notch`, `allpass`, `allpass1`, `lowshelf1`, `highshelf1`, `linkwitz`.
 
 *--freq* *hz*
-: Center or corner frequency in Hz.
+: Center or corner frequency in Hz. For `linkwitz`, this is the driver resonance f0.
 
 *--q* *q*
-: Q-factor (bandwidth).
+: Q-factor (bandwidth). For `linkwitz`, this is the driver Q0.
 
 *--gain* *db*
-: Gain in dB (not applicable for lowpass/highpass).
+: Gain in dB (not applicable for lowpass/highpass). For `linkwitz`, this is the target fp in Hz.
+
+*--qp* *Q*
+: Linkwitz Transform target pole Q (only for `--type linkwitz`).
 
 ```
 dspictl eq master set 0 0 --type peak --freq 1000 --q 1.4 --gain 3.0
 dspictl eq master set 0 0 --type lowshelf --freq 200 --gain -2.0
+dspictl eq master set 0 0 --type linkwitz --freq 50 --q 0.5 --gain 25 --qp 0.707
 ```
 
 #### eq master clear *channel*
@@ -861,7 +906,7 @@ dspictl eq output get 2 0
 #### eq output set *channel* *band*
 
 Configure an output EQ band. Same flags as `eq master set`: *--type*, *--freq*,
-*--q*, *--gain*.
+*--q*, *--gain*, *--qp*.
 
 ```
 dspictl eq output set 2 0 --type peak --freq 2500 --q 2.0 --gain -4.0
@@ -1097,6 +1142,16 @@ status data).
 dspictl diagnostics spdif-rx-channel-status
 ```
 
+### diagnostics adat-input-status
+
+Show ADAT input receiver status including lock state, clock mode, configured
+pin, rate_ok flag, lock/loss/slip counts, and detected/measured sample rates.
+Only available on the RP2350.
+
+```
+dspictl diagnostics adat-input-status
+```
+
 ### diagnostics channels
 
 Show the number of audio input channels the firmware advertises over USB.
@@ -1114,6 +1169,100 @@ Reset the buffer fill statistics counters.
 
 ```
 dspictl diagnostics reset-buffer-stats
+```
+
+## psybass
+
+Psychoacoustic bass enhancement (missing-fundamental harmonics). Synthesizes
+higher harmonics from low-frequency content so the ear perceives bass that the
+physical speaker cannot reproduce.
+
+With no subcommand, shows the psybass status with all parameters.
+
+```
+dspictl psybass
+```
+
+### psybass on
+
+Enable psychoacoustic bass on all outputs.
+
+```
+dspictl psybass on
+```
+
+### psybass off
+
+Disable psychoacoustic bass.
+
+```
+dspictl psybass off
+```
+
+### psybass cutoff [<hz>]
+
+Get or set the speaker low-frequency limit in Hz.
+
+```
+dspictl psybass cutoff        # show current cutoff
+dspictl psybass cutoff 80     # set to 80 Hz
+```
+
+### psybass harmonics [<db>]
+
+Get or set the harmonic mix level in dB.
+
+```
+dspictl psybass harmonics       # show current level
+dspictl psybass harmonics -12   # set to -12 dB
+```
+
+### psybass drive [<db>]
+
+Get or set the odd-path clipper drive in dB.
+
+```
+dspictl psybass drive     # show current drive
+dspictl psybass drive 6   # set to 6 dB
+```
+
+### psybass character [<pct>]
+
+Get or set the even/odd harmonic blend percentage.
+
+```
+dspictl psybass character      # show current blend
+dspictl psybass character 50   # set to 50%
+```
+
+### psybass original [<db>]
+
+Get or set the original low-band level in dB.
+
+```
+dspictl psybass original        # show current level
+dspictl psybass original -30    # set to -30 dB
+```
+
+### psybass outputs [on|off] [<channels...>]
+
+Get or set which output channels are processed.
+
+With no arguments, shows the current active outputs. With `on` or `off`
+followed by channel numbers, toggles specific outputs. With a preset name, sets
+the mask to a predefined value.
+
+Presets:
+
+- **all** – all outputs (default)
+- **none** – disable all outputs
+
+```
+dspictl psybass outputs            # show active outputs
+dspictl psybass outputs on 0 1     # enable outputs 0 and 1
+dspictl psybass outputs off 2      # disable output 2
+dspictl psybass outputs all        # enable all outputs
+dspictl psybass outputs none       # disable all
 ```
 
 ## crossfeed

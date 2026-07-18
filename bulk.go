@@ -11,13 +11,15 @@ const (
 	// Linux usbfs 4096-byte limit (rounded down for safety).
 	chunkSize = 4096
 
-	// wireBulkSize is the V20 WireBulkParams payload size in bytes.
+	// wireBulkSize is the V24 WireBulkParams payload size in bytes.
+	// V24 (ADAT input) reuses reserved bytes inside WireInputConfig; total size unchanged from V23.
+	// V23 (Psychoacoustic Bass) appends a 24-byte WirePsybassParams section at offset 5876.
 	// V20 adds: loudness_output_mask in global (V19), crossfeed output_pair_mask (V20),
-	// leveller detector/apply masks growing from 16→20 bytes (V18), and ADAT section (V17).
-	wireBulkSize = 5876
+	// leveller detector/apply masks growing from 16→20 bytes (V18), and ADAT output section (V17).
+	wireBulkSize = 5900
 )
 
-// V20 field offsets within the WireBulkParams payload (5876 bytes).
+// V24 field offsets within the WireBulkParams payload (5900 bytes).
 const (
 	fieldHeader       = 0    // 16 bytes
 	fieldGlobal       = 16   // 16 bytes
@@ -38,7 +40,8 @@ const (
 	fieldUserVolume   = 4748 // 16 bytes
 	fieldDacHwMute    = 4764 // 16 bytes
 	fieldCrossovers   = 4780 // 1088 bytes (17×4 × 16)
-	fieldADAT         = 5868 // 8 bytes
+	fieldADAT         = 5868 // 8 bytes (ADAT output)
+	fieldPsybass      = 5876 // 24 bytes (V23)
 )
 
 // fieldEntry describes a named field in the bulk payload by its offset and size.
@@ -68,6 +71,7 @@ var fieldRegistry = map[string]fieldEntry{
 	"dac_hw_mute":   {fieldDacHwMute, 16},
 	"crossovers":    {fieldCrossovers, 1088},
 	"adat":          {fieldADAT, 8},
+	"psybass":       {fieldPsybass, 24},
 }
 
 // BulkHeader is the 16-byte header parsed from a WireBulkParams payload.
@@ -384,4 +388,113 @@ func (bp *BulkParams) LevellerApplyMask() (uint8, bool) {
 // SetLevellerApplyMask updates the leveller apply channel mask in the bulk parameters.
 func (bp *BulkParams) SetLevellerApplyMask(v uint8) {
 	bp.SetU8("leveller", 17, v)
+}
+
+// AdatInputPin returns the configured ADAT input RX GPIO from the bulk parameters.
+// 0 means absent (keep live value), 0xFF is never stored on the wire.
+func (bp *BulkParams) AdatInputPin() (uint8, bool) {
+	return bp.GetU8("input_config", 12)
+}
+
+// SetAdatInputPin updates the ADAT input RX GPIO in the bulk parameters.
+func (bp *BulkParams) SetAdatInputPin(v uint8) {
+	bp.SetU8("input_config", 12, v)
+}
+
+// AdatInputEnabledP1 returns the ADAT input enable +1 encoded field from the bulk parameters.
+// 0 = absent (keep live), 1 = disabled, 2 = enabled.
+func (bp *BulkParams) AdatInputEnabledP1() (uint8, bool) {
+	return bp.GetU8("input_config", 13)
+}
+
+// SetAdatInputEnabledP1 updates the ADAT input enable +1 encoded field in the bulk parameters.
+func (bp *BulkParams) SetAdatInputEnabledP1(v uint8) {
+	bp.SetU8("input_config", 13, v)
+}
+
+// AdatInputClockModeP1 returns the ADAT input clock mode +1 encoded field from the bulk parameters.
+// 0 = absent (keep live), 1 = master, 2 = slave.
+func (bp *BulkParams) AdatInputClockModeP1() (uint8, bool) {
+	return bp.GetU8("input_config", 14)
+}
+
+// SetAdatInputClockModeP1 updates the ADAT input clock mode +1 encoded field in the bulk parameters.
+func (bp *BulkParams) SetAdatInputClockModeP1(v uint8) {
+	bp.SetU8("input_config", 14, v)
+}
+
+// PsybassEnabled returns the psychoacoustic bass enabled flag from the bulk parameters.
+func (bp *BulkParams) PsybassEnabled() (bool, bool) {
+	v, ok := bp.GetU8("psybass", 0)
+	return v != 0, ok
+}
+
+// SetPsybassEnabled updates the psychoacoustic bass enabled flag in the bulk parameters.
+func (bp *BulkParams) SetPsybassEnabled(v bool) {
+	val := uint8(0)
+	if v {
+		val = 1
+	}
+	bp.SetU8("psybass", 0, val)
+}
+
+// PsybassOutputMask returns the psychoacoustic bass output channel mask from the bulk parameters.
+// Bit k = psybass processes output channel k.
+func (bp *BulkParams) PsybassOutputMask() (uint16, bool) {
+	return bp.GetU16("psybass", 2)
+}
+
+// SetPsybassOutputMask updates the psychoacoustic bass output channel mask in the bulk parameters.
+func (bp *BulkParams) SetPsybassOutputMask(v uint16) {
+	bp.SetU16("psybass", 2, v)
+}
+
+// PsybassCutoff returns the psychoacoustic bass cutoff frequency in Hz.
+func (bp *BulkParams) PsybassCutoff() (float32, bool) {
+	return bp.GetFloat32("psybass", 4)
+}
+
+// SetPsybassCutoff updates the psychoacoustic bass cutoff frequency in Hz.
+func (bp *BulkParams) SetPsybassCutoff(v float32) {
+	bp.SetFloat32("psybass", 4, v)
+}
+
+// PsybassHarmonics returns the psychoacoustic bass harmonics mix level in dB.
+func (bp *BulkParams) PsybassHarmonics() (float32, bool) {
+	return bp.GetFloat32("psybass", 8)
+}
+
+// SetPsybassHarmonics updates the psychoacoustic bass harmonics mix level in dB.
+func (bp *BulkParams) SetPsybassHarmonics(v float32) {
+	bp.SetFloat32("psybass", 8, v)
+}
+
+// PsybassDrive returns the psychoacoustic bass drive level in dB.
+func (bp *BulkParams) PsybassDrive() (float32, bool) {
+	return bp.GetFloat32("psybass", 12)
+}
+
+// SetPsybassDrive updates the psychoacoustic bass drive level in dB.
+func (bp *BulkParams) SetPsybassDrive(v float32) {
+	bp.SetFloat32("psybass", 12, v)
+}
+
+// PsybassCharacter returns the psychoacoustic bass even/odd harmonic blend percentage.
+func (bp *BulkParams) PsybassCharacter() (float32, bool) {
+	return bp.GetFloat32("psybass", 16)
+}
+
+// SetPsybassCharacter updates the psychoacoustic bass even/odd harmonic blend percentage.
+func (bp *BulkParams) SetPsybassCharacter(v float32) {
+	bp.SetFloat32("psybass", 16, v)
+}
+
+// PsybassOriginal returns the psychoacoustic bass original low-band level in dB.
+func (bp *BulkParams) PsybassOriginal() (float32, bool) {
+	return bp.GetFloat32("psybass", 20)
+}
+
+// SetPsybassOriginal updates the psychoacoustic bass original low-band level in dB.
+func (bp *BulkParams) SetPsybassOriginal(v float32) {
+	bp.SetFloat32("psybass", 20, v)
 }

@@ -136,7 +136,18 @@ var _ = Describe("Input", func() {
 			Expect(dspi.InputSourceName(0)).To(Equal("USB"))
 			Expect(dspi.InputSourceName(1)).To(Equal("S/PDIF"))
 			Expect(dspi.InputSourceName(2)).To(Equal("I2S"))
+			Expect(dspi.InputSourceName(3)).To(Equal("ADAT"))
+			Expect(dspi.InputSourceName(4)).To(Equal("S/PDIF 2"))
+			Expect(dspi.InputSourceName(5)).To(Equal("S/PDIF 3"))
 			Expect(dspi.InputSourceName(99)).To(Equal("Unknown(99)"))
+		})
+	})
+
+	Describe("AdatClockModeName", func() {
+		It("returns names for known modes", func() {
+			Expect(dspi.AdatClockModeName(0)).To(Equal("master"))
+			Expect(dspi.AdatClockModeName(1)).To(Equal("slave"))
+			Expect(dspi.AdatClockModeName(99)).To(Equal("unknown(99)"))
 		})
 	})
 

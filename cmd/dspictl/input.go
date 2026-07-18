@@ -16,11 +16,11 @@ func newInputCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(&cobra.Command{
-		Use:               "source [<usb|spdif|i2s>]",
+		Use:               "source [<usb|spdif|i2s|adat|spdif2|spdif3>]",
 		Short:             "Get or set the active input source",
 		Args:              cobra.MaximumNArgs(1),
 		RunE:              runInputSource,
-		ValidArgsFunction: completeChoices([]string{"usb", "spdif", "i2s"}),
+		ValidArgsFunction: completeChoices([]string{"usb", "spdif", "i2s", "adat", "spdif2", "spdif3"}),
 	})
 
 	cmd.AddCommand(&cobra.Command{
@@ -38,6 +38,43 @@ func newInputCmd() *cobra.Command {
 		RunE:              runInputChannels,
 		ValidArgsFunction: completeChoices([]string{"2", "4", "6", "8"}),
 	})
+
+	adatCmd := &cobra.Command{
+		Use:   "adat",
+		Short: "ADAT input configuration (RP2350 only)",
+	}
+
+	adatCmd.AddCommand(&cobra.Command{
+		Use:               "enable [on|off]",
+		Short:             "Get or set the ADAT input enable state",
+		Args:              cobra.MaximumNArgs(1),
+		RunE:              runAdatInputEnable,
+		ValidArgsFunction: completeChoices([]string{"on", "off"}),
+	})
+
+	adatCmd.AddCommand(&cobra.Command{
+		Use:   "pin [<gpio>]",
+		Short: "Get or set the ADAT input RX GPIO pin",
+		Args:  cobra.MaximumNArgs(1),
+		RunE:  runAdatInputPin,
+	})
+
+	adatCmd.AddCommand(&cobra.Command{
+		Use:               "clock-mode [master|slave]",
+		Short:             "Get or set the ADAT input clock mode",
+		Args:              cobra.MaximumNArgs(1),
+		RunE:              runAdatInputClockMode,
+		ValidArgsFunction: completeChoices([]string{"master", "slave"}),
+	})
+
+	adatCmd.AddCommand(&cobra.Command{
+		Use:   "status",
+		Short: "Show the ADAT input receiver status",
+		Args:  cobra.NoArgs,
+		RunE:  runAdatInputStatus,
+	})
+
+	cmd.AddCommand(adatCmd)
 
 	return cmd
 }
@@ -76,8 +113,14 @@ func runInputSource(cmd *cobra.Command, args []string) error {
 		source = dspi.InputSourceSPDIF
 	case "i2s":
 		source = dspi.InputSourceI2S
+	case "adat":
+		source = dspi.InputSourceADAT
+	case "spdif2":
+		source = dspi.InputSourceSPDIF2
+	case "spdif3":
+		source = dspi.InputSourceSPDIF3
 	default:
-		return fmt.Errorf("invalid source: %s (expected usb, spdif, or i2s)", args[0])
+		return fmt.Errorf("invalid source: %s (expected usb, spdif, i2s, adat, spdif2, or spdif3)", args[0])
 	}
 
 	for _, d := range devices {
@@ -196,4 +239,171 @@ func runInputChannels(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+func runAdatInputEnable(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+	defer closeDevices(devices)
+
+	if len(args) == 0 {
+		for _, d := range devices {
+			enabled, err := d.GetAdatInputEnable()
+			if err != nil {
+				slog.Error("getting ADAT input enable failed", "serial", d.Serial(), "error", err)
+				continue
+			}
+
+			fmt.Printf("%s: ADAT input %s\n", d.Serial(), onOff(enabled))
+		}
+		return nil
+	}
+
+	enabled, err := parseBoolArg(args[0])
+	if err != nil {
+		return fmt.Errorf("invalid enable value: %w", err)
+	}
+
+	for _, d := range devices {
+		if err := d.SetAdatInputEnable(enabled); err != nil {
+			slog.Error("setting ADAT input enable failed", "serial", d.Serial(), "error", err)
+			continue
+		}
+
+		fmt.Printf("%s: ADAT input %s\n", d.Serial(), onOff(enabled))
+	}
+
+	return nil
+}
+
+func runAdatInputPin(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+	defer closeDevices(devices)
+
+	if len(args) == 0 {
+		for _, d := range devices {
+			pin, err := d.GetAdatInputPin()
+			if err != nil {
+				slog.Error("getting ADAT input pin failed", "serial", d.Serial(), "error", err)
+				continue
+			}
+
+			if pin == 0xFF {
+				fmt.Printf("%s: ADAT input pin unset\n", d.Serial())
+			} else {
+				fmt.Printf("%s: ADAT input pin=GPIO %d\n", d.Serial(), pin)
+			}
+		}
+		return nil
+	}
+
+	pin, err := strconv.Atoi(args[0])
+	if err != nil {
+		return fmt.Errorf("invalid GPIO: %w", err)
+	}
+
+	for _, d := range devices {
+		if err := d.SetAdatInputPin(pin); err != nil {
+			slog.Error("setting ADAT input pin failed", "serial", d.Serial(), "error", err)
+			continue
+		}
+
+		fmt.Printf("%s: ADAT input pin set to GPIO %d\n", d.Serial(), pin)
+	}
+
+	return nil
+}
+
+func runAdatInputClockMode(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+	defer closeDevices(devices)
+
+	if len(args) == 0 {
+		for _, d := range devices {
+			mode, err := d.GetAdatInputClockMode()
+			if err != nil {
+				slog.Error("getting ADAT input clock mode failed", "serial", d.Serial(), "error", err)
+				continue
+			}
+
+			fmt.Printf("%s: ADAT input clock mode=%s\n", d.Serial(), dspi.AdatClockModeName(mode))
+		}
+		return nil
+	}
+
+	var mode int
+	switch args[0] {
+	case "master":
+		mode = dspi.AdatClockModeMaster
+	case "slave":
+		mode = dspi.AdatClockModeSlave
+	default:
+		return fmt.Errorf("invalid clock mode: %s (expected master or slave)", args[0])
+	}
+
+	for _, d := range devices {
+		if err := d.SetAdatInputClockMode(mode); err != nil {
+			slog.Error("setting ADAT input clock mode failed", "serial", d.Serial(), "error", err)
+			continue
+		}
+
+		fmt.Printf("%s: ADAT input clock mode=%s\n", d.Serial(), args[0])
+	}
+
+	return nil
+}
+
+func runAdatInputStatus(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+	defer closeDevices(devices)
+
+	for _, d := range devices {
+		status, err := d.GetAdatInputStatus()
+		if err != nil {
+			slog.Error("getting ADAT input status failed", "serial", d.Serial(), "error", err)
+			continue
+		}
+
+		fmt.Printf("%s:\n", d.Serial())
+		fmt.Printf("  state:       %s\n", status.State)
+		fmt.Printf("  clock mode:  %s\n", dspi.AdatClockModeName(status.ClockMode))
+		fmt.Printf("  enabled:     %v\n", status.Enabled)
+		fmt.Printf("  pin:         ")
+		if status.Pin == 0xFF {
+			fmt.Println("unset")
+		} else {
+			fmt.Printf("GPIO %d\n", status.Pin)
+		}
+		fmt.Printf("  rate ok:     %v\n", status.RateOK)
+		fmt.Printf("  lock count:  %d\n", status.LockCount)
+		fmt.Printf("  loss count:  %d\n", status.LossCount)
+		fmt.Printf("  slip count:  %d\n", status.SlipCount)
+		fmt.Printf("  header err:  %d\n", status.HeaderErrors)
+		if status.DetectedRate > 0 {
+			fmt.Printf("  detected:    %d Hz\n", status.DetectedRate)
+		}
+		if status.MeasuredHz > 0 {
+			fmt.Printf("  measured:    %d Hz\n", status.MeasuredHz)
+		}
+	}
+
+	return nil
+}
+
+func onOff(v bool) string {
+	if v {
+		return "on"
+	}
+	return "off"
 }

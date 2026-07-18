@@ -260,8 +260,32 @@ Device diagnostics and monitoring.
 | `clear-clips` | — | Clear clip detection latches |
 | `spdif-rx-status` | — | Show S/PDIF RX status (lock, audio, sample rate) |
 | `spdif-rx-channel-status` | — | Show raw S/PDIF RX channel status bytes |
+| `adat-input-status` | — | Show ADAT input receiver status |
 | `channels` | — | Show number of input channels the firmware advertises |
 | `reset-buffer-stats` | — | Reset buffer fill statistics counters |
+
+### `dspictl psybass`
+
+Psychoacoustic bass enhancement (missing-fundamental harmonics).
+
+| Subcommand | Args | Description |
+|---|---|---|
+| (none) | — | Show psybass status |
+| `on` | — | Enable psybass (all outputs) |
+| `off` | — | Disable psybass |
+| `cutoff` | `[<Hz>]` | Get or set speaker LF limit |
+| `harmonics` | `[<dB>]` | Get or set harmonic mix level |
+| `drive` | `[<dB>]` | Get or set odd-path clipper drive |
+| `character` | `[<pct>]` | Get or set even/odd harmonic blend |
+| `original` | `[<dB>]` | Get or set original low-band level |
+| `outputs` | `[on\|off] <channels…>` | Get or set per-output psybass mask |
+
+```
+dspictl psybass
+dspictl psybass on
+dspictl psybass cutoff 80
+dspictl psybass outputs on 0 1 2
+```
 
 ### `dspictl config`
 
@@ -312,14 +336,23 @@ Input source selection and I2S sample rate configuration.
 
 | Subcommand | Args | Description |
 |---|---|---|
-| `source` | `[usb\|spdif\|i2s]` | Get or set the active input source |
+| `source` | `[usb\|spdif\|i2s\|adat\|spdif2\|spdif3]` | Get or set the active input source |
 | `rate` | `[44100\|48000\|96000]` | Get or set the I2S input sample rate |
 | `channels` | `[2\|4\|6\|8]` | Get or set the number of I2S input channels |
+| `adat enable` | `[on\|off]` | Get or set the ADAT input enable state (RP2350 only) |
+| `adat pin` | `[<gpio>]` | Get or set the ADAT input RX GPIO pin |
+| `adat clock-mode` | `[master\|slave]` | Get or set the ADAT input clock mode |
+| `adat status` | | Show the ADAT input receiver status |
 
 ```
 dspictl input source
 dspictl input source i2s
+dspictl input source adat
 dspictl input rate 48000
+dspictl input adat enable on
+dspictl input adat pin 20
+dspictl input adat clock-mode slave
+dspictl input adat status
 ```
 
 ### `dspictl eq`
@@ -340,11 +373,13 @@ Parametric equalizer for master channels and per-output channels.
 | `output clear` | `<channel>` | Reset all output bands to flat |
 | `output band-bypass` | `<channel> <band> [true\|false]` | Get or set bypass for a single output band |
 
-Band set flags: `--type <flat|peak|lowshelf|highshelf|lowpass|highpass>`, `--freq <Hz>`, `--q <factor>`, `--gain <dB>`.
+Band set flags: `--type <flat|peak|lowshelf|highshelf|lowpass|highpass|linkwitz>`, `--freq <Hz>`, `--q <factor>`, `--gain <dB>`, `--qp <Q>`.
+For the Linkwitz Transform (`--type linkwitz`), `freq` is the driver resonance f0, `q` is the driver Q0, `gain` is the target fp in Hz, and `qp` is the target pole Q.
 
 ```
 dspictl eq master list
 dspictl eq master set 0 0 --type peak --freq 1000 --q 1.0 --gain -3.0
+dspictl eq master set 0 0 --type linkwitz --freq 50 --q 0.5 --gain 25 --qp 0.707
 dspictl eq output clear 2
 dspictl eq master bypass true
 ```

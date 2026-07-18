@@ -33,6 +33,7 @@ const (
 	FilterTypeAllPass1
 	FilterTypeLowShelf1
 	FilterTypeHighShelf1
+	FilterTypeLinkwitzTransform
 )
 
 // String returns the human-readable name of the filter type.
@@ -60,6 +61,8 @@ func (t FilterType) String() string {
 		return "lowshelf1"
 	case FilterTypeHighShelf1:
 		return "highshelf1"
+	case FilterTypeLinkwitzTransform:
+		return "linkwitz"
 	default:
 		return fmt.Sprintf("unknown(%d)", t)
 	}
@@ -90,9 +93,28 @@ func ParseFilterType(s string) (FilterType, error) {
 		return FilterTypeLowShelf1, nil
 	case "highshelf1":
 		return FilterTypeHighShelf1, nil
+	case "linkwitz":
+		return FilterTypeLinkwitzTransform, nil
 	default:
 		return 0, fmt.Errorf("unknown filter type: %s", s)
 	}
+}
+
+// encodeQp encodes a Linkwitz Transform target Q as uint16 Q*512.
+// Values are clamped to the firmware's [0.1, 20.0] range. Zero means
+// "use firmware default (0.707)".
+func encodeQp(qp float64) uint16 {
+	clamped := math.Max(0.1, math.Min(20.0, qp))
+	return uint16(math.Round(clamped * 512.0))
+}
+
+// decodeQp decodes a wire qp_x512 value back to a float.
+// Zero selects the 0.707 default.
+func decodeQp(raw uint16) float64 {
+	if raw == 0 {
+		return 0.707
+	}
+	return float64(raw) / 512.0
 }
 
 // EQBand describes a single parametric EQ filter band.
@@ -102,7 +124,8 @@ type EQBand struct {
 	Type          FilterType
 	Freq          float64 // Hz
 	QualityFactor float64
-	Gain          float64 // dB
+	Gain          float64 // dB (for Linkwitz Transform, this carries fp in Hz)
+	Qp            float64 // Linkwitz Transform target Q (only meaningful for type 11)
 }
 
 // Validate checks that the band parameters are within acceptable ranges.
@@ -171,13 +194,22 @@ func (d *Device) SetEQBand(band *EQBand) error {
 		return fmt.Errorf("band %d is a crossover band; use SetCrossoverBand instead", band.Band)
 	}
 
-	buf := make([]byte, 16)
+	payloadLen := 16
+	if band.Type == FilterTypeLinkwitzTransform {
+		payloadLen = 18
+	}
+
+	buf := make([]byte, payloadLen)
 	buf[0] = byte(band.Channel)
 	buf[1] = byte(band.Band)
 	buf[2] = byte(band.Type)
 	binary.LittleEndian.PutUint32(buf[4:8], math.Float32bits(float32(band.Freq)))
 	binary.LittleEndian.PutUint32(buf[8:12], math.Float32bits(float32(band.QualityFactor)))
 	binary.LittleEndian.PutUint32(buf[12:16], math.Float32bits(float32(band.Gain)))
+
+	if band.Type == FilterTypeLinkwitzTransform {
+		binary.LittleEndian.PutUint16(buf[16:18], encodeQp(band.Qp))
+	}
 
 	_, err = d.usb.ControlTransfer(vendorInterfaceOutRequest, ReqSetEQParam, 0, vendorInterface, buf)
 
@@ -217,7 +249,7 @@ func (d *Device) GetEQBand(channel, band int) (*EQBand, error) {
 	}
 
 	// Firmware packs wValue as: bits[15:8]=channel, bits[7:3]=band (5 bits),
-	// bits[2:0]=param (0=type, 1=freq, 2=Q, 3=gain, 4=bypass).
+	// bits[2:0]=param (0=type, 1=freq, 2=Q, 3=gain, 4=bypass, 5=qp).
 	base := uint16(channel)<<8 | uint16(band)<<3
 
 	// param 0: type (uint32)
@@ -264,6 +296,18 @@ func (d *Device) GetEQBand(channel, band int) (*EQBand, error) {
 		Freq:          freq,
 		QualityFactor: q,
 		Gain:          gain,
+		Qp:            0.707,
+	}
+
+	if filterType == FilterTypeLinkwitzTransform {
+		// param 5: qp_x512 in low 16 bits
+		_, err = d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetEQParam, base+5, vendorInterface, buf)
+
+		if err != nil {
+			return nil, fmt.Errorf("REQ_GET_EQ_PARAM qp: %w", err)
+		}
+
+		b.Qp = decodeQp(uint16(binary.LittleEndian.Uint32(buf) & 0xFFFF))
 	}
 
 	return b, nil

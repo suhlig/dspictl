@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0-rc.1] - 2026-07-17
+
+❗️This is a release candidate for the major new release with support for the V24 wire format introduced with DSPi v1.1.5. It is not backwards-compatible with older versions.
+
+### Added
+
+- ADAT input support: `input source adat`, `input adat enable|pin|clock-mode|status` (RP2350 only)
+- Psychoacoustic bass: `psybass` command group with cutoff, harmonics, drive, character, original, and output mask
+- Linkwitz Transform filter type: `eq master|output set ... --type linkwitz --qp <Q>`
+- `input source` now accepts `spdif2` and `spdif3` as aliases for the optional S/PDIF inputs
+
+### Changed
+
+- Update wire format from V20 (5876 B) to V24 (5900 B)
+
 ## [2.0.0-rc.0] - 2026-07-11
 
 ❗️This is a release candidate for the major new release with support for the V16/V20 wire format introduced with DSPi v1.1.5. It is not backwards-compatible with older versions.
