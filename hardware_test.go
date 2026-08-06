@@ -130,9 +130,11 @@ var _ = Describe("Hardware", Ordered, func() {
 				snap := d.ReadMeter()
 				Expect(snap.Err()).ToNot(HaveOccurred())
 
+				// V16+ unified channel model: inputs + outputs
+				// (RP2040: 2 + 5 = 7, RP2350: 8 + 9 = 17).
 				expected := 7
 				if d.Platform() == dspi.PlatformRP2350 {
-					expected = 11
+					expected = 17
 				}
 				Expect(snap.Channels).To(Equal(expected))
 			}
@@ -145,9 +147,11 @@ var _ = Describe("Hardware", Ordered, func() {
 				chans, err := d.Channels()
 				Expect(err).ToNot(HaveOccurred())
 
+				// V16+ unified channel model: inputs + outputs
+				// (RP2040: 2 + 5 = 7, RP2350: 8 + 9 = 17).
 				expectedCount := 7
 				if d.Platform() == dspi.PlatformRP2350 {
-					expectedCount = 11
+					expectedCount = 17
 				}
 				Expect(chans).To(HaveLen(expectedCount))
 

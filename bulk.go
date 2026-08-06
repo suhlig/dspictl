@@ -2,8 +2,12 @@ package dspi
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math"
+	"time"
+
+	"github.com/google/gousb"
 )
 
 const (
@@ -100,14 +104,43 @@ type BulkParams struct {
 	Raw    []byte // Full payload, suitable for restoration
 }
 
+// bulkRetryBackoff is the delay between retries of a bulk transfer that the
+// firmware STALLed.  The firmware refuses bulk access while the main-loop
+// apply of a previous SET is still running (bulk_params_pending) or another
+// transport owns the shared bulk buffer; the Console retries the same way
+// (Commands.swift fetchAllParamsRetrying, 0.15/0.3/0.6 s).
+var bulkRetryBackoff = []time.Duration{150 * time.Millisecond, 300 * time.Millisecond, 600 * time.Millisecond}
+
+// isBulkStall reports whether err is a USB STALL (pipe error), the
+// firmware's "busy, retry" signal for the shared bulk buffer.
+func isBulkStall(err error) bool {
+	var usbErr gousb.Error
+	return errors.As(err, &usbErr) && usbErr == gousb.ErrorPipe
+}
+
 // GetAllParams performs REQ_GET_ALL_PARAMS using chunked transfers (0xA2) and
-// returns the complete device state. The firmware requires sequential offsets
-// starting from 0; a STALL means restart from 0.
+// returns the complete device state.  The firmware requires sequential offsets
+// starting from 0; a STALL means restart from 0.  STALLs are retried with
+// backoff because the firmware refuses bulk access while the main-loop apply
+// of a previous SET is still running.
 func (d *Device) GetAllParams() (*BulkParams, error) {
 	if d.closed {
 		return nil, fmt.Errorf("device is closed")
 	}
 
+	for attempt := 0; ; attempt++ {
+		bp, err := d.getAllParamsOnce()
+		if err == nil {
+			return bp, nil
+		}
+		if !isBulkStall(err) || attempt >= len(bulkRetryBackoff) {
+			return nil, err
+		}
+		time.Sleep(bulkRetryBackoff[attempt])
+	}
+}
+
+func (d *Device) getAllParamsOnce() (*BulkParams, error) {
 	// Determine expected payload size from a minimal first-chunk response.
 	// We request the first chunk (offset=0, 16 bytes) to read the header,
 	// then calculate the full payload length.
@@ -152,6 +185,8 @@ func (d *Device) GetAllParams() (*BulkParams, error) {
 }
 
 // SetAllParams restores the complete device state via REQ_SET_ALL_PARAMS (0xA3 chunks).
+// STALLs are retried with backoff (see GetAllParams); a mid-sequence STALL
+// restarts the whole upload from offset 0, which the firmware accepts.
 func (d *Device) SetAllParams(params *BulkParams) error {
 	if d.closed {
 		return fmt.Errorf("device is closed")
@@ -169,6 +204,22 @@ func (d *Device) SetAllParams(params *BulkParams) error {
 		return fmt.Errorf("platform mismatch (snapshot is %s, device is %s)", params.Header.Platform, d.platform)
 	}
 
+	for attempt := 0; ; attempt++ {
+		err := d.setAllParamsOnce(params)
+		if err == nil {
+			return nil
+		}
+		if !isBulkStall(err) || attempt >= len(bulkRetryBackoff) {
+			if isBulkStall(err) {
+				return fmt.Errorf("%w (device stayed busy after %d attempts; is another host or transport using it?)", err, attempt+1)
+			}
+			return err
+		}
+		time.Sleep(bulkRetryBackoff[attempt])
+	}
+}
+
+func (d *Device) setAllParamsOnce(params *BulkParams) error {
 	payload := params.Raw
 	offset := 0
 	for offset < len(payload) {
