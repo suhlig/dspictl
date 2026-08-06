@@ -27,6 +27,12 @@ func newDiagnosticsCmd() *cobra.Command {
 	})
 
 	cmd.AddCommand(&cobra.Command{
+		Use:   "reset-usb-errors",
+		Short: "Reset the USB PHY error counters",
+		RunE:  runDiagnosticsResetUSBErrors,
+	})
+
+	cmd.AddCommand(&cobra.Command{
 		Use:   "core1",
 		Short: "Query Core 1 operating mode",
 		RunE:  runDiagnosticsCore1,
@@ -355,6 +361,30 @@ func runDiagnosticsResetBufferStats(cmd *cobra.Command, args []string) error {
 		}
 
 		fmt.Printf("%s: buffer stats reset\n", d.Serial())
+	}
+
+	return nil
+}
+
+func runDiagnosticsResetUSBErrors(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+
+	defer closeDevices(devices)
+
+	for _, d := range devices {
+		err := d.ResetUSBErrorStats()
+
+		if err != nil {
+			slog.Error("resetting USB error stats failed", "serial", d.Serial(), "error", err)
+
+			continue
+		}
+
+		fmt.Printf("%s: USB error stats reset\n", d.Serial())
 	}
 
 	return nil

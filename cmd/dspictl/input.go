@@ -16,11 +16,11 @@ func newInputCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(&cobra.Command{
-		Use:               "source [<usb|spdif|i2s|adat|spdif2|spdif3>]",
+		Use:               "source [<usb|spdif|i2s|adat|spdif2|spdif3|spdif4>]",
 		Short:             "Get or set the active input source",
 		Args:              cobra.MaximumNArgs(1),
 		RunE:              runInputSource,
-		ValidArgsFunction: completeChoices([]string{"usb", "spdif", "i2s", "adat", "spdif2", "spdif3"}),
+		ValidArgsFunction: completeChoices([]string{"usb", "spdif", "i2s", "adat", "spdif2", "spdif3", "spdif4"}),
 	})
 
 	cmd.AddCommand(&cobra.Command{
@@ -76,7 +76,240 @@ func newInputCmd() *cobra.Command {
 
 	cmd.AddCommand(adatCmd)
 
+	cmd.AddCommand(&cobra.Command{
+		Use:               "clock-mode [master|slave]",
+		Short:             "Get or set the I2S input clock mode (deferred apply)",
+		Args:              cobra.MaximumNArgs(1),
+		RunE:              runI2SClockMode,
+		ValidArgsFunction: completeChoices([]string{"master", "slave"}),
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "slave-status",
+		Short: "Show the I2S external-clock slave lock status",
+		Args:  cobra.NoArgs,
+		RunE:  runI2SSlaveStatus,
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:               "spdif-enable <2|3|4> [on|off]",
+		Short:             "Get or set the enable state of an optional S/PDIF input",
+		Args:              cobra.RangeArgs(1, 2),
+		RunE:              runSpdifInputEnable,
+		ValidArgsFunction: completeChoices([]string{"2", "3", "4"}, []string{"on", "off"}),
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "spdif-pin <1|2|3|4> [<gpio>]",
+		Short: "Get or set the S/PDIF RX GPIO pin of a specific input (0xFF resets to default)",
+		Args:  cobra.RangeArgs(1, 2),
+		RunE:  runSpdifInputPin,
+	})
+
+	cmd.AddCommand(&cobra.Command{
+		Use:   "spdif-config",
+		Short: "List the S/PDIF input inventory (count, enable mask, pins)",
+		Args:  cobra.NoArgs,
+		RunE:  runSpdifInputConfig,
+	})
+
 	return cmd
+}
+
+func runI2SClockMode(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+	defer closeDevices(devices)
+
+	if len(args) == 0 {
+		for _, d := range devices {
+			mode, err := d.GetI2SClockMode()
+			if err != nil {
+				slog.Error("getting I2S clock mode failed", "serial", d.Serial(), "error", err)
+				continue
+			}
+
+			name := "master"
+			if mode == dspi.I2SClockModeSlave {
+				name = "slave"
+			}
+			fmt.Printf("%s: I2S clock mode %s\n", d.Serial(), name)
+		}
+
+		return nil
+	}
+
+	var mode int
+	switch args[0] {
+	case "master":
+		mode = dspi.I2SClockModeMaster
+	case "slave":
+		mode = dspi.I2SClockModeSlave
+	default:
+		return fmt.Errorf("invalid clock mode: %s (expected master or slave)", args[0])
+	}
+
+	for _, d := range devices {
+		if err := d.SetI2SClockMode(mode); err != nil {
+			slog.Error("setting I2S clock mode failed", "serial", d.Serial(), "error", err)
+			continue
+		}
+		fmt.Printf("%s: I2S clock mode %s (deferred)\n", d.Serial(), args[0])
+	}
+
+	return nil
+}
+
+func runI2SSlaveStatus(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+	defer closeDevices(devices)
+
+	for _, d := range devices {
+		st, err := d.GetI2sSlaveStatus()
+		if err != nil {
+			slog.Error("getting I2S slave status failed", "serial", d.Serial(), "error", err)
+			continue
+		}
+
+		clockMode := "master"
+		if st.ClockMode == dspi.I2SClockModeSlave {
+			clockMode = "slave"
+		}
+		fmt.Printf("%s: I2S slave %s (clock mode %s)\n", d.Serial(), st.State, clockMode)
+		fmt.Printf("  detected rate: %d Hz  measured: %d Hz\n", st.DetectedRate, st.MeasuredHz)
+		fmt.Printf("  locks: %d  losses: %d  slips: %d\n", st.LockCount, st.LossCount, st.SlipCount)
+	}
+
+	return nil
+}
+
+func runSpdifInputEnable(cmd *cobra.Command, args []string) error {
+	index, err := strconv.Atoi(args[0])
+	if err != nil {
+		return fmt.Errorf("invalid input index: %w", err)
+	}
+	if index < 2 || index > 4 {
+		return fmt.Errorf("input index %d out of range (2-4)", index)
+	}
+
+	devices, err := openDevices()
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+	defer closeDevices(devices)
+
+	if len(args) == 1 {
+		for _, d := range devices {
+			cfg, err := d.GetSpdifInputConfig()
+			if err != nil {
+				slog.Error("getting S/PDIF input config failed", "serial", d.Serial(), "error", err)
+				continue
+			}
+			enabled := (cfg.EnableMask>>(index-1))&1 != 0
+			state := "off"
+			if enabled {
+				state = "on"
+			}
+			fmt.Printf("%s: S/PDIF input %d %s\n", d.Serial(), index, state)
+		}
+		return nil
+	}
+
+	enabled, err := parseBoolArg(args[1])
+	if err != nil {
+		return fmt.Errorf("invalid enable value: %w", err)
+	}
+
+	for _, d := range devices {
+		if err := d.SetSpdifInputEnable(index, enabled); err != nil {
+			slog.Error("setting S/PDIF input enable failed", "serial", d.Serial(), "input", index, "error", err)
+			continue
+		}
+
+		state := "off"
+		if enabled {
+			state = "on"
+		}
+		fmt.Printf("%s: S/PDIF input %d %s\n", d.Serial(), index, state)
+	}
+
+	return nil
+}
+
+func runSpdifInputPin(cmd *cobra.Command, args []string) error {
+	index, err := strconv.Atoi(args[0])
+	if err != nil {
+		return fmt.Errorf("invalid input index: %w", err)
+	}
+	if index < 1 || index > 4 {
+		return fmt.Errorf("input index %d out of range (1-4)", index)
+	}
+
+	devices, err := openDevices()
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+	defer closeDevices(devices)
+
+	if len(args) == 1 {
+		for _, d := range devices {
+			pin, err := d.GetSpdifRxPinForIndex(index - 1)
+			if err != nil {
+				slog.Error("getting S/PDIF RX pin failed", "serial", d.Serial(), "error", err)
+				continue
+			}
+			fmt.Printf("%s: S/PDIF input %d pin=GPIO %d\n", d.Serial(), index, pin)
+		}
+
+		return nil
+	}
+
+	pin, err := strconv.Atoi(args[1])
+	if err != nil {
+		return fmt.Errorf("invalid GPIO: %w", err)
+	}
+
+	for _, d := range devices {
+		if err := d.SetSpdifRxPinForIndex(index-1, pin); err != nil {
+			slog.Error("setting S/PDIF RX pin failed", "serial", d.Serial(), "error", err)
+			continue
+		}
+		fmt.Printf("%s: S/PDIF input %d pin=GPIO %d\n", d.Serial(), index, pin)
+	}
+
+	return nil
+}
+
+func runSpdifInputConfig(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+	defer closeDevices(devices)
+
+	for _, d := range devices {
+		cfg, err := d.GetSpdifInputConfig()
+		if err != nil {
+			slog.Error("getting S/PDIF input config failed", "serial", d.Serial(), "error", err)
+			continue
+		}
+
+		fmt.Printf("%s: S/PDIF inputs (%d)\n", d.Serial(), cfg.Count)
+		for i := range cfg.Pins {
+			state := "-"
+			if (cfg.EnableMask>>i)&1 != 0 {
+				state = "on"
+			}
+			fmt.Printf("  input %d: GPIO %d (%s)\n", i+1, cfg.Pins[i], state)
+		}
+	}
+
+	return nil
 }
 
 func runInputSource(cmd *cobra.Command, args []string) error {
@@ -119,8 +352,10 @@ func runInputSource(cmd *cobra.Command, args []string) error {
 		source = dspi.InputSourceSPDIF2
 	case "spdif3":
 		source = dspi.InputSourceSPDIF3
+	case "spdif4":
+		source = dspi.InputSourceSPDIF4
 	default:
-		return fmt.Errorf("invalid source: %s (expected usb, spdif, i2s, adat, spdif2, or spdif3)", args[0])
+		return fmt.Errorf("invalid source: %s (expected usb, spdif, i2s, adat, spdif2, spdif3, or spdif4)", args[0])
 	}
 
 	for _, d := range devices {

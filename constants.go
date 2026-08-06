@@ -6,6 +6,47 @@ const (
 	vendorInterface = 2
 	maxChannels     = 17
 
+	// Stereo upmixer (RP2350 only; see upmix.go).  SET_CONFIG applies a whole
+	// 44-byte UpmixConfigPacket atomically; SET/GET_PARAM use wValue = param id.
+	ReqUpmixSetConfig = 0x4A
+	ReqUpmixGetConfig = 0x4B
+	ReqUpmixSetParam  = 0x4C
+	ReqUpmixGetParam  = 0x4D
+	ReqUpmixGetStatus = 0x4E
+
+	// Upmixer parameter ids (wValue of REQ_UPMIX_SET/GET_PARAM).
+	UpmixParamEnabled      = 0
+	UpmixParamCenterMode   = 1
+	UpmixParamSurroundMode = 2
+	UpmixParamStrength     = 3
+	UpmixParamCenterWidth  = 4
+	UpmixParamThreshold    = 5
+	UpmixParamAttack       = 6
+	UpmixParamRelease      = 7
+	UpmixParamDetHpf       = 8
+	UpmixParamSurDelay     = 9
+	UpmixParamSurHpf       = 10
+	UpmixParamSurLpf       = 11
+	UpmixParamDecorr       = 12
+	UpmixParamPresence     = 13
+	UpmixParamCount        = 14
+
+	// Upmixer centre engine modes.
+	UpmixCenterModePassive  = 0
+	UpmixCenterModeAdaptive = 1
+	UpmixCenterModeOff      = 2
+
+	// Upmixer surround engine modes.
+	UpmixSurroundModeOff      = 0
+	UpmixSurroundModePassive  = 1
+	UpmixSurroundModeAdaptive = 2
+
+	// UpmixStatus.parked_reason values.
+	UpmixParkedActive      = 0
+	UpmixParkedDisabled    = 1
+	UpmixParkedNotStereo   = 2
+	UpmixParkedRateTooHigh = 3
+
 	ReqSaveParams  = 0x51
 	ReqGetStatus   = 0x50
 	ReqGetPlatform = 0x7F
@@ -100,17 +141,29 @@ const (
 
 	ReqSetUserVolume = 0xDA
 	ReqGetUserVolume = 0xDB
+	ReqSetUserMute   = 0xDC
+	ReqGetUserMute   = 0xDD
 
-	ReqGetBufferStats   = 0xB0
-	ReqResetBufferStats = 0xB1
-	ReqGetUSBErrorStats = 0xB2
+	ReqGetBufferStats     = 0xB0
+	ReqResetBufferStats   = 0xB1
+	ReqGetUSBErrorStats   = 0xB2
+	ReqResetUSBErrorStats = 0xB3
+
+	// ADAT bulk output (RP2350 only; see adatoutput.go).
+	ReqSetAdatOutputEnable = 0xCA
+	ReqGetAdatOutputEnable = 0xCB
+	ReqSetAdatOutputPin    = 0xCC
+	ReqGetAdatOutputPin    = 0xCD
+	ReqGetAdatOutputStatus = 0xCE
 
 	ReqSaveOutputConfig = 0x52
 
-	ReqGetSpdifRxStatus   = 0xE2
-	ReqGetSpdifRxChStatus = 0xE3
-	ReqSetSpdifRxPin      = 0xE4
-	ReqGetSpdifRxPin      = 0xE5
+	ReqGetSpdifRxStatus    = 0xE2
+	ReqGetSpdifRxChStatus  = 0xE3
+	ReqSetSpdifRxPin       = 0xE4
+	ReqGetSpdifRxPin       = 0xE5
+	ReqSetSpdifInputEnable = 0xE9
+	ReqGetSpdifInputConfig = 0xEF
 
 	ReqGetAllParams = 0xA0
 	ReqSetAllParams = 0xA1
@@ -183,6 +236,47 @@ const (
 	ReqSetI2SInputChannels = 0xF3
 	ReqGetI2SInputChannels = 0xF4
 
+	// I2S clock mode / slave input status (see input.go).
+	ReqSetI2SClockMode   = 0x88
+	ReqGetI2SClockMode   = 0x89
+	ReqGetI2SSlaveStatus = 0x8A
+
+	// I2S clock-pin mode: unified vs split master/slave BCK pairs (see config.go).
+	ReqSetI2SClockPinMode = 0xFE
+	ReqGetI2SClockPinMode = 0xFF
+
+	// I2S BCK pin roles carried in the REQ_SET/GET_I2S_BCK_PIN wValue high byte.
+	I2SBckRoleMaster = 0
+	I2SBckRoleSlave  = 1
+
+	// I2S clock-pin modes (REQ_SET/GET_I2S_CLOCK_PIN_MODE).
+	I2SClockPinModeUnified = 0
+	I2SClockPinModeSplit   = 1
+
+	// I2S clock modes (REQ_SET/GET_I2S_CLOCK_MODE).
+	I2SClockModeMaster = 0
+	I2SClockModeSlave  = 1
+
+	// External control interfaces (UART / I2C target; see ctrlinterface.go).
+	ReqSetUartConfig      = 0xF5
+	ReqGetUartConfig      = 0xF6
+	ReqSetI2CConfig       = 0xF7
+	ReqGetI2CConfig       = 0xF8
+	ReqGetCtrlIfaceStatus = 0xF9
+
+	// Control Surfaces request codes (see controlsurface.go).
+	ReqSetCsBinding   = 0x84
+	ReqGetCsBinding   = 0x85
+	ReqGetCsCaps      = 0x86
+	ReqGetCsStatus    = 0x87
+	ReqSetCsName      = 0x8B
+	ReqGetCsName      = 0x8C
+	ReqSetCsIrCommand = 0x8D
+	ReqGetCsIrCommand = 0x8E
+	ReqCsIrLearn      = 0x8F
+	ReqCsSave         = 0x9D
+	ReqCsRevert       = 0x9E
+
 	ReqGetAllParamsChunk = 0xA2
 	ReqSetAllParamsChunk = 0xA3
 
@@ -239,8 +333,10 @@ const (
 	// ADAT input RX GPIO sentinel meaning "unset".
 	AdatInputPinUnset = 0xFF
 
-	PinConfigSuccess      = 0x00
-	PinConfigInvalidPin   = 0x01
-	PinConfigPinInUse     = 0x02
-	PinConfigOutputActive = 0x04
+	PinConfigSuccess       = 0x00
+	PinConfigInvalidPin    = 0x01
+	PinConfigPinInUse      = 0x02
+	PinConfigInvalidOutput = 0x03
+	PinConfigOutputActive  = 0x04
+	PinConfigInvalidParam  = 0x05
 )

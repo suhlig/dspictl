@@ -51,6 +51,10 @@ All commands live under `cmd/dspictl/`. Each file is a thin wrapper around the l
 | `dac-mute` | `dacmute.go` | `dacmute.go:11` (`newDACMuteCmd`) | (DAC hardware mute) |
 | `lg-sound-sync` | `lgsound.go` | `lgsound.go:11` (`newLGSoundSyncCmd`) | (LG TV volume sync) |
 | `siggen` | `siggen.go` | `siggen.go:11` (`newSiggenCmd`) | (signal generator) |
+| `upmix` | `upmix.go` | `upmix.go:11` (`newUpmixCmd`) | (stereo upmixer) |
+| `adat` | `adatoutput.go` | `adatoutput.go:12` (`newAdatOutputCmd`) | (ADAT bulk output) |
+| `ctrl` | `ctrl.go` | `ctrl.go:11` (`newCtrlCmd`) | (UART/I2C control interfaces) |
+| `cs` | `cs.go` | `cs.go:11` (`newCsCmd`) | (Control Surfaces) |
 | `diagnostics` | `diagnostics.go` | `diagnostics.go:11` (`newDiagnosticsCmd`) | `diagnostics.go:92` (`runDiagnosticsBufferStats`), `diagnostics.go:128` (`runDiagnosticsUSBErrors`) |
 | `firmware` | `firmware.go` | `firmware.go:17` (`newFirmwareCmd`) | `firmware.go:41` (`newFirmwareVersionCmd`), `firmware.go:89` (`newFirmwareUpgradeCmd`) |
 | `factory-reset` | `factoryreset.go` | `factoryreset.go:11` (`newFactoryResetCmd`) | `factoryreset.go:33` (`runFactoryReset`) |
@@ -241,6 +245,50 @@ All commands live under `cmd/dspictl/`. Each file is a thin wrapper around the l
 | Status / caps / type descriptors | `siggen.go:449` | `GetSiggenStatus`, `siggen.go:464` `GetSiggenCaps`, `siggen.go:479` `GetSiggenTypeDesc` |
 | Status types | `siggen.go:115` | `SiggenState`, `SiggenStopReason`, `SiggenParamSemantic`, `SiggenTimingModel` |
 
+### 4.16 Stereo Upmixer
+
+| Feature | File | Anchor |
+|---|---|---|
+| Wire config packet | `upmix.go:12` | `UpmixConfigPacket` |
+| Encode / decode config | `upmix.go:32` | `UpmixConfigPacket.Encode`, `upmix.go:57` `DecodeUpmixConfig` |
+| Status packet | `upmix.go:120` | `UpmixStatus`, `DecodeUpmixStatus` |
+| Set / get whole config | `upmix.go:215` | `SetUpmixConfig`, `upmix.go:226` `GetUpmixConfig` |
+| Single-parameter set / get | `upmix.go:237` | `SetUpmixParam`, `upmix.go:264` `GetUpmixParam` |
+| Live telemetry | `upmix.go:279` | `GetUpmixStatus` |
+| Param / mode name helpers | `upmix.go:150` | `UpmixParamName`, `UpmixCenterModeName`, `UpmixSurroundModeName` |
+
+### 4.17 ADAT Bulk Output
+
+| Feature | File | Anchor |
+|---|---|---|
+| Status packet | `adatoutput.go:11` | `AdatOutputStatus`, `DecodeAdatOutputStatus` |
+| Enable / pin / status | `adatoutput.go:32` | `SetAdatOutputEnable`, `adatoutput.go:63` `GetAdatOutputEnable`, `adatoutput.go:87` `SetAdatOutputPin`, `adatoutput.go:119` `GetAdatOutputStatus` |
+
+### 4.18 Control Surfaces
+
+| Feature | File | Anchor |
+|---|---|---|
+| Binding wire struct | `controlsurface.go:220` | `CsBinding` |
+| IR command wire struct | `controlsurface.go:285` | `IrCommand` |
+| Status / caps / noun descriptors | `controlsurface.go:330` | `CsStatusPacket`, `CsCapsHeader`, `CsNounDesc`, decode helpers |
+| Binding set / get | `controlsurface.go:438` | `SetCsBinding`, `controlsurface.go:452` `GetCsBinding` |
+| Caps / status reads | `controlsurface.go:468` | `GetCsCaps`, `controlsurface.go:487` `GetCsNounDesc`, `controlsurface.go:500` `GetCsStatus` |
+| Slot names | `controlsurface.go:516` | `SetCsName`, `controlsurface.go:537` `GetCsName` |
+| IR commands + learn | `controlsurface.go:556` | `SetCsIrCommand`, `controlsurface.go:580` `GetCsIrCommand`, `controlsurface.go:600` `CsIrLearnArm`/`Cancel`/`Read` |
+| Persist / revert | `controlsurface.go:633` | `CsSave`, `CsRevert` |
+| Name / parse helpers | `controlsurface.go:370` | `CsStatusName`, `CsTypeName`, `CsNounName`, `ParseCsType`, `ParseCsNoun`, `ParseCsAction` |
+
+### 4.19 External Control Interfaces (UART / I2C)
+
+| Feature | File | Anchor |
+|---|---|---|
+| UART config wire struct | `ctrlinterface.go:11` | `UartCtrlConfig` |
+| I2C config wire struct | `ctrlinterface.go:48` | `I2cCtrlConfig` |
+| Interface status | `ctrlinterface.go:85` | `CtrlIfaceStatus`, `DecodeCtrlIfaceStatus` |
+| UART set / get | `ctrlinterface.go:110` | `SetUartConfig`, `ctrlinterface.go:128` `GetUartConfig` |
+| I2C set / get | `ctrlinterface.go:146` | `SetI2CConfig`, `ctrlinterface.go:164` `GetI2CConfig` |
+| Live status | `ctrlinterface.go:182` | `GetCtrlIfaceStatus` |
+
 ---
 
 ## 5. Hardware Configuration
@@ -255,9 +303,15 @@ All commands live under `cmd/dspictl/`. Each file is a thin wrapper around the l
 | I2S RX pin (pair-aware) | `input.go:189` | `SetI2SRxPin`, `input.go:195` `SetI2SRxPinPair`, `input.go:218` `GetI2SRxPin` |
 | I2S input channel count | `input.go:239` | `SetI2SInputChannels`, `input.go:255` `GetI2SInputChannels` |
 | S/PDIF RX pin | `spdif.go:23` | `SetSpdifRxPin`, `spdif.go:43` `GetSpdifRxPin` |
+| S/PDIF RX pin by input index | `spdif.go:46` | `SetSpdifRxPinForIndex`, `spdif.go:68` `GetSpdifRxPinForIndex` |
+| S/PDIF optional-input enable | `spdif.go:89` | `SetSpdifInputEnable` |
+| S/PDIF input inventory | `spdif.go:128` | `GetSpdifInputConfig` |
 | S/PDIF RX status | `spdif.go:58` | `GetSpdifRxStatus` |
 | S/PDIF RX channel status bytes | `spdif.go:98` | `GetSpdifRxChannelStatus` |
 | ADAT input enable / pin / clock mode / status | `input.go:299` | `SetAdatInputEnable`, `input.go:325` `GetAdatInputEnable`, `input.go:342` `SetAdatInputPin`, etc. |
+| I2S clock mode + slave status | `input.go:414` | `SetI2SClockMode`, `input.go:489` `GetI2SClockMode`, `input.go:448` `GetI2sSlaveStatus` |
+| I2S clock-pin mode + slave BCK role | `config.go:98` | `SetI2SClockPinMode`, `config.go:124` `GetI2SClockPinMode`, `config.go:47` `SetI2SBckPinRole` |
+| User mute (vendor channel) | `uservolume.go:44` | `SetUserMute`, `uservolume.go:68` `GetUserMute` |
 | Input source | `input.go:119` | `SetInputSource`, `input.go:134` `GetInputSource` |
 | Input rate (I2S) | `input.go:151` | `SetInputRate`, `input.go:169` `GetInputRate` |
 | Sample rate (raw status) | `system.go:147` | `GetSampleRate` |

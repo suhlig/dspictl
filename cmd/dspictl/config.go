@@ -34,15 +34,27 @@ func newConfigCmd() *cobra.Command {
 		RunE:  runConfigOutputPin,
 	})
 
-	cmd.AddCommand(&cobra.Command{
+	bckPinCmd := &cobra.Command{
 		Use:   "bck-pin [<gpio>]",
 		Short: "Get or set shared I2S BCK pin",
 		Long: `Get or set the shared I2S BCK (bit clock) GPIO pin.
 
 LRCLK (word select) is always BCK + 1 — this is a PIO hardware constraint.
-When you set the BCK pin, LRCLK is automatically placed on the next GPIO.`,
+When you set the BCK pin, LRCLK is automatically placed on the next GPIO.
+Use --role slave to address the slave-mode pair (meaningful in split
+clock-pin mode).`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: runConfigBckPin,
+	}
+	bckPinCmd.Flags().Int("role", 0, "BCK role: 0 = master/unified pair, 1 = slave pair")
+	cmd.AddCommand(bckPinCmd)
+
+	cmd.AddCommand(&cobra.Command{
+		Use:               "clock-pin-mode [unified|split]",
+		Short:             "Get or set the I2S clock-pin mode (shared vs separate master/slave BCK pairs)",
+		Args:              cobra.MaximumNArgs(1),
+		RunE:              runConfigClockPinMode,
+		ValidArgsFunction: completeChoices([]string{"unified", "split"}),
 	})
 
 	mckCmd := &cobra.Command{
@@ -339,9 +351,14 @@ func runConfigBckPin(cmd *cobra.Command, args []string) error {
 
 	defer closeDevices(devices)
 
+	role, err := cmd.Flags().GetInt("role")
+	if err != nil {
+		return fmt.Errorf("getting role flag: %w", err)
+	}
+
 	if len(args) == 0 {
 		for _, d := range devices {
-			pin, err := d.GetI2SBckPin()
+			pin, err := d.GetI2SBckPinRole(role)
 
 			if err != nil {
 				slog.Error("getting BCK pin failed", "serial", d.Serial(), "error", err)
@@ -349,7 +366,7 @@ func runConfigBckPin(cmd *cobra.Command, args []string) error {
 				continue
 			}
 
-			fmt.Printf("%s: BCK=GPIO %d\n", d.Serial(), pin)
+			fmt.Printf("%s: BCK=GPIO %d (role %d)\n", d.Serial(), pin, role)
 		}
 
 		return nil
@@ -362,7 +379,7 @@ func runConfigBckPin(cmd *cobra.Command, args []string) error {
 	}
 
 	for _, d := range devices {
-		err := d.SetI2SBckPin(pin)
+		err := d.SetI2SBckPinRole(role, pin)
 
 		if err != nil {
 			slog.Error("setting BCK pin failed", "serial", d.Serial(), "error", err)
@@ -370,7 +387,61 @@ func runConfigBckPin(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
-		fmt.Printf("%s: BCK=GPIO %d\n", d.Serial(), pin)
+		fmt.Printf("%s: BCK=GPIO %d (role %d)\n", d.Serial(), pin, role)
+	}
+
+	return nil
+}
+
+func runConfigClockPinMode(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+
+	defer closeDevices(devices)
+
+	if len(args) == 0 {
+		for _, d := range devices {
+			mode, err := d.GetI2SClockPinMode()
+
+			if err != nil {
+				slog.Error("getting clock-pin mode failed", "serial", d.Serial(), "error", err)
+
+				continue
+			}
+
+			name := "unified"
+			if mode == dspi.I2SClockPinModeSplit {
+				name = "split"
+			}
+			fmt.Printf("%s: I2S clock-pin mode %s\n", d.Serial(), name)
+		}
+
+		return nil
+	}
+
+	var mode int
+	switch args[0] {
+	case "unified":
+		mode = dspi.I2SClockPinModeUnified
+	case "split":
+		mode = dspi.I2SClockPinModeSplit
+	default:
+		return fmt.Errorf("invalid clock-pin mode: %s (expected unified or split)", args[0])
+	}
+
+	for _, d := range devices {
+		err := d.SetI2SClockPinMode(mode)
+
+		if err != nil {
+			slog.Error("setting clock-pin mode failed", "serial", d.Serial(), "error", err)
+
+			continue
+		}
+
+		fmt.Printf("%s: I2S clock-pin mode %s\n", d.Serial(), args[0])
 	}
 
 	return nil

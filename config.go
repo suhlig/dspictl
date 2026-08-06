@@ -73,15 +73,24 @@ func (d *Device) GetOutputPin(output int) (int, error) {
 	return int(buf[0]), nil
 }
 
-// SetI2SBckPin sets the shared I2S BCK GPIO.
-// The value is sent in wValue and the firmware returns a 1-byte status.
+// SetI2SBckPin sets the shared I2S BCK GPIO (master/unified pair, role 0).
+// This is a convenience wrapper around the role-aware SetI2SBckPinRole.
 func (d *Device) SetI2SBckPin(pin int) error {
+	return d.SetI2SBckPinRole(I2SBckRoleMaster, pin)
+}
+
+// SetI2SBckPinRole sets the I2S BCK GPIO for a clock role (0 = master/unified
+// pair, 1 = slave pair).  wValue is encoded as (role << 8) | pin; pass
+// AdatInputPinUnset (0xFF) as the pin to restore the role's platform default.
+// The firmware returns a PIN_CONFIG_* status byte.
+func (d *Device) SetI2SBckPinRole(role, pin int) error {
 	if d.closed {
 		return fmt.Errorf("device is closed")
 	}
 
 	buf := make([]byte, 1)
-	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqSetI2SBckPin, uint16(pin), vendorInterface, buf)
+	wValue := uint16(role)<<8 | uint16(pin)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqSetI2SBckPin, wValue, vendorInterface, buf)
 
 	if err != nil {
 		return fmt.Errorf("REQ_SET_I2S_BCK_PIN: %w", err)
@@ -94,17 +103,62 @@ func (d *Device) SetI2SBckPin(pin int) error {
 	return nil
 }
 
-// GetI2SBckPin returns the shared I2S BCK GPIO.
+// GetI2SBckPin returns the shared I2S BCK GPIO (master/unified pair, role 0).
+// This is a convenience wrapper around the role-aware GetI2SBckPinRole.
 func (d *Device) GetI2SBckPin() (int, error) {
+	return d.GetI2SBckPinRole(I2SBckRoleMaster)
+}
+
+// GetI2SBckPinRole returns the I2S BCK GPIO for a clock role
+// (0 = master/unified pair, 1 = slave pair).
+func (d *Device) GetI2SBckPinRole(role int) (int, error) {
 	if d.closed {
 		return 0, fmt.Errorf("device is closed")
 	}
 
 	buf := make([]byte, 1)
-	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetI2SBckPin, 0, vendorInterface, buf)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetI2SBckPin, uint16(role), vendorInterface, buf)
 
 	if err != nil {
 		return 0, fmt.Errorf("REQ_GET_I2S_BCK_PIN: %w", err)
+	}
+
+	return int(buf[0]), nil
+}
+
+// SetI2SClockPinMode selects whether master and slave clock modes share one
+// BCK/LRCLK pair (0 = unified) or each have their own (1 = split;
+// REQ_SET_I2S_CLOCK_PIN_MODE).  The firmware returns a PIN_CONFIG_* status byte.
+func (d *Device) SetI2SClockPinMode(mode int) error {
+	if d.closed {
+		return fmt.Errorf("device is closed")
+	}
+
+	buf := make([]byte, 1)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqSetI2SClockPinMode, uint16(mode), vendorInterface, buf)
+
+	if err != nil {
+		return fmt.Errorf("REQ_SET_I2S_CLOCK_PIN_MODE: %w", err)
+	}
+
+	if buf[0] != PinConfigSuccess {
+		return fmt.Errorf("REQ_SET_I2S_CLOCK_PIN_MODE: status 0x%02X", buf[0])
+	}
+
+	return nil
+}
+
+// GetI2SClockPinMode returns the live I2S clock-pin mode (0 = unified, 1 = split).
+func (d *Device) GetI2SClockPinMode() (int, error) {
+	if d.closed {
+		return 0, fmt.Errorf("device is closed")
+	}
+
+	buf := make([]byte, 1)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetI2SClockPinMode, 0, vendorInterface, buf)
+
+	if err != nil {
+		return 0, fmt.Errorf("REQ_GET_I2S_CLOCK_PIN_MODE: %w", err)
 	}
 
 	return int(buf[0]), nil

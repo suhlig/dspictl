@@ -64,6 +64,14 @@ func newVolumeCmd() *cobra.Command {
 	})
 
 	cmd.AddCommand(&cobra.Command{
+		Use:               "user-mute [on|off]",
+		Short:             "Get or set the vendor-channel user mute (always honored, unlike the USB-gated UAC1 mute)",
+		Args:              cobra.MaximumNArgs(1),
+		RunE:              runVolumeUserMute,
+		ValidArgsFunction: completeChoices([]string{"on", "off"}),
+	})
+
+	cmd.AddCommand(&cobra.Command{
 		Use:   "saved",
 		Short: "Show the saved boot-default master volume",
 		RunE:  runVolumeSaved,
@@ -300,6 +308,57 @@ func runVolumeUser(cmd *cobra.Command, args []string) error {
 		}
 
 		fmt.Printf("%s: user volume: %s\n", d.Serial(), dspi.NewGain(db))
+	}
+
+	return nil
+}
+
+func runVolumeUserMute(cmd *cobra.Command, args []string) error {
+	devices, err := openDevices()
+
+	if err != nil {
+		return fmt.Errorf("opening DSPi devices: %w", err)
+	}
+
+	defer closeDevices(devices)
+
+	if len(args) == 0 {
+		for _, d := range devices {
+			muted, err := d.GetUserMute()
+
+			if err != nil {
+				slog.Error("getting user mute failed", "serial", d.Serial(), "error", err)
+
+				continue
+			}
+
+			state := "off"
+			if muted {
+				state = "on"
+			}
+			fmt.Printf("%s: user mute %s\n", d.Serial(), state)
+		}
+
+		return nil
+	}
+
+	muted, err := parseBoolArg(args[0])
+	if err != nil {
+		return fmt.Errorf("invalid mute value: %w", err)
+	}
+
+	for _, d := range devices {
+		if err := d.SetUserMute(muted); err != nil {
+			slog.Error("setting user mute failed", "serial", d.Serial(), "error", err)
+
+			continue
+		}
+
+		state := "off"
+		if muted {
+			state = "on"
+		}
+		fmt.Printf("%s: user mute %s\n", d.Serial(), state)
 	}
 
 	return nil

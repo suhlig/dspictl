@@ -164,6 +164,17 @@ dspictl volume user         # show current user volume
 dspictl volume user -30     # set user volume to -30 dB
 ```
 
+### volume user-mute [on|off]
+
+Get or set the vendor-channel user mute. Unlike the UAC1 mute (driven by the
+OS over USB Audio Class), this flag is always honored regardless of input
+source, so it works during S/PDIF, I2S, or ADAT playback.
+
+```
+dspictl volume user-mute       # show current user mute
+dspictl volume user-mute on   # mute
+```
+
 ### volume saved
 
 Show the saved boot-default master volume that was persisted via
@@ -621,12 +632,25 @@ dspictl config output-pin 2 12      # set to GPIO 12
 
 ### config bck-pin [*gpio*]
 
-Get or set the shared I2S BCK (bit clock) GPIO pin. The LRCLK (word select) pin
-is always BCK + 1, as this is a PIO hardware constraint.
+Get or set the shared I2S BCK (bit clock) GPIO pin. The LRCLK (word select) pin is always BCK + 1, as this is a PIO hardware constraint. Use `--role 1` to address the slave-mode pair (meaningful in split clock-pin mode).
 
 ```
-dspictl config bck-pin         # show current pin
-dspictl config bck-pin 10      # set BCK to GPIO 10 (LRCLK will be GPIO 11)
+dspictl config bck-pin                # show master-pair pin
+dspictl config bck-pin 10             # set master BCK to GPIO 10 (LRCLK = 11)
+dspictl config bck-pin --role 1       # show slave-pair pin
+dspictl config bck-pin --role 1 26    # set slave BCK to GPIO 26
+```
+
+### config clock-pin-mode [unified|split]
+
+Get or set the I2S clock-pin mode. *unified* (default) shares one BCK/LRCLK
+pair for both master and slave clocking; *split* routes the slave role to its
+own pair (`bck-pin --role 1`). The firmware returns a PIN_CONFIG_* status
+byte.
+
+```
+dspictl config clock-pin-mode         # show current mode
+dspictl config clock-pin-mode split   # separate slave clock pair
 ```
 
 ### config mck
@@ -735,10 +759,10 @@ dspictl config save
 
 Input source selection and I2S configuration.
 
-### input source [usb|spdif|i2s|adat|spdif2|spdif3]
+### input source [usb|spdif|i2s|adat|spdif2|spdif3|spdif4]
 
 Get or set the active input source. The DSPi can receive audio from USB,
-S/PDIF, I2S, ADAT, or the optional S/PDIF 2/3 inputs.
+S/PDIF, I2S, ADAT, or the optional S/PDIF 2/3/4 inputs.
 
 ```
 dspictl input source         # show current source
@@ -807,6 +831,57 @@ lock/loss/slip counts, and detected/measured sample rates.
 dspictl input adat status
 ```
 
+### input clock-mode [master|slave]
+
+Get or set the I2S input clock mode. In *master* mode (default) the device
+drives BCK/LRCLK and the rate is set via `input rate`; in *slave* mode an
+external master drives the clocks and the rate is auto-detected. The change
+is deferred to the main loop; the GET returns the live mode until then.
+
+```
+dspictl input clock-mode          # show current mode
+dspictl input clock-mode slave    # slave to an external clock master
+```
+
+### input slave-status
+
+Show the I2S external-clock slave lock status: lock state, detected and
+measured rates, and lock/loss/slip counts.
+
+```
+dspictl input slave-status
+```
+
+### input spdif-enable *input* [on|off]
+
+Get or set the enable state of an optional S/PDIF input (2, 3, or 4). Input 1
+is always enabled; an input that is the live or pending source cannot be
+disabled. The firmware returns a PIN_CONFIG_* status byte.
+
+```
+dspictl input spdif-enable 2         # show state of S/PDIF input 2
+dspictl input spdif-enable 2 on      # enable S/PDIF input 2
+```
+
+### input spdif-pin *input* [*gpio*]
+
+Get or set the S/PDIF RX GPIO pin of a specific input (1-4). Pass 255 as the
+pin to restore that input's platform default (5 / 20 / 21 / 22).
+
+```
+dspictl input spdif-pin 2        # show pin of S/PDIF input 2
+dspictl input spdif-pin 2 20     # assign GPIO 20 to S/PDIF input 2
+```
+
+### input spdif-config
+
+List the S/PDIF input inventory read from the device: input count, enable
+mask, and one GPIO per input.
+
+```
+dspictl input spdif-config
+```
+
 ## eq
 
 Parametric equalizer control. Three separate EQ groups are available: master EQ
@@ -837,7 +912,7 @@ dspictl eq master get 0 0
 Configure an EQ band. The following flags are available:
 
 *--type* (required)
-: Filter type. One of: `flat`, `peak`, `lowshelf`, `highshelf`, `lowpass`, `highpass`, `notch`, `allpass`, `allpass1`, `lowshelf1`, `highshelf1`, `linkwitz`.
+: Filter type. One of: `flat`, `peak`, `lowshelf`, `highshelf`, `lowpass`, `highpass`, `notch`, `allpass`, `allpass1`, `lowshelf1`, `highshelf1`, `lowpass1`, `highpass1`, `linkwitz`.
 
 *--freq* *hz*
 : Center or corner frequency in Hz. For `linkwitz`, this is the driver resonance f0.
@@ -1553,6 +1628,211 @@ Stop the generator. Use `--now` for an immediate hard stop without fade.
 ```
 dspictl siggen stop
 dspictl siggen stop --now
+```
+
+## adat
+
+ADAT bulk output control (RP2350 only). Streams all 8 post-gain output
+channels as one ADAT lightpipe signal on a single GPIO.
+
+### adat enable [on|off]
+
+Get or set the ADAT bulk output enable state.
+
+```
+dspictl adat enable        # show current state
+dspictl adat enable on     # enable ADAT output
+```
+
+### adat pin [*gpio*]
+
+Get or set the ADAT output GPIO pin. The platform default is GPIO 12; pass 255
+to restore it. Re-routing is allowed even while enabled (the stream moves
+under mute).
+
+```
+dspictl adat pin       # show current pin
+dspictl adat pin 12    # set ADAT output to GPIO 12
+```
+
+### adat status
+
+Show the ADAT output stream status: configured enable, stream activity, pin,
+rate_ok, and resync/slip counters.
+
+```
+dspictl adat status
+```
+
+## upmix
+
+Stereo upmixer control (RP2350 only). Derives Centre + Left/Right Surround
+virtual source channels from the stereo input pair, routeable via the matrix.
+
+### upmix status
+
+Show live upmixer telemetry: active/parked state and the smoothed
+correlation, balance, and steering gains.
+
+```
+dspictl upmix status
+```
+
+### upmix config
+
+Show the full upmixer configuration: centre/surround modes, presence,
+strength, centre width, threshold, attack/release, detector HPF, surround
+delay/HPF/LPF, and decorrelation.
+
+```
+dspictl upmix config
+```
+
+### upmix on / upmix off
+
+Enable or disable the upmixer.
+
+```
+dspictl upmix on
+dspictl upmix off
+```
+
+### upmix set *param* *value*
+
+Set a single upmixer parameter. Parameters: `enabled`, `center-mode`
+(0=passive, 1=adaptive, 2=off), `surround-mode` (0=off, 1=passive, 2=adaptive),
+`strength`, `center-width`, `threshold`, `attack`, `release`, `det-hpf`,
+`surround-delay`, `surround-hpf`, `surround-lpf`, `decorr`, `presence`.
+
+```
+dspictl upmix set presence -4
+dspictl upmix set center-mode 2
+```
+
+## ctrl
+
+External control interfaces: a UART and an I2C target that expose the same
+vendor command surface over wires (see `control_interfaces_spec.md`). Both
+ship disabled; the SET commands are USB-only (the firmware refuses them over
+UART/I2C so a controller can never lock itself out).
+
+### ctrl uart [on|off]
+
+Get or set the UART control interface. Flags: `--tx <gpio>`, `--rx <gpio>`,
+`--baud <rate>` (9600..1000000), `--notify`. The apply outcome is read back
+via `ctrl status`.
+
+```
+dspictl ctrl uart
+dspictl ctrl uart on --tx 16 --rx 17 --baud 115200
+```
+
+### ctrl i2c [on|off]
+
+Get or set the I2C target control interface. Flags: `--sda <gpio>`, `--scl
+<gpio>`, `--address <0x08..0x77>`.
+
+```
+dspictl ctrl i2c
+dspictl ctrl i2c on --sda 18 --scl 19 --address 0x42
+```
+
+### ctrl status
+
+Show the live UART/I2C interface status and the last apply results.
+
+```
+dspictl ctrl status
+```
+
+## cs
+
+Control Surfaces: user-wired physical controls and indicators (buttons,
+switches, pots, rotary encoders, LEDs, IR receivers) on spare GPIOs, each
+bound to one firmware parameter (see `control_surfaces_spec.md`). SETs are
+apply-live-only previews; `cs save` persists them and `cs revert` discards
+them. Outcomes are polled via `cs status`.
+
+### cs status
+
+Show the status packet: last SET result, dirty flag, active bindings, IR
+learn state.
+
+```
+dspictl cs status
+```
+
+### cs caps
+
+Show the capability header (format version, counts) and the per-type action
+masks.
+
+```
+dspictl cs caps
+```
+
+### cs binding get *slot*
+
+Show the live binding of a slot (0-15).
+
+```
+dspictl cs binding get 3
+```
+
+### cs binding set *slot*
+
+Upload a binding. Flags: `--type <none|button|switch|pot|encoder|led|led-pwm|ir>`,
+`--noun <noun>` (e.g. `user-volume`, `master-volume`, `filter-freq`, `preset`),
+`--action <adjust|step|inc|dec|toggle|set|follow|trigger|ind-equals|momentary|ind-above|ind-level>`,
+`--gpio <pin[,pin]>`, `--event <press|long|double>`, `--target <ch>`,
+`--index <band>`, `--value`, `--step`, `--range-min`, `--range-max`,
+`--invert`.
+
+```
+dspictl cs binding set 0 --type button --noun user-mute --action toggle --gpio 26
+dspictl cs binding set 1 --type pot --noun master-volume --action adjust --gpio 27
+```
+
+### cs name get *slot* / cs name set *slot* *name*
+
+Get or set a slot's user label (up to 31 bytes). Names survive binding
+changes and slot clears.
+
+```
+dspictl cs name set 0 "Mute All"
+dspictl cs name get 0
+```
+
+### cs ir get *subslot* / cs ir set *subslot*
+
+Get or set an IR remote command (sub-slots 0-15). The `ir set` flags mirror
+`binding set` plus `--protocol <nec|rc5|rc6|hash>` and `--code <hex>` (the
+learned code).
+
+```
+dspictl cs ir set 0 --noun preset --action set --protocol nec --code 0x00FF10EF --value 1
+dspictl cs ir get 0
+```
+
+### cs ir learn [arm|cancel|read]
+
+*arm* listens for the next decoded press and captures it; *read* returns the
+captured protocol + code; *cancel* aborts. Requires a live CS_TYPE_IR binding.
+
+```
+dspictl cs ir learn arm
+dspictl cs ir learn read
+```
+
+### cs save / cs revert
+
+Persist the whole live CS config (bindings, IR commands, slot names) to flash,
+or discard the preview and re-apply the stored config. Both are deferred;
+poll `cs status` for the outcome.
+
+```
+dspictl cs save
+dspictl cs revert
 ```
 
 ## mixer

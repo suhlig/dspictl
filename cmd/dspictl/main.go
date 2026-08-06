@@ -139,6 +139,10 @@ func newRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newLGSoundSyncCmd())
 	rootCmd.AddCommand(newPsybassCmd())
 	rootCmd.AddCommand(newSiggenCmd())
+	rootCmd.AddCommand(newUpmixCmd())
+	rootCmd.AddCommand(newAdatOutputCmd())
+	rootCmd.AddCommand(newCtrlCmd())
+	rootCmd.AddCommand(newCsCmd())
 
 	return rootCmd
 }

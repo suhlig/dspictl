@@ -20,6 +20,8 @@ func InputSourceName(source int) string {
 		return "S/PDIF 2"
 	case InputSourceSPDIF3:
 		return "S/PDIF 3"
+	case InputSourceSPDIF4:
+		return "S/PDIF 4"
 	default:
 		return fmt.Sprintf("Unknown(%d)", source)
 	}
@@ -407,6 +409,101 @@ func (d *Device) GetAdatInputClockMode() (int, error) {
 
 	if err != nil {
 		return 0, fmt.Errorf("REQ_GET_ADAT_INPUT_CLOCK_MODE: %w", err)
+	}
+
+	return int(buf[0]), nil
+}
+
+// I2sSlaveState describes the I2S input external-clock lock state.
+type I2sSlaveState int
+
+const (
+	I2sSlaveInactive  I2sSlaveState = 0 // not in slave role (or input stopped)
+	I2sSlaveAcquiring I2sSlaveState = 1 // measuring external clocks, no lock yet
+	I2sSlaveRelocking I2sSlaveState = 2 // clocks lost or rate changed; output muted
+	I2sSlaveLocked    I2sSlaveState = 3 // locked to a supported external rate
+)
+
+// String returns a human-readable name for the I2S slave state.
+func (s I2sSlaveState) String() string {
+	switch s {
+	case I2sSlaveInactive:
+		return "inactive"
+	case I2sSlaveAcquiring:
+		return "acquiring"
+	case I2sSlaveRelocking:
+		return "relocking"
+	case I2sSlaveLocked:
+		return "locked"
+	default:
+		return fmt.Sprintf("unknown(%d)", s)
+	}
+}
+
+// I2sSlaveStatus is the decoded 16-byte I2S slave status packet from
+// REQ_GET_I2S_SLAVE_STATUS.
+type I2sSlaveStatus struct {
+	State        I2sSlaveState
+	ClockMode    int
+	LockCount    uint8
+	LossCount    uint8
+	DetectedRate uint32
+	MeasuredHz   uint32
+	SlipCount    uint8
+}
+
+// GetI2sSlaveStatus reads the 16-byte I2S slave input status packet.
+func (d *Device) GetI2sSlaveStatus() (*I2sSlaveStatus, error) {
+	if d.closed {
+		return nil, fmt.Errorf("device is closed")
+	}
+
+	buf := make([]byte, 16)
+	n, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetI2SSlaveStatus, 0, vendorInterface, buf)
+	if err != nil {
+		return nil, fmt.Errorf("REQ_GET_I2S_SLAVE_STATUS: %w", err)
+	}
+	if n < 16 {
+		return nil, fmt.Errorf("REQ_GET_I2S_SLAVE_STATUS: response too short (%d bytes)", n)
+	}
+
+	return &I2sSlaveStatus{
+		State:        I2sSlaveState(buf[0]),
+		ClockMode:    int(buf[1]),
+		LockCount:    buf[2],
+		LossCount:    buf[3],
+		DetectedRate: binary.LittleEndian.Uint32(buf[4:8]),
+		MeasuredHz:   binary.LittleEndian.Uint32(buf[8:12]),
+		SlipCount:    buf[12],
+	}, nil
+}
+
+// SetI2SClockMode sets the I2S input clock mode (0 = master, 1 = slave;
+// REQ_SET_I2S_CLOCK_MODE).  The change is deferred to the main loop; the
+// GET returns the live mode until then.
+func (d *Device) SetI2SClockMode(mode int) error {
+	if d.closed {
+		return fmt.Errorf("device is closed")
+	}
+
+	_, err := d.usb.ControlTransfer(vendorInterfaceOutRequest, ReqSetI2SClockMode, 0, vendorInterface, []byte{byte(mode)})
+	if err != nil {
+		return fmt.Errorf("REQ_SET_I2S_CLOCK_MODE: %w", err)
+	}
+
+	return nil
+}
+
+// GetI2SClockMode returns the live I2S input clock mode (0 = master, 1 = slave).
+func (d *Device) GetI2SClockMode() (int, error) {
+	if d.closed {
+		return 0, fmt.Errorf("device is closed")
+	}
+
+	buf := make([]byte, 1)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqGetI2SClockMode, 0, vendorInterface, buf)
+	if err != nil {
+		return 0, fmt.Errorf("REQ_GET_I2S_CLOCK_MODE: %w", err)
 	}
 
 	return int(buf[0]), nil

@@ -204,3 +204,18 @@ func (d *Device) GetUSBErrorStats() (*USBErrorStats, error) {
 
 	return stats, nil
 }
+
+// ResetUSBErrorStats clears the USB PHY error counters (REQ_RESET_USB_ERROR_STATS).
+func (d *Device) ResetUSBErrorStats() error {
+	if d.closed {
+		return fmt.Errorf("device is closed")
+	}
+
+	buf := make([]byte, 1)
+	_, err := d.usb.ControlTransfer(vendorInterfaceInRequest, ReqResetUSBErrorStats, 0, vendorInterface, buf)
+	if err != nil {
+		return fmt.Errorf("REQ_RESET_USB_ERROR_STATS: %w", err)
+	}
+
+	return nil
+}
