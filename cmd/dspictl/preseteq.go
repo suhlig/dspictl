@@ -43,7 +43,7 @@ func newPresetEQMasterCmd() *cobra.Command {
 		RunE:              runPresetEQMasterSet,
 		ValidArgsFunction: completePresetEQChannelBand(func(ch dspi.ChannelInfo) bool { return ch.Index <= 1 }, true),
 	}
-	setCmd.Flags().String("type", "", "Filter type: flat, peak, lowshelf, highshelf, lowpass, highpass")
+	setCmd.Flags().String("type", "", "Filter type: flat, peak, lowshelf, highshelf, lowpass, highpass, notch, allpass, allpass1, lowshelf1, highshelf1, lowpass1, highpass1, linkwitz")
 	setCmd.Flags().Float64("freq", 0, "Frequency in Hz")
 	setCmd.Flags().Float64("q", 0, "Q factor")
 	setCmd.Flags().Float64("gain", 0, "Gain in dB")
@@ -90,7 +90,7 @@ func newPresetEQOutputCmd() *cobra.Command {
 		RunE:              runPresetEQOutputSet,
 		ValidArgsFunction: completePresetEQOutputChannelBand(true),
 	}
-	setCmd.Flags().String("type", "", "Filter type: flat, peak, lowshelf, highshelf, lowpass, highpass")
+	setCmd.Flags().String("type", "", "Filter type: flat, peak, lowshelf, highshelf, lowpass, highpass, notch, allpass, allpass1, lowshelf1, highshelf1, lowpass1, highpass1, linkwitz")
 	setCmd.Flags().Float64("freq", 0, "Frequency in Hz")
 	setCmd.Flags().Float64("q", 0, "Q factor")
 	setCmd.Flags().Float64("gain", 0, "Gain in dB")

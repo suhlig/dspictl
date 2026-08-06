@@ -230,6 +230,7 @@ const (
 	InputSourceADAT   = 3
 	InputSourceSPDIF2 = 4
 	InputSourceSPDIF3 = 5
+	InputSourceSPDIF4 = 6
 
 	// ADAT input clock modes (see AdatClockModeMaster/Slave constants).
 	AdatClockModeMaster = 0

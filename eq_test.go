@@ -127,6 +127,42 @@ var _ = Describe("EQBand", func() {
 			Expect(err).To(MatchError(ContainSubstring("frequency must be > 0")))
 		})
 
+		It("allows first-order filters without a Q value", func() {
+			for _, typ := range []dspi.FilterType{
+				dspi.FilterTypeAllPass1,
+				dspi.FilterTypeLowShelf1,
+				dspi.FilterTypeHighShelf1,
+				dspi.FilterTypeLowPass1,
+				dspi.FilterTypeHighPass1,
+			} {
+				band := &dspi.EQBand{
+					Channel:       0,
+					Band:          0,
+					Type:          typ,
+					Freq:          100,
+					QualityFactor: 0, // ignored by the firmware for first-order types
+					Gain:          0,
+				}
+
+				err := dev.SetEQBand(band)
+				Expect(err).ToNot(HaveOccurred(), "type %s", typ)
+			}
+		})
+
+		It("sends the first-order low/high pass wire type values", func() {
+			band := &dspi.EQBand{
+				Channel: 0,
+				Band:    0,
+				Type:    dspi.FilterTypeLowPass1,
+				Freq:    80,
+			}
+
+			err := dev.SetEQBand(band)
+			Expect(err).ToNot(HaveOccurred())
+			data := mock.CapturedRequests[1].Data
+			Expect(data[2]).To(Equal(byte(12))) // FILTER_LOWPASS1
+		})
+
 		It("rejects non-positive Q", func() {
 			band := &dspi.EQBand{
 				Channel:       0,
@@ -300,6 +336,8 @@ var _ = Describe("EQBand", func() {
 			Expect(dspi.FilterTypeAllPass1.String()).To(Equal("allpass1"))
 			Expect(dspi.FilterTypeLowShelf1.String()).To(Equal("lowshelf1"))
 			Expect(dspi.FilterTypeHighShelf1.String()).To(Equal("highshelf1"))
+			Expect(dspi.FilterTypeLowPass1.String()).To(Equal("lowpass1"))
+			Expect(dspi.FilterTypeHighPass1.String()).To(Equal("highpass1"))
 		})
 
 		It("parses known type strings", func() {
@@ -326,6 +364,18 @@ var _ = Describe("EQBand", func() {
 			t, err = dspi.ParseFilterType("lowshelf1")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(t).To(Equal(dspi.FilterTypeLowShelf1))
+
+			t, err = dspi.ParseFilterType("lowpass1")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(t).To(Equal(dspi.FilterTypeLowPass1))
+
+			t, err = dspi.ParseFilterType("highpass1")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(t).To(Equal(dspi.FilterTypeHighPass1))
+
+			t, err = dspi.ParseFilterType("linkwitz")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(t).To(Equal(dspi.FilterTypeLinkwitzTransform))
 		})
 
 		It("rejects unknown type strings", func() {

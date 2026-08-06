@@ -34,6 +34,8 @@ const (
 	FilterTypeLowShelf1
 	FilterTypeHighShelf1
 	FilterTypeLinkwitzTransform
+	FilterTypeLowPass1
+	FilterTypeHighPass1
 )
 
 // String returns the human-readable name of the filter type.
@@ -63,6 +65,10 @@ func (t FilterType) String() string {
 		return "highshelf1"
 	case FilterTypeLinkwitzTransform:
 		return "linkwitz"
+	case FilterTypeLowPass1:
+		return "lowpass1"
+	case FilterTypeHighPass1:
+		return "highpass1"
 	default:
 		return fmt.Sprintf("unknown(%d)", t)
 	}
@@ -95,6 +101,10 @@ func ParseFilterType(s string) (FilterType, error) {
 		return FilterTypeHighShelf1, nil
 	case "linkwitz":
 		return FilterTypeLinkwitzTransform, nil
+	case "lowpass1":
+		return FilterTypeLowPass1, nil
+	case "highpass1":
+		return FilterTypeHighPass1, nil
 	default:
 		return 0, fmt.Errorf("unknown filter type: %s", s)
 	}
@@ -143,11 +153,24 @@ func (b *EQBand) Validate(maxChannel, maxBand int) error {
 		return fmt.Errorf("frequency must be > 0")
 	}
 
-	if b.Type != FilterTypeFlat && b.QualityFactor <= 0 {
+	if b.Type != FilterTypeFlat && b.QualityFactor <= 0 && filterUsesQ(b.Type) {
 		return fmt.Errorf("quality factor must be > 0")
 	}
 
 	return nil
+}
+
+// filterUsesQ reports whether the firmware interprets the Q parameter for this
+// filter type.  First-order types (allpass1, lowshelf1, highshelf1, lowpass1,
+// highpass1) have no resonance; the firmware ignores Q for them.
+func filterUsesQ(t FilterType) bool {
+	switch t {
+	case FilterTypeAllPass1, FilterTypeLowShelf1, FilterTypeHighShelf1,
+		FilterTypeLowPass1, FilterTypeHighPass1:
+		return false
+	default:
+		return true
+	}
 }
 
 // validateBandIndex checks a band index against the firmware band map:

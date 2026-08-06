@@ -50,7 +50,7 @@ func newEQMasterCmd() *cobra.Command {
 		RunE:              runEQMasterSet,
 		ValidArgsFunction: completeEQMasterChannelsAndBands,
 	}
-	setCmd.Flags().String("type", "", "Filter type: flat, peak, lowshelf, highshelf, lowpass, highpass, linkwitz")
+	setCmd.Flags().String("type", "", "Filter type: flat, peak, lowshelf, highshelf, lowpass, highpass, notch, allpass, allpass1, lowshelf1, highshelf1, lowpass1, highpass1, linkwitz")
 	setCmd.Flags().Float64("freq", 0, "Frequency in Hz")
 	setCmd.Flags().Float64("q", 0, "Q factor")
 	setCmd.Flags().Float64("gain", 0, "Gain in dB (for linkwitz: target fp in Hz)")
@@ -114,7 +114,7 @@ func newEQOutputCmd() *cobra.Command {
 		RunE:              runEQOutputSet,
 		ValidArgsFunction: completeEQOutputChannelsAndBands,
 	}
-	setCmd.Flags().String("type", "", "Filter type: flat, peak, lowshelf, highshelf, lowpass, highpass, linkwitz")
+	setCmd.Flags().String("type", "", "Filter type: flat, peak, lowshelf, highshelf, lowpass, highpass, notch, allpass, allpass1, lowshelf1, highshelf1, lowpass1, highpass1, linkwitz")
 	setCmd.Flags().Float64("freq", 0, "Frequency in Hz")
 	setCmd.Flags().Float64("q", 0, "Q factor")
 	setCmd.Flags().Float64("gain", 0, "Gain in dB (for linkwitz: target fp in Hz)")
@@ -182,6 +182,8 @@ func printEQBand(band *dspi.EQBand) {
 	}
 
 	switch band.Type {
+	case dspi.FilterTypeLowPass1, dspi.FilterTypeHighPass1:
+		fmt.Printf("    band %d: %s  %.1f Hz\n", band.Band, band.Type, band.Freq)
 	case dspi.FilterTypeLowPass, dspi.FilterTypeHighPass:
 		fmt.Printf("    band %d: %s  %.1f Hz  Q %.2f\n", band.Band, band.Type, band.Freq, band.QualityFactor)
 	case dspi.FilterTypeLinkwitzTransform:
@@ -312,6 +314,8 @@ func getEQBand(channel, band int) error {
 
 func printEQBandForDevice(serial string, band *dspi.EQBand) {
 	switch band.Type {
+	case dspi.FilterTypeLowPass1, dspi.FilterTypeHighPass1:
+		fmt.Printf("%s: ch %d band %d: %s  %.1f Hz\n", serial, band.Channel, band.Band, band.Type, band.Freq)
 	case dspi.FilterTypeLowPass, dspi.FilterTypeHighPass:
 		fmt.Printf("%s: ch %d band %d: %s  %.1f Hz  Q %.2f\n", serial, band.Channel, band.Band, band.Type, band.Freq, band.QualityFactor)
 	case dspi.FilterTypeLinkwitzTransform:

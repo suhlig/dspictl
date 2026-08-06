@@ -373,7 +373,7 @@ Parametric equalizer for master channels and per-output channels.
 | `output clear` | `<channel>` | Reset all output bands to flat |
 | `output band-bypass` | `<channel> <band> [true\|false]` | Get or set bypass for a single output band |
 
-Band set flags: `--type <flat|peak|lowshelf|highshelf|lowpass|highpass|linkwitz>`, `--freq <Hz>`, `--q <factor>`, `--gain <dB>`, `--qp <Q>`.
+Band set flags: `--type <flat|peak|lowshelf|highshelf|lowpass|highpass|notch|allpass|allpass1|lowshelf1|highshelf1|lowpass1|highpass1|linkwitz>`, `--freq <Hz>`, `--q <factor>`, `--gain <dB>`, `--qp <Q>`.
 For the Linkwitz Transform (`--type linkwitz`), `freq` is the driver resonance f0, `q` is the driver Q0, `gain` is the target fp in Hz, and `qp` is the target pole Q.
 
 ```

@@ -11,15 +11,19 @@ const (
 	// Linux usbfs 4096-byte limit (rounded down for safety).
 	chunkSize = 4096
 
-	// wireBulkSize is the V24 WireBulkParams payload size in bytes.
+	// wireBulkSize is the V28 WireBulkParams payload size in bytes.
+	// V28 (fourth selectable SPDIF input): WireInputConfig's spdif_rx_pin_ext grows
+	// 2→3 entries, shifting the fields below it down one byte (section size unchanged).
+	// V27 (upmixer centre OFF) and V26 (upmixer presence) are enum/byte-reuse only.
+	// V25 (Stereo Upmixer) appends a 44-byte WireUpmixParams section at offset 5900.
 	// V24 (ADAT input) reuses reserved bytes inside WireInputConfig; total size unchanged from V23.
 	// V23 (Psychoacoustic Bass) appends a 24-byte WirePsybassParams section at offset 5876.
 	// V20 adds: loudness_output_mask in global (V19), crossfeed output_pair_mask (V20),
 	// leveller detector/apply masks growing from 16→20 bytes (V18), and ADAT output section (V17).
-	wireBulkSize = 5900
+	wireBulkSize = 5944
 )
 
-// V24 field offsets within the WireBulkParams payload (5900 bytes).
+// V28 field offsets within the WireBulkParams payload (5944 bytes).
 const (
 	fieldHeader       = 0    // 16 bytes
 	fieldGlobal       = 16   // 16 bytes
@@ -42,6 +46,7 @@ const (
 	fieldCrossovers   = 4780 // 1088 bytes (17×4 × 16)
 	fieldADAT         = 5868 // 8 bytes (ADAT output)
 	fieldPsybass      = 5876 // 24 bytes (V23)
+	fieldUpmix        = 5900 // 44 bytes (V25: stereo upmixer)
 )
 
 // fieldEntry describes a named field in the bulk payload by its offset and size.
@@ -72,6 +77,7 @@ var fieldRegistry = map[string]fieldEntry{
 	"crossovers":    {fieldCrossovers, 1088},
 	"adat":          {fieldADAT, 8},
 	"psybass":       {fieldPsybass, 24},
+	"upmix":         {fieldUpmix, 44},
 }
 
 // BulkHeader is the 16-byte header parsed from a WireBulkParams payload.
@@ -152,6 +158,12 @@ func (d *Device) SetAllParams(params *BulkParams) error {
 	}
 	if params == nil || len(params.Raw) == 0 {
 		return fmt.Errorf("no params to restore")
+	}
+	// The firmware only accepts the exact current wire size (v1.1.5 = V28,
+	// 5944 bytes); anything else is rejected with a STALL.  Fail early with a
+	// clear message instead (e.g. importing an older 5900-byte export).
+	if len(params.Raw) != wireBulkSize {
+		return fmt.Errorf("snapshot is %d bytes, device expects %d (wire V28)", len(params.Raw), wireBulkSize)
 	}
 	if params.Header.Platform != d.platform {
 		return fmt.Errorf("platform mismatch (snapshot is %s, device is %s)", params.Header.Platform, d.platform)
@@ -357,6 +369,28 @@ func (bp *BulkParams) SetLoudnessOutputMask(v uint16) {
 	bp.SetU16("global", 6, v)
 }
 
+// LoudnessRefSPL returns the loudness reference SPL in dB from the bulk parameters.
+func (bp *BulkParams) LoudnessRefSPL() (float32, bool) {
+	return bp.GetFloat32("global", 8)
+}
+
+// SetLoudnessRefSPL updates the loudness reference SPL in dB in the bulk parameters.
+func (bp *BulkParams) SetLoudnessRefSPL(v float32) {
+	bp.SetFloat32("global", 8, v)
+}
+
+// LoudnessIntensityPct returns the loudness compensation intensity percentage
+// from the bulk parameters.
+func (bp *BulkParams) LoudnessIntensityPct() (float32, bool) {
+	return bp.GetFloat32("global", 12)
+}
+
+// SetLoudnessIntensityPct updates the loudness compensation intensity percentage
+// in the bulk parameters.
+func (bp *BulkParams) SetLoudnessIntensityPct(v float32) {
+	bp.SetFloat32("global", 12, v)
+}
+
 // CrossfeedOutputPairMask returns the crossfeed output-pair bitmask from the bulk parameters.
 // Bit p = crossfeed runs on output pair p (outputs 2p / 2p+1) (V20+; default 0x01).
 func (bp *BulkParams) CrossfeedOutputPairMask() (uint8, bool) {
@@ -390,37 +424,78 @@ func (bp *BulkParams) SetLevellerApplyMask(v uint8) {
 	bp.SetU8("leveller", 17, v)
 }
 
-// AdatInputPin returns the configured ADAT input RX GPIO from the bulk parameters.
+// SpdifRxPinExt returns the optional SPDIF input RX GPIO (index 1..3; V28+).
+// 0 means absent (keep live value).  Index 0 addresses the primary input,
+// which lives in the separate spdif_rx_pin field.
+func (bp *BulkParams) SpdifRxPinExt(index int) (uint8, bool) {
+	if index < 1 || index > 3 {
+		return 0, false
+	}
+	return bp.GetU8("input_config", 7+index)
+}
+
+// SetSpdifRxPinExt updates the optional SPDIF input RX GPIO (index 1..3; V28+).
+func (bp *BulkParams) SetSpdifRxPinExt(index int, v uint8) {
+	if index < 1 || index > 3 {
+		return
+	}
+	bp.SetU8("input_config", 7+index, v)
+}
+
+// SpdifRxEnabledExtP1 returns the optional SPDIF inputs enable mask +1 encoded
+// field from the bulk parameters (V28+).  0 = absent (keep live), 1 = all
+// disabled, 2 = SPDIF2, 3 = SPDIF2+3, 4 = SPDIF2+3+4.
+func (bp *BulkParams) SpdifRxEnabledExtP1() (uint8, bool) {
+	return bp.GetU8("input_config", 11)
+}
+
+// SetSpdifRxEnabledExtP1 updates the optional SPDIF inputs enable mask +1 field.
+func (bp *BulkParams) SetSpdifRxEnabledExtP1(v uint8) {
+	bp.SetU8("input_config", 11, v)
+}
+
+// I2SClockMode returns the I2S clock mode from the bulk parameters (V21+).
+// 0 = master, 1 = slave.
+func (bp *BulkParams) I2SClockMode() (uint8, bool) {
+	return bp.GetU8("input_config", 12)
+}
+
+// SetI2SClockMode updates the I2S clock mode in the bulk parameters.
+func (bp *BulkParams) SetI2SClockMode(v uint8) {
+	bp.SetU8("input_config", 12, v)
+}
+
+// AdatInputPin returns the configured ADAT input RX GPIO from the bulk parameters (V28+).
 // 0 means absent (keep live value), 0xFF is never stored on the wire.
 func (bp *BulkParams) AdatInputPin() (uint8, bool) {
-	return bp.GetU8("input_config", 12)
+	return bp.GetU8("input_config", 13)
 }
 
 // SetAdatInputPin updates the ADAT input RX GPIO in the bulk parameters.
 func (bp *BulkParams) SetAdatInputPin(v uint8) {
-	bp.SetU8("input_config", 12, v)
+	bp.SetU8("input_config", 13, v)
 }
 
 // AdatInputEnabledP1 returns the ADAT input enable +1 encoded field from the bulk parameters.
 // 0 = absent (keep live), 1 = disabled, 2 = enabled.
 func (bp *BulkParams) AdatInputEnabledP1() (uint8, bool) {
-	return bp.GetU8("input_config", 13)
+	return bp.GetU8("input_config", 14)
 }
 
 // SetAdatInputEnabledP1 updates the ADAT input enable +1 encoded field in the bulk parameters.
 func (bp *BulkParams) SetAdatInputEnabledP1(v uint8) {
-	bp.SetU8("input_config", 13, v)
+	bp.SetU8("input_config", 14, v)
 }
 
 // AdatInputClockModeP1 returns the ADAT input clock mode +1 encoded field from the bulk parameters.
 // 0 = absent (keep live), 1 = master, 2 = slave.
 func (bp *BulkParams) AdatInputClockModeP1() (uint8, bool) {
-	return bp.GetU8("input_config", 14)
+	return bp.GetU8("input_config", 15)
 }
 
 // SetAdatInputClockModeP1 updates the ADAT input clock mode +1 encoded field in the bulk parameters.
 func (bp *BulkParams) SetAdatInputClockModeP1(v uint8) {
-	bp.SetU8("input_config", 14, v)
+	bp.SetU8("input_config", 15, v)
 }
 
 // PsybassEnabled returns the psychoacoustic bass enabled flag from the bulk parameters.
@@ -497,4 +572,162 @@ func (bp *BulkParams) PsybassOriginal() (float32, bool) {
 // SetPsybassOriginal updates the psychoacoustic bass original low-band level in dB.
 func (bp *BulkParams) SetPsybassOriginal(v float32) {
 	bp.SetFloat32("psybass", 20, v)
+}
+
+// UpmixEnabled returns the stereo upmixer enabled flag from the bulk parameters (V25+).
+func (bp *BulkParams) UpmixEnabled() (bool, bool) {
+	v, ok := bp.GetU8("upmix", 0)
+	return v != 0, ok
+}
+
+// SetUpmixEnabled updates the stereo upmixer enabled flag in the bulk parameters.
+func (bp *BulkParams) SetUpmixEnabled(v bool) {
+	val := uint8(0)
+	if v {
+		val = 1
+	}
+	bp.SetU8("upmix", 0, val)
+}
+
+// UpmixCenterMode returns the upmixer centre engine mode from the bulk parameters.
+// 0 = passive, 1 = adaptive, 2 = off (V27+).
+func (bp *BulkParams) UpmixCenterMode() (uint8, bool) {
+	return bp.GetU8("upmix", 1)
+}
+
+// SetUpmixCenterMode updates the upmixer centre engine mode in the bulk parameters.
+func (bp *BulkParams) SetUpmixCenterMode(v uint8) {
+	bp.SetU8("upmix", 1, v)
+}
+
+// UpmixSurroundMode returns the upmixer surround engine mode from the bulk parameters.
+// 0 = off, 1 = passive, 2 = adaptive.
+func (bp *BulkParams) UpmixSurroundMode() (uint8, bool) {
+	return bp.GetU8("upmix", 2)
+}
+
+// SetUpmixSurroundMode updates the upmixer surround engine mode in the bulk parameters.
+func (bp *BulkParams) SetUpmixSurroundMode(v uint8) {
+	bp.SetU8("upmix", 2, v)
+}
+
+// UpmixPresenceQ1 returns the upmixer centre presence bell gain as the raw wire
+// int8 (dB × 2, V26+).  Convert with float32(v) / 2 for dB.
+func (bp *BulkParams) UpmixPresenceQ1() (int8, bool) {
+	v, ok := bp.GetU8("upmix", 3)
+	return int8(v), ok
+}
+
+// SetUpmixPresenceQ1 updates the upmixer centre presence bell gain (wire int8,
+// dB × 2, V26+).
+func (bp *BulkParams) SetUpmixPresenceQ1(v int8) {
+	bp.SetU8("upmix", 3, uint8(v))
+}
+
+// UpmixStrengthPct returns the upmixer strength percentage from the bulk parameters.
+func (bp *BulkParams) UpmixStrengthPct() (float32, bool) {
+	return bp.GetFloat32("upmix", 4)
+}
+
+// SetUpmixStrengthPct updates the upmixer strength percentage in the bulk parameters.
+func (bp *BulkParams) SetUpmixStrengthPct(v float32) {
+	bp.SetFloat32("upmix", 4, v)
+}
+
+// UpmixCenterWidthPct returns the upmixer centre width percentage from the bulk parameters.
+func (bp *BulkParams) UpmixCenterWidthPct() (float32, bool) {
+	return bp.GetFloat32("upmix", 8)
+}
+
+// SetUpmixCenterWidthPct updates the upmixer centre width percentage in the bulk parameters.
+func (bp *BulkParams) SetUpmixCenterWidthPct(v float32) {
+	bp.SetFloat32("upmix", 8, v)
+}
+
+// UpmixCorrThresholdPct returns the upmixer correlation threshold percentage
+// from the bulk parameters.
+func (bp *BulkParams) UpmixCorrThresholdPct() (float32, bool) {
+	return bp.GetFloat32("upmix", 12)
+}
+
+// SetUpmixCorrThresholdPct updates the upmixer correlation threshold percentage
+// in the bulk parameters.
+func (bp *BulkParams) SetUpmixCorrThresholdPct(v float32) {
+	bp.SetFloat32("upmix", 12, v)
+}
+
+// UpmixAttackMs returns the upmixer attack time in ms from the bulk parameters.
+func (bp *BulkParams) UpmixAttackMs() (float32, bool) {
+	return bp.GetFloat32("upmix", 16)
+}
+
+// SetUpmixAttackMs updates the upmixer attack time in ms in the bulk parameters.
+func (bp *BulkParams) SetUpmixAttackMs(v float32) {
+	bp.SetFloat32("upmix", 16, v)
+}
+
+// UpmixReleaseMs returns the upmixer release time in ms from the bulk parameters.
+func (bp *BulkParams) UpmixReleaseMs() (float32, bool) {
+	return bp.GetFloat32("upmix", 20)
+}
+
+// SetUpmixReleaseMs updates the upmixer release time in ms in the bulk parameters.
+func (bp *BulkParams) SetUpmixReleaseMs(v float32) {
+	bp.SetFloat32("upmix", 20, v)
+}
+
+// UpmixDetectorHpfHz returns the upmixer detector high-pass frequency from the
+// bulk parameters.
+func (bp *BulkParams) UpmixDetectorHpfHz() (float32, bool) {
+	return bp.GetFloat32("upmix", 24)
+}
+
+// SetUpmixDetectorHpfHz updates the upmixer detector high-pass frequency in the
+// bulk parameters.
+func (bp *BulkParams) SetUpmixDetectorHpfHz(v float32) {
+	bp.SetFloat32("upmix", 24, v)
+}
+
+// UpmixSurroundDelayMs returns the upmixer surround delay in ms from the bulk parameters.
+func (bp *BulkParams) UpmixSurroundDelayMs() (float32, bool) {
+	return bp.GetFloat32("upmix", 28)
+}
+
+// SetUpmixSurroundDelayMs updates the upmixer surround delay in ms in the bulk parameters.
+func (bp *BulkParams) SetUpmixSurroundDelayMs(v float32) {
+	bp.SetFloat32("upmix", 28, v)
+}
+
+// UpmixSurroundHpfHz returns the upmixer surround high-pass frequency from the
+// bulk parameters.
+func (bp *BulkParams) UpmixSurroundHpfHz() (float32, bool) {
+	return bp.GetFloat32("upmix", 32)
+}
+
+// SetUpmixSurroundHpfHz updates the upmixer surround high-pass frequency in the
+// bulk parameters.
+func (bp *BulkParams) SetUpmixSurroundHpfHz(v float32) {
+	bp.SetFloat32("upmix", 32, v)
+}
+
+// UpmixSurroundLpfHz returns the upmixer surround low-pass frequency from the
+// bulk parameters.
+func (bp *BulkParams) UpmixSurroundLpfHz() (float32, bool) {
+	return bp.GetFloat32("upmix", 36)
+}
+
+// SetUpmixSurroundLpfHz updates the upmixer surround low-pass frequency in the
+// bulk parameters.
+func (bp *BulkParams) SetUpmixSurroundLpfHz(v float32) {
+	bp.SetFloat32("upmix", 36, v)
+}
+
+// UpmixDecorrPct returns the upmixer decorrelation percentage from the bulk parameters.
+func (bp *BulkParams) UpmixDecorrPct() (float32, bool) {
+	return bp.GetFloat32("upmix", 40)
+}
+
+// SetUpmixDecorrPct updates the upmixer decorrelation percentage in the bulk parameters.
+func (bp *BulkParams) SetUpmixDecorrPct(v float32) {
+	bp.SetFloat32("upmix", 40, v)
 }
