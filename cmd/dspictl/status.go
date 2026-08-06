@@ -26,6 +26,14 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	defer closeDevices(devices)
 
 	for _, d := range devices {
+		if err := d.FirmwareCompatError(); err != nil {
+			fmt.Printf("Serial: %s\n", d.Serial())
+			fmt.Printf("  Firmware: %s\n", d.FirmwareVersion())
+			fmt.Printf("  WARNING: %s\n", err)
+
+			continue
+		}
+
 		volume, err := d.GetMasterVolume()
 
 		if err != nil {

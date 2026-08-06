@@ -1879,6 +1879,15 @@ Ensure the DSPi is connected via USB, powered on, and that you have permission
 to access the device (see udev rule above). Use `dspictl status` to confirm
 the device is detected.
 
+### libusb: pipe error [code -9] / firmware predates the V16 wire protocol
+
+dspictl 2.x requires the V16+ wire protocol, shipped since firmware
+v1.1.5-beta3.  On older firmware every command fails with a clear
+"predates the V16 wire protocol" error (previously a cryptic STALL / pipe
+error).  `dspictl firmware version` and `dspictl status` report the device's
+version and the incompatibility; `dspictl firmware upgrade` still works on
+such devices — the bootloader command is the one operation allowed through.
+
 # BUGS
 
 Report bugs and feature requests at:

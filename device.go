@@ -104,6 +104,15 @@ func Open(info DeviceInfo) (*Device, error) {
 	d.platform = plat
 	d.fwVersion = fw
 
+	// Install the firmware-compatibility gate and probe the wire protocol.
+	// The probe runs through the gate (its error is still nil at this
+	// point), so every later transfer is checked consistently.  On old
+	// firmware the gate refuses all operations except the bootloader
+	// command, which is how such a device is upgraded.
+	gate := &compatGate{inner: d.usb}
+	d.usb = gate
+	gate.err = d.probeFirmwareCompatibility()
+
 	return d, nil
 }
 
@@ -159,16 +168,37 @@ func (d *Device) Close() {
 	d.closed = true
 }
 
+// controlTimeoutSetter is implemented by the gousb-backed transfer and by
+// the compatibility gate (which forwards to it).  Mocks do not implement it.
+type controlTimeoutSetter interface {
+	setControlTimeout(time.Duration)
+}
+
+func (c *gousbControlTransfer) setControlTimeout(dur time.Duration) {
+	c.device.ControlTimeout = dur
+}
+
 // setControlTimeout sets the USB control transfer timeout on the underlying
 // gousb device. It is a no-op when running against a mock.
 func (d *Device) setControlTimeout(dur time.Duration) {
-	if gt, ok := d.usb.(*gousbControlTransfer); ok {
-		gt.device.ControlTimeout = dur
+	if s, ok := d.usb.(controlTimeoutSetter); ok {
+		s.setControlTimeout(dur)
 	}
 }
 
 // Platform returns the detected hardware platform.
 func (d *Device) Platform() Platform { return d.platform }
+
+// FirmwareCompatError returns a non-nil error when the connected device's
+// firmware predates the V16 wire protocol that dspictl 2.x requires.  On such
+// devices every operation (except entering the bootloader) fails with this
+// error; see compat.go.
+func (d *Device) FirmwareCompatError() error {
+	if g, ok := d.usb.(*compatGate); ok {
+		return g.err
+	}
+	return nil
+}
 
 // FirmwareVersion returns the decoded firmware version from REQ_GET_PLATFORM.
 func (d *Device) FirmwareVersion() FirmwareVersion { return d.fwVersion }

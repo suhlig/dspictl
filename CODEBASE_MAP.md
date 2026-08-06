@@ -75,6 +75,7 @@ All commands live under `cmd/dspictl/`. Each file is a thin wrapper around the l
 | Enumerate connected devices without opening | `discovery.go:10` | `DeviceInfo`, `discovery.go:17` `List` |
 | Construct a device for tests | `usb.go:18` | `NewDevice` |
 | Platform detection at open time | `device.go:206` | `detectPlatform` |
+| Firmware compatibility gate | `compat.go:13` | `compatGate`, `compat.go:63` `probeFirmwareCompatibility`, `device.go:177` `FirmwareCompatError` |
 | Platform constants & names | `platform.go:6` | `Platform`, `PlatformRP2040`, `PlatformRP2350` |
 | Firmware version type | `platform.go:25` | `FirmwareVersion` |
 | Gain type | `gain.go:6` | `Gain`, `gain.go:9` `NewGain` |

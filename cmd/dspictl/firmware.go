@@ -81,6 +81,10 @@ func runFirmwareVersion(cmd *cobra.Command, args []string) error {
 
 	for _, d := range devices {
 		fmt.Printf("%s: %s\n", d.Serial(), d.FirmwareVersion())
+
+		if err := d.FirmwareCompatError(); err != nil {
+			fmt.Printf("  WARNING: %s\n", err)
+		}
 	}
 
 	return nil
