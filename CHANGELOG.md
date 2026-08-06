@@ -4,6 +4,47 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-08-06
+
+❗️This major release adds full support for the V28 wire format introduced with DSPi v1.1.5. It is not backwards-compatible with older versions: dspictl 2.x requires the V16+ wire protocol (firmware v1.1.5-beta3 or later) and refuses all USB operations on older firmware with a clear error.
+
+### Added
+
+- Onboard signal generator: `siggen` command group with `start`, `stop`, `config`, `status`, and `types`
+- Stereo upmixer (RP2350 only): `upmix` command group with `config`, `status`, `on|off`, and `set <param> <value>` (14 parameters incl. centre presence)
+- ADAT bulk output (RP2350 only): `adat enable|pin|status`
+- ADAT input (RP2350 only): `input source adat`, `input adat enable|pin|clock-mode|status`
+- Psychoacoustic bass: `psybass` command group with cutoff, harmonics, drive, character, original, and output mask
+- Control Surfaces: `cs` command group with bindings, capability/status reads, slot names, IR commands and learning, and save/revert
+- UART and I2C external control interfaces: `ctrl uart|i2c|status`
+- Fourth selectable S/PDIF input: `input source spdif4`
+- S/PDIF multi-input configuration: `input spdif-enable <2|3|4>`, `input spdif-pin`, `input spdif-config`
+- I2S input clock mode and external-clock slave status: `input clock-mode`, `input slave-status`
+- I2S clock-pin mode (unified/split) and slave BCK pin role: `config clock-pin-mode`, `config bck-pin --role`
+- Vendor-channel user mute: `volume user-mute`
+- First-order low/high pass filter types: `eq master|output set ... --type lowpass1|highpass1`
+- Linkwitz Transform filter type: `eq master|output set ... --type linkwitz --qp <Q>`
+- Multichannel loudness, crossfeed, and volume leveller output/channel masks
+- Named presets matching the console app (Night mode, Dialog boost, Front L/R, Headphones)
+- `diagnostics channels` and `diagnostics reset-usb-errors` commands
+- Firmware compatibility probe at open: devices whose firmware predates the V16 wire protocol fail every operation with a clear error (except entering the bootloader, so `firmware upgrade` keeps working); `status` and `firmware version` print a warning
+- Add CODEBASE_MAP.md and link from README
+
+### Changed
+
+- Update wire format from V24 (5900 B) to V28 (5944 B): append the 44-byte stereo-upmixer section (V25) with its presence byte (V26) and centre-OFF mode (V27), and grow the optional S/PDIF input pins to three entries (V28); the bulk payload also exposes the loudness reference SPL and intensity
+- First-order filter types no longer require a Q factor (the firmware ignores it for them)
+- Bulk transfers retry with backoff (0.15/0.3/0.6 s, matching the console app) when the firmware is still applying a previous upload
+- SetAllParams rejects a snapshot that is not the current wire size with a clear error instead of a STALL
+- Update the man page for all new commands and add a troubleshooting entry for pre-V16 firmware
+- Update module github.com/cpuguy83/go-md2man/v2 to v2.0.7 (#28)
+- Update mislav/bump-homebrew-formula-action action to v4.2 (#33)
+
+### Fixed
+
+- `config export/import` and preset restore now work end to end against v1.1.5 firmware: the snapshot size and field offsets match the V28 layout
+- Hardware tests expect the V16+ unified channel model (17 channels on RP2350)
+
 ## [2.0.0-rc.2] - 2026-07-18
 
 ❗️This is a release candidate for the major new release with support for the V24 wire format introduced with DSPi v1.1.5. It is not backwards-compatible with older versions.
