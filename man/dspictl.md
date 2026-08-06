@@ -1183,6 +1183,15 @@ Read USB PHY error counters from the device.
 dspictl diagnostics usb-errors
 ```
 
+### diagnostics reset-usb-errors
+
+Reset the USB PHY error counters (a no-op under TinyUSB, acknowledged
+with a status byte).
+
+```
+dspictl diagnostics reset-usb-errors
+```
+
 ### diagnostics core1
 
 Query Core 1 operating mode (on dual-core platforms).
