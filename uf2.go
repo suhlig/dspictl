@@ -28,7 +28,7 @@ type UF2Info struct {
 
 // ParseUF2 reads a UF2 firmware file and extracts its metadata.
 func ParseUF2(path string) (*UF2Info, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //#nosec G304 -- path is a user-supplied CLI argument
 
 	if err != nil {
 		return nil, fmt.Errorf("reading UF2 file: %w", err)

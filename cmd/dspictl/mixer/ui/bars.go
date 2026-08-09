@@ -27,7 +27,7 @@ func DrawBar(fraction float64, width int, color color.Color) string {
 	var bld strings.Builder
 	bld.WriteString(strings.Repeat("█", full))
 	if rem > 0 {
-		bld.WriteString([]string{"▏", "▎", "▍", "▌", "▋", "▊", "▉"}[rem-1])
+		bld.WriteString([]string{"▏", "▎", "▍", "▌", "▋", "▊", "▉"}[rem-1]) //#nosec G602 -- rem is 1..7 (rem = filledSubCells % 8)
 		full++
 	}
 	if empty := width - full; empty > 0 {

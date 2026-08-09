@@ -17,6 +17,16 @@ repos:
         id: go-test-repo-mod
   - repo: local
     hooks:
+      - name: gosec
+        id: gosec
+        entry: go tool gosec -exclude=G115 ./...
+        language: system
+        pass_filenames: false
+      - name: govulncheck
+        id: govulncheck
+        entry: go tool govulncheck ./...
+        language: system
+        pass_filenames: false
       - name: go fix
         id: go-fix
         entry: go fix ./...

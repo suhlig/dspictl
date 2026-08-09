@@ -27,7 +27,7 @@ func runMan(cmd *cobra.Command, args []string) error {
 		dir = args[0]
 	}
 
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0755); err != nil { //#nosec G301 -- man page dirs must be world-readable
 		return fmt.Errorf("creating directory: %w", err)
 	}
 

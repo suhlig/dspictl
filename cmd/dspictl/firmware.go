@@ -343,7 +343,7 @@ func copyUF2(src, vol string) error {
 	// Fall back to /bin/cp (handles macOS TCC restrictions on temp-dir binaries).
 	slog.Warn("direct file copy failed, falling back to /bin/cp")
 
-	cp := exec.Command("cp", src, dst)
+	cp := exec.Command("cp", src, dst) //#nosec G204 -- deliberate fallback to /bin/cp for macOS TCC restrictions
 
 	if out, err := cp.CombinedOutput(); err != nil {
 		return fmt.Errorf("cp failed: %w\n%s", err, string(out))
@@ -354,13 +354,13 @@ func copyUF2(src, vol string) error {
 
 // copyFileOS copies a file using the OS kernel.
 func copyFileOS(src, dst string) error {
-	srcFile, err := os.Open(src)
+	srcFile, err := os.Open(src) //#nosec G304 -- src is a user-supplied CLI argument
 
 	if err != nil {
 		return fmt.Errorf("opening source: %w", err)
 	}
 
-	dstFile, err := os.Create(dst)
+	dstFile, err := os.Create(dst) //#nosec G304 -- dst is a user-supplied CLI argument
 
 	if err != nil {
 		_ = srcFile.Close()
