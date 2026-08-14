@@ -7,7 +7,7 @@ require (
 	charm.land/lipgloss/v2 v2.0.5
 	github.com/cpuguy83/go-md2man/v2 v2.0.7
 	github.com/google/gousb v1.1.3
-	github.com/onsi/ginkgo/v2 v2.32.0
+	github.com/onsi/ginkgo/v2 v2.32.1
 	github.com/onsi/gomega v1.42.1
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
