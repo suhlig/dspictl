@@ -3,7 +3,7 @@ module github.com/suhlig/dspi
 go 1.26.3
 
 require (
-	charm.land/bubbletea/v2 v2.0.8
+	charm.land/bubbletea/v2 v2.0.9
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/cpuguy83/go-md2man/v2 v2.0.7
 	github.com/google/gousb v1.1.3
